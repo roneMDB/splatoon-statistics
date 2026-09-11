@@ -147,6 +147,7 @@ Créer `src/sessionMeta.ts` :
 /** Valeurs acceptees par `--type`, liste fermee. */
 export const SESSION_TYPES = ["intra", "scrim", "compet", "autre"] as const;
 
+/** Type union des natures de session acceptees. */
 export type SessionType = (typeof SESSION_TYPES)[number];
 
 /** Metadonnees saisies par l'utilisateur, toutes facultatives. */
