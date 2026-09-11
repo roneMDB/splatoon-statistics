@@ -221,3 +221,64 @@ button:disabled {
   border-left-color: var(--victoire);
   color: var(--victoire);
 }
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.bouton--discret {
+  background: var(--fond-champ);
+  color: var(--texte);
+  border: 1px solid var(--trait);
+}
+
+.bouton--danger {
+  background: var(--erreur);
+  color: #2a1015;
+}
+
+.resume {
+  color: var(--texte-doux);
+  margin: 16px 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.matchs {
+  border: 1px solid var(--trait);
+  border-radius: 8px;
+  overflow: hidden;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.match {
+  display: grid;
+  grid-template-columns: 5.5em 7em 1fr 5.5em;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--trait);
+  font-variant-numeric: tabular-nums;
+}
+
+.match:last-child {
+  border-bottom: none;
+}
+
+.match--win > :last-child {
+  color: var(--victoire);
+}
+
+.match--lose > :last-child {
+  color: var(--defaite);
+}
+
+.session[aria-selected="true"] {
+  border-color: var(--accent);
+}
+
+.session {
+  cursor: pointer;
+}

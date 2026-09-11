@@ -9,7 +9,7 @@ const api = window.splatoonApi;
 
 const elements = {
   formulaire: document.getElementById("formulaire"),
-  bouton: document.getElementById("bouton-recuperer"),
+  bouton: document.getElementById("bouton-previsualiser"),
   nom: document.getElementById("champ-nom"),
   debut: document.getElementById("champ-debut"),
   fin: document.getElementById("champ-fin"),
@@ -24,7 +24,53 @@ const elements = {
   erreur: document.getElementById("erreur"),
   avertissement: document.getElementById("avertissement"),
   succes: document.getElementById("succes"),
+  vueFormulaire: document.getElementById("vue-formulaire"),
+  vueApercu: document.getElementById("vue-apercu"),
+  vueFiche: document.getElementById("vue-fiche"),
+  apercuResume: document.getElementById("apercu-resume"),
+  apercuMatchs: document.getElementById("apercu-matchs"),
+  boutonEnregistrer: document.getElementById("bouton-enregistrer"),
+  boutonAnnuler: document.getElementById("bouton-annuler"),
+  ficheNom: document.getElementById("fiche-nom"),
+  ficheType: document.getElementById("fiche-type"),
+  ficheResume: document.getElementById("fiche-resume"),
+  ficheMatchs: document.getElementById("fiche-matchs"),
+  boutonFicheEnregistrer: document.getElementById("bouton-fiche-enregistrer"),
+  boutonSupprimer: document.getElementById("bouton-supprimer"),
+  boutonRetour: document.getElementById("bouton-retour"),
 };
+
+/** Une seule vue visible a la fois dans la colonne de droite. */
+function montreLaVue(nom) {
+  elements.vueFormulaire.hidden = nom !== "formulaire";
+  elements.vueApercu.hidden = nom !== "apercu";
+  elements.vueFiche.hidden = nom !== "fiche";
+}
+
+/** Tableau des matchs, partage par l'apercu et la fiche. */
+function construisLesMatchs(rows) {
+  return rows.map((row) => {
+    const ligne = document.createElement("div");
+    ligne.className = `match match--${row.result ?? "inconnu"}`;
+    const heure = row.startedAt
+      ? new Date(row.startedAt).toLocaleTimeString("fr-FR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "—";
+    for (const valeur of [heure, row.rule ?? "—", row.stage ?? "—", row.result ?? "—"]) {
+      const cellule = document.createElement("span");
+      cellule.textContent = valeur;
+      ligne.append(cellule);
+    }
+    return ligne;
+  });
+}
+
+function ecrisLeResume(element, donnees) {
+  element.textContent =
+    `${donnees.battleCount} match(s) — ${donnees.results.win}V - ${donnees.results.lose}D`;
+}
 
 /** Affiche un bandeau, ou le cache si le message est vide. */
 function bandeau(element, message) {
@@ -75,8 +121,10 @@ async function chargeLesChoix() {
   const choix = await api.choices();
 
   elements.type.append(new Option("— aucun —", ""));
+  elements.ficheType.append(new Option("— aucun —", ""));
   for (const type of choix.sessionTypes) {
     elements.type.append(new Option(type, type));
+    elements.ficheType.append(new Option(type, type));
   }
 
   elements.lobby.append(new Option("— tous —", ""));
@@ -95,9 +143,25 @@ function formateLaDate(iso) {
   });
 }
 
+/** Ouvre la fiche d'une session existante : ses matchs, nom et type modifiables. */
+async function ouvreLaFiche(session) {
+  cacheLesBandeaux();
+  const { summary, rows } = await api.readSession(session.path);
+  ficheCourante = summary;
+  elements.ficheNom.value = summary.name ?? "";
+  elements.ficheType.value = summary.type ?? "";
+  elements.ficheResume.textContent =
+    `${formateLaDate(summary.window.from)} → ${formateLaDate(summary.window.to)}\n` +
+    `${summary.battleCount} match(s) — ${summary.results.win}V - ${summary.results.lose}D`;
+  elements.ficheMatchs.replaceChildren(...construisLesMatchs(rows));
+  montreLaVue("fiche");
+}
+
 function construisLaLigne(session) {
   const ligne = document.createElement("li");
   ligne.className = "session";
+  ligne.setAttribute("role", "button");
+  ligne.setAttribute("tabindex", "0");
 
   const nom = document.createElement("div");
   nom.className = session.name ? "session__nom" : "session__nom session__nom--absent";
@@ -128,6 +192,17 @@ function construisLaLigne(session) {
   meta.append(bilan);
 
   ligne.append(meta);
+
+  ligne.addEventListener("click", () => {
+    ouvreLaFiche(session);
+  });
+  ligne.addEventListener("keydown", (evenement) => {
+    if (evenement.key === "Enter" || evenement.key === " ") {
+      evenement.preventDefault();
+      ouvreLaFiche(session);
+    }
+  });
+
   return ligne;
 }
 
@@ -163,11 +238,15 @@ function litLeFormulaire() {
 function verrouilleLeFormulaire(verrouille) {
   elements.formulaire.setAttribute("aria-busy", String(verrouille));
   elements.bouton.disabled = verrouille;
-  elements.bouton.textContent = verrouille ? "Récupération…" : "Récupérer";
+  elements.bouton.textContent = verrouille ? "Prévisualisation…" : "Prévisualiser";
   for (const champ of elements.formulaire.elements) {
     if (champ !== elements.bouton) champ.disabled = verrouille;
   }
 }
+
+/** Apercu en cours, consomme par l'enregistrement ; session ouverte dans la fiche. */
+let apercuCourant;
+let ficheCourante;
 
 elements.formulaire.addEventListener("submit", async (evenement) => {
   evenement.preventDefault();
@@ -190,26 +269,22 @@ elements.formulaire.addEventListener("submit", async (evenement) => {
   });
 
   try {
-    const resultat = await api.fetchSession(saisie);
+    const resultat = await api.previewSession(saisie);
     bandeau(elements.progression, "");
+    apercuCourant = resultat;
+
+    ecrisLeResume(elements.apercuResume, resultat);
+    elements.apercuMatchs.replaceChildren(...construisLesMatchs(resultat.rows));
+    montreLaVue("apercu");
 
     if (resultat.battleCount === 0) {
+      // Enregistrable quand meme : une soiree sans match est une information.
       bandeau(
         elements.avertissement,
         "Aucun match trouvé. Vérifiez la fenêtre de temps, le fuseau horaire, " +
           "le filtre de lobby, et que les matchs ont bien été envoyés à stat.ink.",
       );
-    } else {
-      bandeau(
-        elements.succes,
-        `${resultat.battleCount} match(s) — ${resultat.results.win}V - ` +
-          `${resultat.results.lose}D. Écrit dans ${resultat.path}`,
-      );
-      // Le nom a servi : on le vide pour ne pas le reutiliser par megarde.
-      elements.nom.value = "";
     }
-
-    await rafraichisLaListe();
   } catch (erreur) {
     // Les valeurs saisies restent en place : on ne fait pas retaper le formulaire.
     bandeau(elements.progression, "");
@@ -218,6 +293,68 @@ elements.formulaire.addEventListener("submit", async (evenement) => {
     desabonne();
     verrouilleLeFormulaire(false);
   }
+});
+
+elements.boutonEnregistrer.addEventListener("click", async () => {
+  if (apercuCourant === undefined) return;
+  cacheLesBandeaux();
+  try {
+    const resume = await api.saveSession(apercuCourant.previewId);
+    apercuCourant = undefined;
+    elements.nom.value = "";
+    bandeau(
+      elements.succes,
+      `${resume.battleCount} match(s) enregistré(s). Écrit dans ${resume.path}`,
+    );
+    await rafraichisLaListe();
+    montreLaVue("formulaire");
+  } catch (erreur) {
+    bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  }
+});
+
+elements.boutonAnnuler.addEventListener("click", () => {
+  apercuCourant = undefined;
+  cacheLesBandeaux();
+  montreLaVue("formulaire");
+});
+
+elements.boutonFicheEnregistrer.addEventListener("click", async () => {
+  if (ficheCourante === undefined) return;
+  cacheLesBandeaux();
+  try {
+    await api.updateSession({
+      path: ficheCourante.path,
+      name: elements.ficheNom.value.trim() || undefined,
+      type: elements.ficheType.value || undefined,
+    });
+    await rafraichisLaListe();
+    bandeau(elements.succes, "Session modifiée.");
+  } catch (erreur) {
+    bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  }
+});
+
+elements.boutonSupprimer.addEventListener("click", async () => {
+  if (ficheCourante === undefined) return;
+  const nom = ficheCourante.name ?? "cette session sans nom";
+  if (!window.confirm(`Supprimer définitivement « ${nom} » ? Cette action est irréversible.`)) {
+    return;
+  }
+  cacheLesBandeaux();
+  try {
+    await api.deleteSession(ficheCourante.path);
+    ficheCourante = undefined;
+    await rafraichisLaListe();
+    montreLaVue("formulaire");
+  } catch (erreur) {
+    bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  }
+});
+
+elements.boutonRetour.addEventListener("click", () => {
+  ficheCourante = undefined;
+  montreLaVue("formulaire");
 });
 
 preRemplisLaFenetre();

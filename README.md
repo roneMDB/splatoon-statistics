@@ -27,9 +27,16 @@ npm run app
 ```
 
 Une fenêtre s'ouvre : les sessions déjà récupérées à gauche, le formulaire de
-nouvelle récupération à droite. Les dates se saisissent au sélecteur natif, le
-lobby et le type se choisissent dans des listes, et la fenêtre est pré-remplie sur
-la soirée en cours. La progression défile page par page pendant la récupération.
+nouvelle récupération à droite. **Prévisualiser** interroge stat.ink et affiche
+les matchs trouvés sans rien écrire ; **Enregistrer** écrit exactement ce que
+l'aperçu montrait, sans second appel réseau.
+
+Cliquer une session ouvre sa fiche : ses matchs, et son nom et son type
+modifiables. On peut aussi l'y supprimer, après confirmation.
+
+Les dates se saisissent au sélecteur natif, le lobby et le type se choisissent
+dans des listes, et la fenêtre est pré-remplie sur la soirée en cours. La
+progression défile page par page pendant la récupération.
 
 Sous WSL2, l'affichage passe par WSLg, sans configuration particulière.
 
@@ -120,7 +127,7 @@ Trois particularités vérifiées en direct, toutes traitées dans le code :
 ## Développement
 
 ```bash
-npm test                          # 137 tests unitaires, hors-ligne
+npm test                          # 161 tests unitaires, hors-ligne
 STATINK_INTEGRATION=1 npm test    # + 3 tests contre le vrai stat.ink
 npm run typecheck
 ```
@@ -141,6 +148,7 @@ sur le payload : si ce test casse, c'est stat.ink qui a changé.
 | `src/fetchSession.ts` | Pagination, conditions d'arrêt, déduplication, tri |
 | `src/sessionMeta.ts` | Nom et type de session : liste fermée, validation, dialogue |
 | `src/sessionList.ts` | Inventaire des sessions écrites, résumé et bilan |
+| `src/battleRows.ts` | Vue allégée d'un match : ce que la fenêtre affiche |
 | `src/store.ts` | Écriture du fichier de session |
 | `src/cli.ts` | Arguments, câblage, récapitulatif console |
 | `src/electron/main.ts` | Fenêtre et câblage IPC. Aucune logique métier |

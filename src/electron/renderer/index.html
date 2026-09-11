@@ -26,47 +26,76 @@
       <section class="recuperation" aria-labelledby="titre-recuperation">
         <h2 id="titre-recuperation">Nouvelle récupération</h2>
 
-        <form class="formulaire" id="formulaire" novalidate>
+        <div id="vue-formulaire">
+          <form class="formulaire" id="formulaire" novalidate>
+            <div class="champ">
+              <label for="champ-nom">Nom de la session</label>
+              <input
+                type="text"
+                id="champ-nom"
+                name="name"
+                placeholder="Scrim contre Les Corsaires"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="champ champ--double">
+              <div>
+                <label for="champ-debut">Début</label>
+                <input type="datetime-local" id="champ-debut" name="from" required />
+              </div>
+              <div>
+                <label for="champ-fin">Fin</label>
+                <input type="datetime-local" id="champ-fin" name="to" />
+              </div>
+            </div>
+
+            <div class="champ champ--double">
+              <div>
+                <label for="champ-type">Type</label>
+                <select id="champ-type" name="type"></select>
+              </div>
+              <div>
+                <label for="champ-lobby">Lobby</label>
+                <select id="champ-lobby" name="lobby"></select>
+              </div>
+            </div>
+
+            <div class="champ">
+              <label for="champ-compte">Compte stat.ink</label>
+              <input type="text" id="champ-compte" name="user" autocomplete="off" />
+            </div>
+
+            <button type="submit" id="bouton-previsualiser">Prévisualiser</button>
+          </form>
+        </div>
+
+        <div id="vue-apercu" hidden>
+          <p class="resume" id="apercu-resume"></p>
+          <div class="matchs" id="apercu-matchs"></div>
+          <div class="actions">
+            <button type="button" id="bouton-enregistrer">Enregistrer la session</button>
+            <button type="button" class="bouton--discret" id="bouton-annuler">Annuler</button>
+          </div>
+        </div>
+
+        <div id="vue-fiche" hidden>
           <div class="champ">
-            <label for="champ-nom">Nom de la session</label>
-            <input
-              type="text"
-              id="champ-nom"
-              name="name"
-              placeholder="Scrim contre Les Corsaires"
-              autocomplete="off"
-            />
+            <label for="fiche-nom">Nom de la session</label>
+            <input type="text" id="fiche-nom" autocomplete="off" />
           </div>
-
-          <div class="champ champ--double">
-            <div>
-              <label for="champ-debut">Début</label>
-              <input type="datetime-local" id="champ-debut" name="from" required />
-            </div>
-            <div>
-              <label for="champ-fin">Fin</label>
-              <input type="datetime-local" id="champ-fin" name="to" />
-            </div>
-          </div>
-
-          <div class="champ champ--double">
-            <div>
-              <label for="champ-type">Type</label>
-              <select id="champ-type" name="type"></select>
-            </div>
-            <div>
-              <label for="champ-lobby">Lobby</label>
-              <select id="champ-lobby" name="lobby"></select>
-            </div>
-          </div>
-
           <div class="champ">
-            <label for="champ-compte">Compte stat.ink</label>
-            <input type="text" id="champ-compte" name="user" autocomplete="off" />
+            <label for="fiche-type">Type</label>
+            <select id="fiche-type"></select>
           </div>
-
-          <button type="submit" id="bouton-recuperer">Récupérer</button>
-        </form>
+          <p class="resume" id="fiche-resume"></p>
+          <div class="matchs" id="fiche-matchs"></div>
+          <div class="actions">
+            <button type="button" id="bouton-fiche-enregistrer">Enregistrer</button>
+            <button type="button" class="bouton--danger" id="bouton-supprimer">Supprimer</button>
+            <button type="button" class="bouton--discret" id="bouton-retour">Retour</button>
+          </div>
+        </div>
 
         <p class="bandeau bandeau--progression" id="progression" hidden></p>
         <p class="bandeau bandeau--erreur" id="erreur" hidden></p>
