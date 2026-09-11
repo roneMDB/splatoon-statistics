@@ -23,6 +23,32 @@ export type BattleFilters = {
   termTo?: string | undefined;
 };
 
+/**
+ * Valeurs acceptees par `f[lobby]`, relevees dans le formulaire stat.ink.
+ * Source unique : la CLI et l'interface graphique proposent la meme liste.
+ */
+export const KNOWN_LOBBIES = [
+  "private",
+  "!private",
+  "regular",
+  "@bankara",
+  "bankara_challenge",
+  "bankara_open",
+  "xmatch",
+  "event",
+  "@splatfest",
+  "splatfest_challenge",
+  "splatfest_open",
+] as const;
+
+/** Un lobby connu de stat.ink. */
+export type KnownLobby = (typeof KNOWN_LOBBIES)[number];
+
+/** Verifie qu'une chaine est un lobby connu. */
+export function isKnownLobby(value: string): value is KnownLobby {
+  return (KNOWN_LOBBIES as readonly string[]).includes(value);
+}
+
 export type BattleListRequest = {
   /** Pseudo stat.ink (`screen_name`), sans le `@`. */
   user: string;

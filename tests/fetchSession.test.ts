@@ -154,3 +154,49 @@ describe("fetchSession", () => {
     expect(result.battles).toEqual([]);
   });
 });
+
+describe("fetchSession, progression", () => {
+  test("annonce chaque page lue, dans l'ordre, avec le cumul des matchs retenus", async () => {
+    const { fetchPage } = stubPages([
+      [
+        battle("dedans-2", "2026-08-19T15:30:00Z"),
+        battle("dedans-1", "2026-08-19T15:00:00Z"),
+      ],
+      [
+        battle("dedans-3", "2026-08-19T14:30:00Z"),
+        battle("avant", "2026-08-18T10:00:00Z"),
+      ],
+    ]);
+    const progression: unknown[] = [];
+
+    await fetchSession(
+      { user: "Gloup", window },
+      { fetchPage, onPage: (etape) => progression.push(etape) },
+    );
+
+    expect(progression).toEqual([
+      { page: 1, battlesInPage: 2, totalKeptSoFar: 2 },
+      { page: 2, battlesInPage: 2, totalKeptSoFar: 3 },
+    ]);
+  });
+
+  test("annonce aussi une page vide, qui arrete la pagination", async () => {
+    const { fetchPage } = stubPages([[]]);
+    const progression: unknown[] = [];
+
+    await fetchSession(
+      { user: "Gloup", window },
+      { fetchPage, onPage: (etape) => progression.push(etape) },
+    );
+
+    expect(progression).toEqual([{ page: 1, battlesInPage: 0, totalKeptSoFar: 0 }]);
+  });
+
+  test("se passe tres bien d'un rappel de progression", async () => {
+    const { fetchPage } = stubPages([[battle("a", "2026-08-19T15:00:00Z")]]);
+
+    const resultat = await fetchSession({ user: "Gloup", window }, { fetchPage });
+
+    expect(resultat.battles).toHaveLength(1);
+  });
+});

@@ -8,6 +8,7 @@ import {
   DEFAULT_USER,
 } from "./config.ts";
 import { fetchSession } from "./fetchSession.ts";
+import { tallyResults } from "./sessionList.ts";
 import {
   isSessionType,
   promptSessionMeta,
@@ -16,24 +17,13 @@ import {
   type SessionMeta,
   type SessionType,
 } from "./sessionMeta.ts";
-import type { BattleFilters } from "./statink/url.ts";
+import {
+  isKnownLobby,
+  KNOWN_LOBBIES,
+  type BattleFilters,
+} from "./statink/url.ts";
 import { buildSessionFile, writeSession } from "./store.ts";
 import { buildWindow, type SessionWindow } from "./window.ts";
-
-/** Valeurs acceptees par `f[lobby]`, relevees dans le formulaire stat.ink. */
-const LOBBIES = [
-  "private",
-  "!private",
-  "regular",
-  "@bankara",
-  "bankara_challenge",
-  "bankara_open",
-  "xmatch",
-  "event",
-  "@splatfest",
-  "splatfest_challenge",
-  "splatfest_open",
-] as const;
 
 export type CliOptions = {
   user: string;
@@ -60,7 +50,7 @@ Options
                       Exemple : "Scrim contre Les Corsaires".
   --type <valeur>     Nature de la session. Valeurs : ${SESSION_TYPES.join(", ")}
   --lobby <valeur>    Filtre de lobby. "private" = intras / scrims / compets.
-                      Valeurs : ${LOBBIES.join(", ")}
+                      Valeurs : ${KNOWN_LOBBIES.join(", ")}
   --out <dossier>     Dossier de sortie. Par defaut : ${DEFAULT_OUT_DIR}.
   --max-pages <n>     Plafond de pages a parcourir. Par defaut : ${DEFAULT_MAX_PAGES}.
   --help              Affiche cette aide.
@@ -91,10 +81,10 @@ export function parseCliArgs(argv: string[]): CliOptions {
     throw new Error("L'option --from est obligatoire.");
   }
 
-  if (values.lobby !== undefined && !LOBBIES.includes(values.lobby as never)) {
+  if (values.lobby !== undefined && !isKnownLobby(values.lobby)) {
     throw new Error(
       `Valeur de --lobby inconnue : "${values.lobby}". ` +
-        `Valeurs acceptees : ${LOBBIES.join(", ")}`,
+        `Valeurs acceptees : ${KNOWN_LOBBIES.join(", ")}`,
     );
   }
 
@@ -292,9 +282,8 @@ export function createReadlineAsk(rl: Interface): Ask {
 
 /** Recapitulatif minimal, juste pour verifier d'un oeil que c'est la bonne session. */
 function summarize(battles: Parameters<typeof buildSessionFile>[0]["battles"]): void {
-  const wins = battles.filter((b) => b.result === "win").length;
-  const losses = battles.filter((b) => b.result === "lose").length;
-  console.log(`Bilan   : ${wins}V - ${losses}D`);
+  const { win, lose } = tallyResults(battles);
+  console.log(`Bilan   : ${win}V - ${lose}D`);
   for (const battle of battles) {
     const time = battle.start_at?.iso8601 ?? "?";
     console.log(

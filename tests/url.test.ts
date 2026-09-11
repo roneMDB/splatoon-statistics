@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { buildBattleListUrl } from "../src/statink/url.ts";
+import { buildBattleListUrl, KNOWN_LOBBIES } from "../src/statink/url.ts";
+import { parseCliArgs } from "../src/cli.ts";
 
 describe("buildBattleListUrl", () => {
   test("cible index.json du journal Splatoon 3 de l'utilisateur", () => {
@@ -79,5 +80,33 @@ describe("buildBattleListUrl", () => {
 
   test("refuse un pseudo vide", () => {
     expect(() => buildBattleListUrl({ user: "  ", page: 1 })).toThrow(/pseudo/i);
+  });
+});
+
+describe("KNOWN_LOBBIES", () => {
+  test("enumere les valeurs du formulaire stat.ink", () => {
+    expect(KNOWN_LOBBIES).toEqual([
+      "private",
+      "!private",
+      "regular",
+      "@bankara",
+      "bankara_challenge",
+      "bankara_open",
+      "xmatch",
+      "event",
+      "@splatfest",
+      "splatfest_challenge",
+      "splatfest_open",
+    ]);
+  });
+
+  test("est la source unique du message d'erreur de la CLI", () => {
+    // Si la CLI gardait sa propre liste, les deux pourraient diverger sans
+    // que rien ne le signale.
+    for (const lobby of KNOWN_LOBBIES) {
+      expect(() =>
+        parseCliArgs(["--from", "2026-08-18 20:00", "--lobby", lobby]),
+      ).not.toThrow();
+    }
   });
 });

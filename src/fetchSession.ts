@@ -36,8 +36,23 @@ export type FetchSessionResult = {
   stopReason: StopReason;
 };
 
+/** Etat d'avancement, annonce apres le traitement de chaque page. */
+export type FetchPageProgress = {
+  /** Numero de la page qui vient d'etre lue, a partir de 1. */
+  page: number;
+  /** Matchs renvoyes par cette page, avant filtrage. */
+  battlesInPage: number;
+  /** Matchs retenus depuis le debut, toutes pages confondues. */
+  totalKeptSoFar: number;
+};
+
 export type FetchSessionDeps = {
   fetchPage?: (request: BattleListRequest) => Promise<StatinkBattle[]>;
+  /**
+   * Rappele apres chaque page. Sert aux facades qui rendent compte de
+   * l'avancement pendant que la pagination dure, l'interface graphique surtout.
+   */
+  onPage?: (progress: FetchPageProgress) => void;
 };
 
 /**
@@ -70,11 +85,8 @@ export async function fetchSession(
     const battles = await fetchPage({ user: options.user, page, filters });
     pagesFetched = page;
 
-    if (battles.length === 0) {
-      stopReason = "page-vide";
-      break;
-    }
-
+    // Une page vide ne fait rien tourner ici : l'arret est traite plus bas,
+    // apres l'annonce, pour n'avoir qu'un seul point de progression.
     let hasNewBattle = false;
     for (const battle of battles) {
       if (seen.has(battle.uuid)) continue;
@@ -84,6 +96,17 @@ export async function fetchSession(
       if (startAt !== undefined && isWithinWindow(startAt, window)) {
         kept.push(battle);
       }
+    }
+
+    deps.onPage?.({
+      page,
+      battlesInPage: battles.length,
+      totalKeptSoFar: kept.length,
+    });
+
+    if (battles.length === 0) {
+      stopReason = "page-vide";
+      break;
     }
 
     if (!hasNewBattle) {
