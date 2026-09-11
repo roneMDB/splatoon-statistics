@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -231,6 +231,31 @@ describe("saveSession", () => {
     const outDir = await tempDir();
 
     await expect(saveSession("inconnu", { outDir })).rejects.toThrow(/previsualisation/i);
+  });
+
+  test("restitue l'apercu si l'ecriture echoue, pour reessayer sans reseau", async () => {
+    const dir = await tempDir();
+    // Un fichier ordinaire a la place d'un segment parent : mkdir recursive
+    // et writeFile echoueront tous deux avec ENOTDIR, sans jamais rien ecrire.
+    const bloqueur = join(dir, "bloqueur");
+    await writeFile(bloqueur, "un fichier, pas un dossier");
+    const outDirInvalide = join(bloqueur, "sous-dossier");
+    const outDirValide = await tempDir();
+
+    const { fetchPage } = stubPages([[battle("a", "2026-08-19T20:30:00Z")]]);
+    const apercu = await previewSession({ user: "Gloup", ...fenetre }, { fetchPage, outDir: outDirValide });
+
+    const echec = saveSession(apercu.previewId, { outDir: outDirInvalide });
+    await expect(echec).rejects.toThrow(/ENOTDIR/);
+    // Verifie que l'echec est bien celui attendu (chemin invalide), pas un
+    // autre defaut qui aurait aussi fait echouer l'appel.
+    await expect(echec).rejects.toMatchObject({ code: "ENOTDIR" });
+
+    // L'apercu doit avoir survecu a l'echec : un nouvel essai reussit, sans
+    // repasser par le reseau (aucun fetchPage fourni cette fois).
+    const resume = await saveSession(apercu.previewId, { outDir: outDirValide });
+    expect(resume.battleCount).toBe(1);
+    await expect(readFile(resume.path, "utf8")).resolves.toContain("\"battleCount\": 1");
   });
 
   test("un nouvel apercu remplace le precedent", async () => {

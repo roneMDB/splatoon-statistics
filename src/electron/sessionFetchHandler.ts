@@ -140,6 +140,14 @@ export async function previewSession(
 /**
  * Ecrit l'apercu retenu, puis l'oublie : un double-clic ne doit pas ecrire
  * deux fois la meme recuperation.
+ *
+ * L'apercu est reclame des l'entree, avant l'`await` de l'ecriture, pour que
+ * la protection contre le double-clic soit en place pendant toute la duree
+ * de l'ecriture (sinon deux clics rapproches lanceraient deux ecritures
+ * concurrentes). Mais si l'ecriture echoue (disque plein, permissions,
+ * dossier de sortie invalide), aucun fichier n'a ete produit : l'apercu est
+ * alors restitue, pour qu'un nouvel essai d'enregistrement soit possible
+ * sans repasser par l'appel reseau.
  */
 export async function saveSession(
   previewId: string,
@@ -148,8 +156,9 @@ export async function saveSession(
   if (apercuRetenu === undefined || apercuRetenu.id !== previewId) {
     throw new Error(APERCU_PERDU);
   }
-  const { contenu } = apercuRetenu;
+  const retenu = apercuRetenu;
   apercuRetenu = undefined;
+  const { contenu } = retenu;
 
   const file = buildSessionFile({
     user: contenu.user,
@@ -160,7 +169,19 @@ export async function saveSession(
     battles: contenu.battles,
     fetchedAt: contenu.fetchedAt,
   });
-  const path = await writeSession(file, deps.outDir ?? DEFAULT_OUT_DIR);
+
+  let path: string;
+  try {
+    path = await writeSession(file, deps.outDir ?? DEFAULT_OUT_DIR);
+  } catch (erreur) {
+    // Rien n'a ete ecrit : on restitue l'apercu, sauf si un apercu plus
+    // recent a deja pris sa place entre-temps (previsualisation relancee
+    // pendant l'ecriture ratee).
+    if (apercuRetenu === undefined) {
+      apercuRetenu = retenu;
+    }
+    throw erreur;
+  }
 
   return summarizeSessionFile(file, path);
 }
