@@ -125,3 +125,55 @@ describe("writeSession", () => {
     expect(content.endsWith("\n")).toBe(true);
   });
 });
+
+describe("buildSessionFile, nom et type de session", () => {
+  const base = {
+    user: "Gloup",
+    window,
+    battles: [] as StatinkBattle[],
+    fetchedAt: new Date("2026-08-19T17:34:00Z"),
+  };
+
+  test("retient le nom et le type fournis", () => {
+    const file = buildSessionFile({
+      ...base,
+      name: "Scrim contre Les Corsaires",
+      type: "scrim",
+    });
+    expect(file.name).toBe("Scrim contre Les Corsaires");
+    expect(file.type).toBe("scrim");
+  });
+
+  test("omet les deux champs quand ils ne sont pas fournis", () => {
+    const file = buildSessionFile(base);
+    expect(Object.keys(file)).not.toContain("name");
+    expect(Object.keys(file)).not.toContain("type");
+  });
+
+  test("nettoie les espaces autour du nom", () => {
+    expect(buildSessionFile({ ...base, name: "  Intra Équipe A  " }).name).toBe(
+      "Intra Équipe A",
+    );
+  });
+
+  test("traite un nom reduit a des espaces comme absent", () => {
+    expect(Object.keys(buildSessionFile({ ...base, name: "   " }))).not.toContain(
+      "name",
+    );
+  });
+
+  test("place le nom juste apres le pseudo dans le JSON ecrit", async () => {
+    const dir = await tempDir();
+    const path = await writeSession(
+      buildSessionFile({ ...base, name: "Match EBTV", type: "compet" }),
+      dir,
+    );
+    const written = JSON.parse(await readFile(path, "utf8"));
+    expect(Object.keys(written).slice(0, 4)).toEqual([
+      "source",
+      "user",
+      "name",
+      "type",
+    ]);
+  });
+});

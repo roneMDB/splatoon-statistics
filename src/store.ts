@@ -3,11 +3,16 @@ import { join } from "node:path";
 import type { StatinkBattle } from "./statink/types.ts";
 import type { BattleFilters } from "./statink/url.ts";
 import type { SessionWindow } from "./window.ts";
+import type { SessionType } from "./sessionMeta.ts";
 
 /** Contenu du fichier de session ecrit sur disque. */
 export type SessionFile = {
   source: "stat.ink";
   user: string;
+  /** Nom libre donne a la session. Absent si non fourni. */
+  name?: string;
+  /** Nature de la session. Absent si non fourni. */
+  type?: SessionType;
   /** Instant de la recuperation, en ISO 8601 UTC. */
   fetchedAt: string;
   /** Fenetre demandee, en ISO 8601 UTC pour lever toute ambiguite de fuseau. */
@@ -21,6 +26,10 @@ export type SessionFile = {
 
 export type BuildSessionFileOptions = {
   user: string;
+  /** Nom libre donne a la session. Facultatif. */
+  name?: string;
+  /** Nature de la session. Facultatif. */
+  type?: SessionType;
   window: SessionWindow;
   filters?: BattleFilters;
   battles: StatinkBattle[];
@@ -38,9 +47,15 @@ export function buildSessionFile(
     }
   }
 
+  const name = options.name?.trim();
+
   return {
     source: "stat.ink",
     user: options.user,
+    // Spread conditionnel : une cle absente plutot qu'une cle a undefined,
+    // pour que l'ordre du JSON reste lisible et le champ vraiment omis.
+    ...(name ? { name } : {}),
+    ...(options.type ? { type: options.type } : {}),
     fetchedAt: options.fetchedAt.toISOString(),
     window: {
       from: new Date(options.window.fromMs).toISOString(),
