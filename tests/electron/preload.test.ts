@@ -14,6 +14,15 @@ const preloadPath = fileURLToPath(
 const preload = await readFile(preloadPath, "utf8");
 
 /**
+ * `main.ts` cable les gestionnaires IPC ; rien d'autre ne le verifiait. Un
+ * canal renommer dans `IPC` et dans le preload sans recabler `main.ts`
+ * donnerait un "No handler registered" a l'execution, dans la seule zone du
+ * projet qu'aucun test ne couvrait.
+ */
+const mainPath = fileURLToPath(new URL("../../src/electron/main.ts", import.meta.url));
+const main = await readFile(mainPath, "utf8");
+
+/**
  * Fonctions exposees par le pont, avec la cle de IPC qu'elles sont censees
  * invoquer. Identique au nom de la fonction, sauf `onFetchProgress` : le
  * prefixe `on` note un abonnement, la cle du canal reste `fetchProgress`.
@@ -133,6 +142,50 @@ describe("preload", () => {
         `la fonction "${fonction}" invoque le canal "${valeurInvoquee}" ` +
           `("CANAUX.${cle}") au lieu du canal "${IPC[cleAttendue]}" attendu`,
       ).toBe(IPC[cleAttendue]);
+    }
+  });
+
+  test("chaque fonction qui declare un parametre le transmet a l'appel invoke", () => {
+    // Un preload qui invoquerait `ipcRenderer.invoke(CANAUX.readSession)` sans
+    // le `path` recu passerait les tests ci-dessus (le canal reste le bon)
+    // tout en cassant silencieusement la fiche : ce test ferme ce trou.
+    const segments = segmentsParFonction(preload);
+
+    for (const [fonction] of FONCTIONS) {
+      const segment = segments.get(fonction)!;
+      if (!segment.includes("ipcRenderer.invoke(")) {
+        // onFetchProgress s'abonne via ipcRenderer.on, pas invoke : autre
+        // mecanique, deja couverte par ailleurs.
+        continue;
+      }
+
+      const signature = segment.match(new RegExp(`${fonction}:\\s*\\(([^)]*)\\)`));
+      const parametre = signature?.[1]?.split(":")[0]?.trim();
+      if (!parametre) continue; // fonction sans parametre (listSessions, choices)
+
+      const appel = segment.match(/ipcRenderer\.invoke\(CANAUX\.\w+([^)]*)\)/);
+      const argumentsTransmis = appel?.[1] ?? "";
+      expect(
+        new RegExp(`\\b${parametre}\\b`).test(argumentsTransmis),
+        `la fonction "${fonction}" declare le parametre "${parametre}" mais ne le ` +
+          `transmet pas a invoke (appel : "invoke(CANAUX...${argumentsTransmis})")`,
+      ).toBe(true);
+    }
+  });
+});
+
+describe("main.ts cable un gestionnaire pour chaque canal", () => {
+  test("un ipcMain.handle existe pour chaque canal, sauf la progression (un envoi, pas une invocation)", () => {
+    const geres = new Set(
+      [...main.matchAll(/ipcMain\.handle\(\s*IPC\.(\w+)/g)].map((trouve) => trouve[1]),
+    );
+
+    for (const [nom, cle] of Object.entries(IPC)) {
+      if (cle === IPC.fetchProgress) continue;
+      expect(
+        geres.has(nom),
+        `aucun ipcMain.handle(IPC.${nom}, ...) trouve dans main.ts pour le canal "${cle}"`,
+      ).toBe(true);
     }
   });
 });

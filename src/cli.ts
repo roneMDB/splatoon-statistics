@@ -10,7 +10,7 @@ import {
 import { fetchSession } from "./fetchSession.ts";
 import { tallyResults } from "./sessionList.ts";
 import {
-  isSessionType,
+  parseSessionType,
   promptSessionMeta,
   SESSION_TYPES,
   type Ask,
@@ -88,12 +88,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
     );
   }
 
-  if (values.type !== undefined && !isSessionType(values.type)) {
-    throw new Error(
-      `Valeur de --type inconnue : "${values.type}". ` +
-        `Valeurs acceptees : ${SESSION_TYPES.join(", ")}`,
-    );
-  }
+  const type = parseSessionType(values.type, "--type");
 
   let maxPages = DEFAULT_MAX_PAGES;
   if (values["max-pages"] !== undefined) {
@@ -109,7 +104,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
   return {
     user: values.user ?? DEFAULT_USER,
     name: values.name,
-    type: values.type as SessionType | undefined,
+    type,
     window: buildWindow(values.from, values.to),
     filters: { lobby: values.lobby },
     outDir: values.out ?? DEFAULT_OUT_DIR,

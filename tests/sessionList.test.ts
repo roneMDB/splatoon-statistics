@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -281,6 +281,40 @@ describe("garde de chemin", () => {
     await expect(readSession(join(dir, "sous", "fichier.json"), dir)).rejects.toThrow(/refuse/i);
   });
 
+  test("accepte un dossier de sessions atteint par un lien symbolique (lire, modifier, supprimer)", async () => {
+    // Le dossier reel des sessions est ailleurs ; `dir` n'est qu'un lien vers
+    // lui - le cas d'un utilisateur qui deporte ses sessions sur un autre
+    // disque. La racine elle-meme doit donc etre resolue par `realpath` avant
+    // toute comparaison, pas seulement le chemin demande.
+    const parent = await tempDir();
+    const reel = await tempDir();
+    const dir = join(parent, "sessions-liees");
+    await symlink(reel, dir);
+
+    const path = await ecrisSession(dir, {
+      name: "via lien",
+      from: "2026-08-19 20:00",
+      to: "2026-08-19 22:00",
+      battles: [battle("a", "win")],
+    });
+
+    const lue = await readSession(path, dir);
+    expect(lue.name).toBe("via lien");
+
+    const resume = await updateSessionMeta(path, { name: "renommee via lien" }, dir);
+    expect(resume.name).toBe("renommee via lien");
+
+    await deleteSession(path, dir);
+    const { sessions } = await listSessions(dir);
+    expect(sessions).toEqual([]);
+  });
+
+  test("n'echoue pas quand le dossier des sessions n'existe pas encore (racine non realpath-able)", async () => {
+    const dir = join(await tempDir(), "jamais-cree");
+
+    await expect(readSession(join(dir, "session.json"), dir)).rejects.toThrow();
+  });
+
   test("refuse un chemin contenant un octet NUL avec le meme message que les autres refus", async () => {
     const dir = await tempDir();
     const avecNul = join(dir, `session${String.fromCharCode(0)}.json`);
@@ -378,6 +412,25 @@ describe("updateSessionMeta", () => {
 
     const { sessions } = await listSessions(dir);
     expect(sessions).toHaveLength(1);
+  });
+
+  test("ecrit sur le chemin fourni plutot que de recalculer un nom, meme si le fichier a ete renomme a la main", async () => {
+    const dir = await tempDir();
+    const original = await ecrisSession(dir, {
+      name: "premier nom",
+      from: "2026-08-19 20:00",
+      to: "2026-08-19 22:00",
+    });
+    const renomme = join(dir, "renomme-a-la-main.json");
+    await rename(original, renomme);
+
+    const resume = await updateSessionMeta(renomme, { name: "nouveau nom" }, dir);
+
+    expect(resume.path).toBe(renomme);
+    const { sessions } = await listSessions(dir);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]?.path).toBe(renomme);
+    expect(sessions[0]?.name).toBe("nouveau nom");
   });
 });
 

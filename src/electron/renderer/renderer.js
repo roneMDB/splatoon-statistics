@@ -336,11 +336,14 @@ elements.boutonFicheEnregistrer.addEventListener("click", async () => {
   cacheLesBandeaux();
   elements.boutonFicheEnregistrer.disabled = true;
   try {
-    await api.updateSession({
+    const resume = await api.updateSession({
       path: ficheCourante.path,
       name: elements.ficheNom.value.trim() || undefined,
       type: elements.ficheType.value || undefined,
     });
+    // Sans cela, la fiche garde le resume perime : une confirmation de
+    // suppression juste apres un renommage afficherait encore l'ancien nom.
+    ficheCourante = resume;
     await rafraichisLaListe();
     bandeau(elements.succes, "Session modifiée.");
   } catch (erreur) {
@@ -363,6 +366,7 @@ elements.boutonSupprimer.addEventListener("click", async () => {
     ficheCourante = undefined;
     await rafraichisLaListe();
     montreLaVue("formulaire");
+    bandeau(elements.succes, `Session « ${nom} » supprimée.`);
   } catch (erreur) {
     bandeau(elements.erreur, String(erreur?.message ?? erreur));
   } finally {

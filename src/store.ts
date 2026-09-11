@@ -98,8 +98,23 @@ export async function writeSession(
 ): Promise<string> {
   await mkdir(outDir, { recursive: true });
   const path = join(outDir, buildSessionFileName(file.user, sessionWindowOf(file)));
-  await writeFile(path, `${JSON.stringify(file, null, 2)}\n`, "utf8");
+  await writeSessionAt(file, path);
   return path;
+}
+
+/**
+ * Ecrit le fichier de session a un chemin deja connu, sans recalculer son nom.
+ *
+ * Sert a la modification d'une session existante (`updateSessionMeta`) : le
+ * nom de fichier ne depend que du compte et de la fenetre, jamais du contenu
+ * modifie, donc le recalculer a chaque modification risquerait d'ecrire un
+ * second fichier a cote d'un original renomme ou copie a la main, en laissant
+ * ce dernier intact avec ses anciennes metadonnees. Ecrire sur le chemin
+ * fourni evite ce risque : quel que soit son nom, c'est ce fichier-la qui est
+ * mis a jour.
+ */
+export async function writeSessionAt(file: SessionFile, path: string): Promise<void> {
+  await writeFile(path, `${JSON.stringify(file, null, 2)}\n`, "utf8");
 }
 
 /**

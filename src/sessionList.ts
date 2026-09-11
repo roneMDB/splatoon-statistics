@@ -10,7 +10,7 @@ import { join, resolve, sep } from "node:path";
 import { DEFAULT_OUT_DIR } from "./config.ts";
 import type { SessionType } from "./sessionMeta.ts";
 import type { StatinkBattle } from "./statink/types.ts";
-import { buildSessionFile, sessionWindowOf, writeSession } from "./store.ts";
+import { buildSessionFile, sessionWindowOf, writeSessionAt } from "./store.ts";
 import type { SessionFile } from "./store.ts";
 import type { BattleFilters } from "./statink/url.ts";
 
@@ -152,12 +152,27 @@ function parseSessionFile(raw: string): SessionFile {
  * intermediaire du chemin plutot que sur le fichier final. On resout donc
  * aussi la cible reelle avec `realpath`.
  *
- * Un echec de `realpath` est refuse ici, sans tolerance pour ENOENT : un
- * fichier simplement absent aurait de toute facon fait echouer `readFile`/
- * `rm` en aval, mais un lien symbolique pendouillant depose dans le dossier
- * et pointant hors de celui-ci franchirait sinon la garde. Si la cible
- * apparaissait entre ce controle et l'acces reel (TOCTOU), la lecture ou la
- * suppression porterait alors hors du dossier sans etre interceptee.
+ * La racine elle-meme doit passer par `realpath`, pas seulement le chemin
+ * demande : si `outDir` (ou l'un de ses dossiers parents) est lui-meme un
+ * lien symbolique - un utilisateur qui deporte `data/sessions` sur un autre
+ * disque, par exemple -, comparer la cible reelle a la racine syntaxique ne
+ * correspondrait jamais, et tout acces serait refuse. C'est aussi ce qui rend
+ * la garde independante de la plateforme : sur macOS, `os.tmpdir()` rend un
+ * chemin sous `/var`, lui-meme un lien vers `/private/var`.
+ *
+ * Un echec de `realpath` sur la racine est tolere quand il s'agit d'un
+ * dossier absent (ENOENT) : c'est l'etat normal avant la premiere
+ * recuperation, la racine syntaxique sert alors de repli. Dans ce cas, le
+ * chemin demande echouera de toute facon plus loin (`readFile`/`rm`), puisque
+ * rien ne peut exister sous un dossier qui n'existe pas lui-meme.
+ *
+ * Un echec de `realpath` sur le chemin demande est refuse ici, sans
+ * tolerance pour ENOENT : un fichier simplement absent aurait de toute facon
+ * fait echouer `readFile`/`rm` en aval, mais un lien symbolique pendouillant
+ * depose dans le dossier et pointant hors de celui-ci franchirait sinon la
+ * garde. Si la cible apparaissait entre ce controle et l'acces reel
+ * (TOCTOU), la lecture ou la suppression porterait alors hors du dossier
+ * sans etre interceptee.
  *
  * Un chemin contenant un octet NUL fait lever a Node un `TypeError` avant
  * tout acces disque ; on l'aligne ici sur le message des autres refus plutot
@@ -165,9 +180,20 @@ function parseSessionFile(raw: string): SessionFile {
  */
 async function cheminDeSession(path: string, outDir: string): Promise<string> {
   const resolu = resolve(path);
-  const racine = resolve(outDir);
-  if (!resolu.startsWith(racine + sep) || !resolu.endsWith(".json")) {
+  const racineSyntaxique = resolve(outDir);
+  if (!resolu.startsWith(racineSyntaxique + sep) || !resolu.endsWith(".json")) {
     throw new Error(`Chemin de session refuse : ${path}`);
+  }
+
+  let racine: string;
+  try {
+    racine = await realpath(racineSyntaxique);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      racine = racineSyntaxique;
+    } else {
+      throw error;
+    }
   }
 
   let reel: string;
@@ -207,9 +233,19 @@ export async function readSession(
  * Change le nom et le type d'une session ecrite.
  *
  * Le fichier est reconstruit par `buildSessionFile` plutot que retouche : le
- * format et l'ordre des cles restent identiques a l'ecriture initiale.
+ * format et l'ordre des cles restent identiques a l'ecriture initiale - pour
+ * un fichier produit par la version courante. `buildSessionFile` ne connait
+ * qu'une liste fermee de champs de niveau fichier ; un champ de ce niveau
+ * qu'une version future (ou un depot a la main) aurait ajoute et que celle-ci
+ * ignore ne survivrait donc pas a une modification. Les matchs, eux,
+ * traversent intacts : `battles` n'est jamais retouche.
  * `fetchedAt` est repris tel quel, c'est la recuperation qui date le fichier.
- * Le nom de fichier ne depend que du compte et de la fenetre : il ne bouge pas.
+ *
+ * Ecrit sur le chemin deja valide par `cheminDeSession` plutot que de
+ * recalculer un nom de fichier depuis le compte et la fenetre : un fichier
+ * renomme ou copie a la main garde ainsi son nom, au lieu qu'une modification
+ * en ecrive un second a cote sous le nom canonique et laisse l'original
+ * intact avec ses anciennes metadonnees.
  *
  * Remplace les metadonnees, ne les fusionne pas : omettre `name` ou `type`
  * les efface du fichier plutot que de conserver la valeur existante. C'est
@@ -236,8 +272,8 @@ export async function updateSessionMeta(
     fetchedAt: new Date(file.fetchedAt),
   });
 
-  const ecrit = await writeSession(reconstruit, outDir);
-  return summarizeSessionFile(reconstruit, ecrit);
+  await writeSessionAt(reconstruit, resolu);
+  return summarizeSessionFile(reconstruit, resolu);
 }
 
 /**
