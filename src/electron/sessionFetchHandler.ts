@@ -80,6 +80,21 @@ type ApercuRetenu = {
  */
 let apercuRetenu: { id: string; contenu: ApercuRetenu } | undefined;
 
+/**
+ * Numero d'ordre du creneau, incremente a chaque fois qu'il change de main
+ * (un nouvel apercu depose, ou un enregistrement qui le reclame).
+ *
+ * Ferme un cas de resurrection : `saveSession` ne restitue l'apercu qu'il a
+ * reclame, apres un echec d'ecriture, que si ce numero n'a pas bouge depuis
+ * sa reclamation. Sans lui, la seule garde possible ("le creneau est vide")
+ * confond deux situations opposees quand une ecriture lente A echoue apres
+ * qu'un apercu B a ete depose puis enregistre avec succes entre-temps : le
+ * creneau est bien vide dans les deux cas, mais dans le second, restituer A
+ * ressusciterait un apercu que l'utilisateur croit deja abandonne, apres une
+ * ecriture reussie qui n'a rien a voir avec lui.
+ */
+let ordreCreneau = 0;
+
 const APERCU_PERDU =
   "L'apercu n'est plus disponible. Relancez la previsualisation.";
 
@@ -115,6 +130,7 @@ export async function previewSession(
   const fetchedAt = deps.now?.() ?? new Date();
 
   const id = randomUUID();
+  ordreCreneau += 1;
   apercuRetenu = {
     id,
     contenu: { user, name, type, window, filters, battles: result.battles, fetchedAt },
@@ -148,6 +164,11 @@ export async function previewSession(
  * dossier de sortie invalide), aucun fichier n'a ete produit : l'apercu est
  * alors restitue, pour qu'un nouvel essai d'enregistrement soit possible
  * sans repasser par l'appel reseau.
+ *
+ * Cette restitution ne doit jouer que si rien ne s'est produit sur le
+ * creneau depuis la reclamation : ni nouvel apercu depose, ni reclamation
+ * par un autre enregistrement (qui aurait pu, lui, reussir entre-temps). Le
+ * numero d'ordre note ici sert exactement a ca : voir `ordreCreneau`.
  */
 export async function saveSession(
   previewId: string,
@@ -157,6 +178,8 @@ export async function saveSession(
     throw new Error(APERCU_PERDU);
   }
   const retenu = apercuRetenu;
+  ordreCreneau += 1;
+  const ordreLorsDeLaReclamation = ordreCreneau;
   apercuRetenu = undefined;
   const { contenu } = retenu;
 
@@ -174,10 +197,12 @@ export async function saveSession(
   try {
     path = await writeSession(file, deps.outDir ?? DEFAULT_OUT_DIR);
   } catch (erreur) {
-    // Rien n'a ete ecrit : on restitue l'apercu, sauf si un apercu plus
-    // recent a deja pris sa place entre-temps (previsualisation relancee
-    // pendant l'ecriture ratee).
-    if (apercuRetenu === undefined) {
+    // Rien n'a ete ecrit : on restitue l'apercu, mais seulement si le
+    // creneau n'a pas change de main depuis sa reclamation (ni nouvel
+    // apercu depose, ni reclamation par un autre enregistrement, reussi ou
+    // non). Si le numero a bouge, un tel evenement a eu lieu et restituer
+    // ecraserait ou ressusciterait a tort quelque chose de plus recent.
+    if (ordreCreneau === ordreLorsDeLaReclamation) {
       apercuRetenu = retenu;
     }
     throw erreur;

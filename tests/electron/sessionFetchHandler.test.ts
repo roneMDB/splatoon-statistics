@@ -258,6 +258,49 @@ describe("saveSession", () => {
     await expect(readFile(resume.path, "utf8")).resolves.toContain("\"battleCount\": 1");
   });
 
+  test("un echec tardif ne ressuscite pas un apercu deja remplace et enregistre", async () => {
+    const dir = await tempDir();
+    // Meme procede que le test precedent : un fichier ordinaire a la place
+    // d'un segment parent fait echouer mkdir/writeFile avec ENOTDIR.
+    const bloqueur = join(dir, "bloqueur");
+    await writeFile(bloqueur, "un fichier, pas un dossier");
+    const outDirInvalide = join(bloqueur, "sous-dossier");
+    const outDirValide = await tempDir();
+
+    const { fetchPage } = stubPages([[battle("a", "2026-08-19T20:30:00Z")]]);
+    const apercuA = await previewSession(
+      { user: "Gloup", ...fenetre },
+      { fetchPage, outDir: outDirValide },
+    );
+
+    // Reclame A et lance son ecriture (vouee a l'echec) sans l'attendre :
+    // la reclamation elle-meme est synchrone (avant le premier `await` de
+    // saveSession), donc a ce point precis A est deja retire du creneau.
+    const echecA = saveSession(apercuA.previewId, { outDir: outDirInvalide });
+    // Empeche Node de signaler un rejet non gere pendant l'attente ci-dessous :
+    // le vrai controle a lieu plus bas, via `expect(echecA).rejects...`.
+    echecA.catch(() => {});
+
+    // Pendant que l'ecriture de A echoue en arriere-plan, une nouvelle
+    // previsualisation puis un enregistrement complets prennent le creneau
+    // et le liberent en reussissant.
+    const apercuB = await previewSession(
+      { user: "Gloup", ...fenetre },
+      { fetchPage: stubPages([[battle("b", "2026-08-19T20:30:00Z")]]).fetchPage, outDir: outDirValide },
+    );
+    const resumeB = await saveSession(apercuB.previewId, { outDir: outDirValide });
+    expect(resumeB.battleCount).toBe(1);
+
+    await expect(echecA).rejects.toMatchObject({ code: "ENOTDIR" });
+
+    // Le creneau a change de main entre-temps (B depose, puis reclame et
+    // libere par un enregistrement reussi) : l'echec tardif de A ne doit
+    // rien restituer. Un nouvel essai sur A doit donc echouer.
+    await expect(saveSession(apercuA.previewId, { outDir: outDirValide })).rejects.toThrow(
+      /previsualisation/i,
+    );
+  });
+
   test("un nouvel apercu remplace le precedent", async () => {
     const outDir = await tempDir();
     const { fetchPage } = stubPages([[]]);
