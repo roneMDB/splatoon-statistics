@@ -39,6 +39,26 @@ describe("toBattleRows", () => {
     expect(Object.keys(row ?? {})).not.toContain("rule");
   });
 
+  test("omet les champs null plutot que d'inventer une valeur", () => {
+    const avecNull = {
+      uuid: "avec-null",
+      result: null,
+      lobby: null,
+      rule: null,
+      stage: null,
+      start_at: null,
+    } as unknown as StatinkBattle;
+
+    const [row] = toBattleRows([avecNull]);
+
+    expect(row).toEqual({ uuid: "avec-null", startedAt: "" });
+    // Object.keys ne comprend que les cles reellement presentes, pas undefined
+    expect(Object.keys(row ?? {})).not.toContain("result");
+    expect(Object.keys(row ?? {})).not.toContain("lobby");
+    expect(Object.keys(row ?? {})).not.toContain("rule");
+    expect(Object.keys(row ?? {})).not.toContain("stage");
+  });
+
   test("rend une liste vide pour une session sans match", () => {
     expect(toBattleRows([])).toEqual([]);
   });
