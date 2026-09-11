@@ -143,18 +143,27 @@ function formateLaDate(iso) {
   });
 }
 
-/** Ouvre la fiche d'une session existante : ses matchs, nom et type modifiables. */
+/**
+ * Ouvre la fiche d'une session existante : ses matchs, nom et type modifiables.
+ * N'echoue jamais silencieusement : une lecture en erreur (fichier supprime ou
+ * modifie entre le listing et le clic, etc.) est affichee dans le bandeau
+ * d'erreur, comme pour les autres actions.
+ */
 async function ouvreLaFiche(session) {
   cacheLesBandeaux();
-  const { summary, rows } = await api.readSession(session.path);
-  ficheCourante = summary;
-  elements.ficheNom.value = summary.name ?? "";
-  elements.ficheType.value = summary.type ?? "";
-  elements.ficheResume.textContent =
-    `${formateLaDate(summary.window.from)} → ${formateLaDate(summary.window.to)}\n` +
-    `${summary.battleCount} match(s) — ${summary.results.win}V - ${summary.results.lose}D`;
-  elements.ficheMatchs.replaceChildren(...construisLesMatchs(rows));
-  montreLaVue("fiche");
+  try {
+    const { summary, rows } = await api.readSession(session.path);
+    ficheCourante = summary;
+    elements.ficheNom.value = summary.name ?? "";
+    elements.ficheType.value = summary.type ?? "";
+    elements.ficheResume.textContent =
+      `${formateLaDate(summary.window.from)} → ${formateLaDate(summary.window.to)}\n` +
+      `${summary.battleCount} match(s) — ${summary.results.win}V - ${summary.results.lose}D`;
+    elements.ficheMatchs.replaceChildren(...construisLesMatchs(rows));
+    montreLaVue("fiche");
+  } catch (erreur) {
+    bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  }
 }
 
 function construisLaLigne(session) {
@@ -298,6 +307,7 @@ elements.formulaire.addEventListener("submit", async (evenement) => {
 elements.boutonEnregistrer.addEventListener("click", async () => {
   if (apercuCourant === undefined) return;
   cacheLesBandeaux();
+  elements.boutonEnregistrer.disabled = true;
   try {
     const resume = await api.saveSession(apercuCourant.previewId);
     apercuCourant = undefined;
@@ -310,6 +320,8 @@ elements.boutonEnregistrer.addEventListener("click", async () => {
     montreLaVue("formulaire");
   } catch (erreur) {
     bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  } finally {
+    elements.boutonEnregistrer.disabled = false;
   }
 });
 
@@ -322,6 +334,7 @@ elements.boutonAnnuler.addEventListener("click", () => {
 elements.boutonFicheEnregistrer.addEventListener("click", async () => {
   if (ficheCourante === undefined) return;
   cacheLesBandeaux();
+  elements.boutonFicheEnregistrer.disabled = true;
   try {
     await api.updateSession({
       path: ficheCourante.path,
@@ -332,6 +345,8 @@ elements.boutonFicheEnregistrer.addEventListener("click", async () => {
     bandeau(elements.succes, "Session modifiée.");
   } catch (erreur) {
     bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  } finally {
+    elements.boutonFicheEnregistrer.disabled = false;
   }
 });
 
@@ -342,6 +357,7 @@ elements.boutonSupprimer.addEventListener("click", async () => {
     return;
   }
   cacheLesBandeaux();
+  elements.boutonSupprimer.disabled = true;
   try {
     await api.deleteSession(ficheCourante.path);
     ficheCourante = undefined;
@@ -349,6 +365,8 @@ elements.boutonSupprimer.addEventListener("click", async () => {
     montreLaVue("formulaire");
   } catch (erreur) {
     bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  } finally {
+    elements.boutonSupprimer.disabled = false;
   }
 });
 

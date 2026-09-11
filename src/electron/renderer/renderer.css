@@ -244,6 +244,7 @@ button:disabled {
   color: var(--texte-doux);
   margin: 16px 0 8px;
   font-variant-numeric: tabular-nums;
+  white-space: pre-line;
 }
 
 .matchs {
@@ -275,10 +276,11 @@ button:disabled {
   color: var(--defaite);
 }
 
-.session[aria-selected="true"] {
-  border-color: var(--accent);
-}
-
 .session {
   cursor: pointer;
+}
+
+.session:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
