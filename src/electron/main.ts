@@ -13,8 +13,7 @@ import { DEFAULT_USER } from "../config.ts";
 import { listSessions } from "../sessionList.ts";
 import { SESSION_TYPES } from "../sessionMeta.ts";
 import { KNOWN_LOBBIES } from "../statink/url.ts";
-import { IPC, type FetchSessionFormInput } from "./ipcChannels.ts";
-import { handleFetchSession } from "./sessionFetchHandler.ts";
+import { IPC } from "./ipcChannels.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -49,19 +48,6 @@ ipcMain.handle(IPC.choices, () => ({
   sessionTypes: SESSION_TYPES,
   defaultUser: DEFAULT_USER,
 }));
-
-ipcMain.handle(
-  IPC.fetchSession,
-  async (event, input: FetchSessionFormInput) =>
-    handleFetchSession(input, {
-      // La progression ne part qu'a la fenetre qui a demande la recuperation.
-      onProgress: (progress) => {
-        if (!event.sender.isDestroyed()) {
-          event.sender.send(IPC.fetchProgress, progress);
-        }
-      },
-    }),
-);
 
 void app.whenReady().then(() => {
   createWindow();

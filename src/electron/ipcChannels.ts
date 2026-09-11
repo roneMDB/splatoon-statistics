@@ -40,9 +40,11 @@ export type FetchSessionFormInput = {
 /** Type du pont expose a la fenetre par le preload. */
 export type SplatoonApi = {
   listSessions: () => Promise<import("../sessionList.ts").ListSessionsResult>;
-  fetchSession: (
-    input: FetchSessionFormInput,
-  ) => Promise<import("./sessionFetchHandler.ts").FetchSessionOutcome>;
+  // Canal orphelin entre les taches 2 et 4 : plus aucun cote n'implemente
+  // encore `previewSession`/`saveSession` au bout de ce pont. Le type est
+  // volontairement lache le temps que la tache 4 le recable sur les nouveaux
+  // canaux d'apercu et d'enregistrement.
+  fetchSession: (input: FetchSessionFormInput) => Promise<unknown>;
   /** Renvoie la fonction de desabonnement. */
   onFetchProgress: (
     listener: (progress: import("../fetchSession.ts").FetchPageProgress) => void,
