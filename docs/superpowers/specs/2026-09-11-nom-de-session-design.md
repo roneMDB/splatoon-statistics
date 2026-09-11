@@ -66,7 +66,9 @@ Ecrit dans data/sessions/Gloup_20260804-2100_20260804-2359.json
 
 Règles du dialogue :
 
-- Entrée vide au nom : la session est écrite sans nom, avec un avertissement.
+- Entrée vide au nom : le dialogue s'arrête là, sans demander le type — sans
+  nom, un type seul n'a pas d'usage. La session est écrite sans nom, avec un
+  avertissement.
 - Type invalide : la question est reposée jusqu'à une valeur valide ou vide.
 - Entrée vide au type : aucun type.
 
