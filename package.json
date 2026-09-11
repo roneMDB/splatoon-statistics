@@ -1,0 +1,22 @@
+{
+  "name": "splatoon-statistics",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Recupere les matchs Splatoon 3 d'une session de club depuis stat.ink",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "fetch": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
