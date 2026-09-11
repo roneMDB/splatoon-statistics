@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -242,6 +242,50 @@ describe("garde de chemin", () => {
 
     await expect(readSession(lien, dir)).rejects.toThrow(/refuse/i);
     await expect(deleteSession(lien, dir)).rejects.toThrow(/refuse/i);
+  });
+
+  test("refuse un lien symbolique pendouillant vers l'exterieur plutot que de tolerer l'absence de cible", async () => {
+    const dir = await tempDir();
+    const ailleurs = await tempDir();
+    // La cible n'existe pas : realpath echouera en ENOENT. Un lien pendouillant
+    // pointant hors du dossier ne doit pas franchir la garde pour autant -
+    // sinon deleteSession supprimerait le lien sans jamais avoir verifie sa
+    // cible, et une cible creee apres coup (TOCTOU) serait lue ou supprimee
+    // sans etre interceptee.
+    const cible = join(ailleurs, "absent.json");
+    const lien = join(dir, "session.json");
+    await symlink(cible, lien);
+
+    await expect(readSession(lien, dir)).rejects.toThrow();
+    await expect(deleteSession(lien, dir)).rejects.toThrow();
+  });
+
+  test("un dossier voisin dont le nom est prefixe par celui des sessions n'est pas pris pour un sous-dossier", async () => {
+    const parent = await tempDir();
+    const dir = join(parent, "sessions");
+    const voisin = join(parent, "sessions-evil");
+    await mkdir(voisin);
+    const cible = join(voisin, "fichier.json");
+    await writeFile(cible, "{}", "utf8");
+
+    await expect(readSession(cible, dir)).rejects.toThrow(/refuse/i);
+  });
+
+  test("un lien symbolique sur un dossier intermediaire du chemin est intercepte", async () => {
+    const dir = await tempDir();
+    const ailleurs = await tempDir();
+    await writeFile(join(ailleurs, "fichier.json"), "{}", "utf8");
+    const sousDossier = join(dir, "sous");
+    await symlink(ailleurs, sousDossier);
+
+    await expect(readSession(join(dir, "sous", "fichier.json"), dir)).rejects.toThrow(/refuse/i);
+  });
+
+  test("refuse un chemin contenant un octet NUL avec le meme message que les autres refus", async () => {
+    const dir = await tempDir();
+    const avecNul = join(dir, `session${String.fromCharCode(0)}.json`);
+
+    await expect(readSession(avecNul, dir)).rejects.toThrow(/refuse/i);
   });
 });
 

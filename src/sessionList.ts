@@ -148,9 +148,20 @@ function parseSessionFile(raw: string): SessionFile {
  *
  * Le controle syntaxique (`startsWith`/`endsWith`) ne suffit pas seul : un
  * lien symbolique depose dans le dossier des sessions et pointant ailleurs le
- * traverserait sans etre detecte. On resout donc aussi la cible reelle ; un
- * fichier absent (erreur ENOENT) n'est pas refuse ici, `readFile`/`rm` en
- * aval le signaleront a leur maniere.
+ * traverserait sans etre detecte, meme si le lien porte sur un dossier
+ * intermediaire du chemin plutot que sur le fichier final. On resout donc
+ * aussi la cible reelle avec `realpath`.
+ *
+ * Un echec de `realpath` est refuse ici, sans tolerance pour ENOENT : un
+ * fichier simplement absent aurait de toute facon fait echouer `readFile`/
+ * `rm` en aval, mais un lien symbolique pendouillant depose dans le dossier
+ * et pointant hors de celui-ci franchirait sinon la garde. Si la cible
+ * apparaissait entre ce controle et l'acces reel (TOCTOU), la lecture ou la
+ * suppression porterait alors hors du dossier sans etre interceptee.
+ *
+ * Un chemin contenant un octet NUL fait lever a Node un `TypeError` avant
+ * tout acces disque ; on l'aligne ici sur le message des autres refus plutot
+ * que de le laisser filtrer tel quel.
  */
 async function cheminDeSession(path: string, outDir: string): Promise<string> {
   const resolu = resolve(path);
@@ -159,21 +170,31 @@ async function cheminDeSession(path: string, outDir: string): Promise<string> {
     throw new Error(`Chemin de session refuse : ${path}`);
   }
 
+  let reel: string;
   try {
-    const reel = await realpath(resolu);
-    if (!reel.startsWith(racine + sep)) {
+    reel = await realpath(resolu);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ERR_INVALID_ARG_VALUE") {
       throw new Error(`Chemin de session refuse : ${path}`);
     }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-      throw error;
-    }
+    throw error;
+  }
+  if (!reel.startsWith(racine + sep)) {
+    throw new Error(`Chemin de session refuse : ${path}`);
   }
 
   return resolu;
 }
 
-/** Lit une session complete, matchs compris. */
+/**
+ * Lit une session complete, matchs compris.
+ *
+ * Le chemin vient de la fenetre, potentiellement compromise : c'est
+ * `cheminDeSession` qui garantit qu'on ne lit jamais un fichier hors du
+ * dossier des sessions. L'appelant doit donc s'attendre a un rejet — pas
+ * seulement a une session — des que le chemin recu ne designe pas un fichier
+ * de ce dossier.
+ */
 export async function readSession(
   path: string,
   outDir: string = DEFAULT_OUT_DIR,
@@ -189,6 +210,12 @@ export async function readSession(
  * format et l'ordre des cles restent identiques a l'ecriture initiale.
  * `fetchedAt` est repris tel quel, c'est la recuperation qui date le fichier.
  * Le nom de fichier ne depend que du compte et de la fenetre : il ne bouge pas.
+ *
+ * Remplace les metadonnees, ne les fusionne pas : omettre `name` ou `type`
+ * les efface du fichier plutot que de conserver la valeur existante. C'est
+ * voulu, l'appelant est un formulaire qui pre-remplit les deux champs depuis
+ * la session et les renvoie toujours tous les deux ; un futur appel partiel
+ * devra relire la session au prealable s'il veut en garder un des deux.
  */
 export async function updateSessionMeta(
   path: string,
@@ -213,7 +240,14 @@ export async function updateSessionMeta(
   return summarizeSessionFile(reconstruit, ecrit);
 }
 
-/** Supprime definitivement une session. */
+/**
+ * Supprime definitivement une session.
+ *
+ * Le chemin vient de la fenetre, potentiellement compromise : c'est
+ * `cheminDeSession` qui garantit qu'on ne supprime jamais un fichier hors du
+ * dossier des sessions. L'appelant doit donc s'attendre a un rejet plutot
+ * qu'une suppression des qu'un chemin hors de ce dossier lui est passe.
+ */
 export async function deleteSession(
   path: string,
   outDir: string = DEFAULT_OUT_DIR,
