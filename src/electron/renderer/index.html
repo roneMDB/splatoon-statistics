@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self';"
+    />
+    <title>Splatoon Statistics</title>
+    <link rel="stylesheet" href="renderer.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="sessions" aria-labelledby="titre-sessions">
+        <header class="sessions__entete">
+          <h1 id="titre-sessions">Sessions</h1>
+          <p class="sessions__compte" id="sessions-compte"></p>
+        </header>
+        <ul class="sessions__liste" id="sessions-liste"></ul>
+        <p class="sessions__vide" id="sessions-vide" hidden>
+          Aucune session enregistrée. Récupérez-en une à droite.
+        </p>
+        <p class="bandeau bandeau--avertissement" id="sessions-erreurs" hidden></p>
+      </section>
+
+      <section class="recuperation" aria-labelledby="titre-recuperation">
+        <h2 id="titre-recuperation">Nouvelle récupération</h2>
+
+        <form class="formulaire" id="formulaire" novalidate>
+          <div class="champ">
+            <label for="champ-nom">Nom de la session</label>
+            <input
+              type="text"
+              id="champ-nom"
+              name="name"
+              placeholder="Scrim contre Les Corsaires"
+              autocomplete="off"
+            />
+          </div>
+
+          <div class="champ champ--double">
+            <div>
+              <label for="champ-debut">Début</label>
+              <input type="datetime-local" id="champ-debut" name="from" required />
+            </div>
+            <div>
+              <label for="champ-fin">Fin</label>
+              <input type="datetime-local" id="champ-fin" name="to" />
+            </div>
+          </div>
+
+          <div class="champ champ--double">
+            <div>
+              <label for="champ-type">Type</label>
+              <select id="champ-type" name="type"></select>
+            </div>
+            <div>
+              <label for="champ-lobby">Lobby</label>
+              <select id="champ-lobby" name="lobby"></select>
+            </div>
+          </div>
+
+          <div class="champ">
+            <label for="champ-compte">Compte stat.ink</label>
+            <input type="text" id="champ-compte" name="user" autocomplete="off" />
+          </div>
+
+          <button type="submit" id="bouton-recuperer">Récupérer</button>
+        </form>
+
+        <p class="bandeau bandeau--progression" id="progression" hidden></p>
+        <p class="bandeau bandeau--erreur" id="erreur" hidden></p>
+        <p class="bandeau bandeau--avertissement" id="avertissement" hidden></p>
+        <p class="bandeau bandeau--succes" id="succes" hidden></p>
+      </section>
+    </main>
+
+    <script type="module" src="renderer.js"></script>
+  </body>
+</html>

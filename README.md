@@ -3,19 +3,37 @@
 Récupère les matchs d'une session Splatoon 3 (intra, scrim, compétition) depuis
 [stat.ink](https://stat.ink) et les stocke en JSON brut, un fichier par session.
 
-Cette première itération se limite à **récupérer et stocker**. Le compte rendu et
-l'affichage viendront ensuite, construits sur ces fichiers.
+Deux façades sur le même noyau : une **application de bureau** et une **ligne de
+commande**. Elles se limitent à récupérer et stocker ; les comptes rendus de match
+viendront se loger dans l'application, construits sur ces fichiers.
 
 ## Prérequis
 
-Node ≥ 22 (pour `fetch` et `node:util.parseArgs` natifs). Aucune dépendance de
-runtime, aucune clé d'API : le journal de matchs stat.ink est public.
+Node ≥ 22 (pour `fetch` et `node:util.parseArgs` natifs). Aucune clé d'API : le
+journal de matchs stat.ink est public.
+
+La ligne de commande n'a aucune dépendance de runtime et s'exécute directement sur
+les sources. L'application de bureau, elle, repose sur Electron (dépendance de
+développement) et passe par une compilation, cantonnée à son propre chemin.
 
 ```bash
 npm install
 ```
 
-## Utilisation
+## L'application
+
+```bash
+npm run app
+```
+
+Une fenêtre s'ouvre : les sessions déjà récupérées à gauche, le formulaire de
+nouvelle récupération à droite. Les dates se saisissent au sélecteur natif, le
+lobby et le type se choisissent dans des listes, et la fenêtre est pré-remplie sur
+la soirée en cours. La progression défile page par page pendant la récupération.
+
+Sous WSL2, l'affichage passe par WSLg, sans configuration particulière.
+
+## La ligne de commande
 
 ```bash
 npm run fetch -- --from "2026-08-04 21:00" --to "2026-08-04 23:59" --lobby private --name "Scrim contre Les Corsaires" --type scrim
@@ -102,7 +120,7 @@ Trois particularités vérifiées en direct, toutes traitées dans le code :
 ## Développement
 
 ```bash
-npm test                          # 108 tests unitaires, hors-ligne
+npm test                          # 137 tests unitaires, hors-ligne
 STATINK_INTEGRATION=1 npm test    # + 3 tests contre le vrai stat.ink
 npm run typecheck
 ```
@@ -122,5 +140,14 @@ sur le payload : si ce test casse, c'est stat.ink qui a changé.
 | `src/statink/client.ts` | HTTP : User-Agent, reprises, messages d'erreur |
 | `src/fetchSession.ts` | Pagination, conditions d'arrêt, déduplication, tri |
 | `src/sessionMeta.ts` | Nom et type de session : liste fermée, validation, dialogue |
+| `src/sessionList.ts` | Inventaire des sessions écrites, résumé et bilan |
 | `src/store.ts` | Écriture du fichier de session |
 | `src/cli.ts` | Arguments, câblage, récapitulatif console |
+| `src/electron/main.ts` | Fenêtre et câblage IPC. Aucune logique métier |
+| `src/electron/preload.cts` | Pont vers la fenêtre. Autonome : le bac à sable ne résout aucun module local |
+| `src/electron/sessionFetchHandler.ts` | Récupération pilotée par le formulaire, sans Electron |
+| `src/electron/renderer/` | La fenêtre : HTML, CSS, JavaScript simple, non transpilé |
+
+Le noyau ignore laquelle des deux façades l'appelle. Les modules `src/electron/`
+qui portent de la logique n'importent pas `electron` : ils se testent hors-ligne
+comme le reste.

@@ -2,3 +2,6 @@ node_modules/
 data/*
 !data/.gitkeep
 *.log
+
+# Build de l application Electron
+dist-electron/

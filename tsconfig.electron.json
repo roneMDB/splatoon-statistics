@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "rootDir": "src",
+    "outDir": "dist-electron",
+    "rewriteRelativeImportExtensions": true,
+    "verbatimModuleSyntax": false
+  },
+  // preload.cts est exclu de tsconfig.json, qui impose verbatimModuleSyntax :
+  // c est le seul fichier CommonJS du depot. Il est compile et verifie ici,
+  // d ou le exclude vide qui annule celui dont on herite.
+  "include": ["src/electron/**/*.ts", "src/electron/**/*.cts"],
+  "exclude": []
+}
