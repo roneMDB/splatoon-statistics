@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import {
@@ -7,6 +8,13 @@ import {
   DEFAULT_USER,
 } from "./config.ts";
 import { fetchSession } from "./fetchSession.ts";
+import {
+  isSessionType,
+  promptSessionMeta,
+  SESSION_TYPES,
+  type SessionMeta,
+  type SessionType,
+} from "./sessionMeta.ts";
 import type { BattleFilters } from "./statink/url.ts";
 import { buildSessionFile, writeSession } from "./store.ts";
 import { buildWindow, type SessionWindow } from "./window.ts";
@@ -28,6 +36,8 @@ const LOBBIES = [
 
 export type CliOptions = {
   user: string;
+  name?: string;
+  type?: SessionType;
   window: SessionWindow;
   filters: BattleFilters;
   outDir: string;
@@ -45,6 +55,9 @@ Options
                       en heure locale.
   --to <datetime>     Fin de la session. Par defaut : maintenant.
   --user <pseudo>     Compte stat.ink a interroger. Par defaut : ${DEFAULT_USER}.
+  --name <texte>      Nom de la session. Demande a l'ecran s'il est absent.
+                      Exemple : "Scrim contre Les Corsaires".
+  --type <valeur>     Nature de la session. Valeurs : ${SESSION_TYPES.join(", ")}
   --lobby <valeur>    Filtre de lobby. "private" = intras / scrims / compets.
                       Valeurs : ${LOBBIES.join(", ")}
   --out <dossier>     Dossier de sortie. Par defaut : ${DEFAULT_OUT_DIR}.
@@ -64,6 +77,8 @@ export function parseCliArgs(argv: string[]): CliOptions {
       from: { type: "string" },
       to: { type: "string" },
       user: { type: "string" },
+      name: { type: "string" },
+      type: { type: "string" },
       lobby: { type: "string" },
       out: { type: "string" },
       "max-pages": { type: "string" },
@@ -82,6 +97,13 @@ export function parseCliArgs(argv: string[]): CliOptions {
     );
   }
 
+  if (values.type !== undefined && !isSessionType(values.type)) {
+    throw new Error(
+      `Valeur de --type inconnue : "${values.type}". ` +
+        `Valeurs acceptees : ${SESSION_TYPES.join(", ")}`,
+    );
+  }
+
   let maxPages = DEFAULT_MAX_PAGES;
   if (values["max-pages"] !== undefined) {
     maxPages = Number(values["max-pages"]);
@@ -95,6 +117,8 @@ export function parseCliArgs(argv: string[]): CliOptions {
 
   return {
     user: values.user ?? DEFAULT_USER,
+    name: values.name,
+    type: values.type as SessionType | undefined,
     window: buildWindow(values.from, values.to),
     filters: { lobby: values.lobby },
     outDir: values.out ?? DEFAULT_OUT_DIR,
@@ -126,15 +150,6 @@ export async function main(argv: string[]): Promise<void> {
     maxPages: options.maxPages,
   });
 
-  const file = buildSessionFile({
-    user: options.user,
-    window: options.window,
-    filters: options.filters,
-    battles: result.battles,
-    fetchedAt: new Date(),
-  });
-  const path = await writeSession(file, options.outDir);
-
   console.log(
     `\n${result.battles.length} match(s) dans la fenetre ` +
       `(${result.pagesFetched} page(s) lue(s), arret : ${result.stopReason}).`,
@@ -149,7 +164,53 @@ export async function main(argv: string[]): Promise<void> {
     summarize(result.battles);
   }
 
-  console.log(`\nEcrit dans ${path}`);
+  // Nommer apres le bilan : on choisit le nom en voyant ce que la fenetre a
+  // ramene. Fournir --name vaut "je donne tout en ligne de commande" et
+  // n'ouvre aucun dialogue, meme si --type manque.
+  const meta = await resolveSessionMeta(options);
+  if (meta.name === undefined) {
+    console.warn(
+      "\nSession enregistree sans nom. Relancer avec --name pour la nommer.",
+    );
+  }
+
+  const file = buildSessionFile({
+    user: options.user,
+    name: meta.name,
+    type: meta.type,
+    window: options.window,
+    filters: options.filters,
+    battles: result.battles,
+    fetchedAt: new Date(),
+  });
+  const path = await writeSession(file, options.outDir);
+
+  if (meta.name !== undefined) {
+    const type = meta.type === undefined ? "" : ` (${meta.type})`;
+    console.log(`\nSession : ${meta.name}${type}`);
+  }
+  console.log(`Ecrit dans ${path}`);
+}
+
+/**
+ * Complete les metadonnees manquantes en interrogeant l'utilisateur. Hors
+ * terminal interactif, la session est simplement enregistree sans nom : un
+ * defaut de label ne doit pas faire echouer une recuperation scriptee.
+ */
+async function resolveSessionMeta(options: CliOptions): Promise<SessionMeta> {
+  if (options.name !== undefined || process.stdin.isTTY !== true) {
+    return { name: options.name, type: options.type };
+  }
+
+  console.log("");
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return await promptSessionMeta((question) => rl.question(question), {
+      type: options.type,
+    });
+  } finally {
+    rl.close();
+  }
 }
 
 /** Recapitulatif minimal, juste pour verifier d'un oeil que c'est la bonne session. */

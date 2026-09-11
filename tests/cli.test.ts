@@ -74,3 +74,26 @@ describe("parseCliArgs", () => {
     expect(() => parseCliArgs(["--from", "2026-08-18 20:00", "--zoom"])).toThrow();
   });
 });
+
+describe("parseCliArgs, nom et type de session", () => {
+  const from = ["--from", "2026-08-18 20:00"];
+
+  test("retient le nom donne par --name", () => {
+    const options = parseCliArgs([...from, "--name", "Scrim contre Les Corsaires"]);
+    expect(options.name).toBe("Scrim contre Les Corsaires");
+  });
+
+  test("ne donne ni nom ni type par defaut", () => {
+    const options = parseCliArgs(from);
+    expect(options.name).toBeUndefined();
+    expect(options.type).toBeUndefined();
+  });
+
+  test("accepte un type de la liste fermee", () => {
+    expect(parseCliArgs([...from, "--type", "scrim"]).type).toBe("scrim");
+  });
+
+  test("refuse un type hors liste en listant les valeurs acceptees", () => {
+    expect(() => parseCliArgs([...from, "--type", "tournoi"])).toThrow(/intra/);
+  });
+});
