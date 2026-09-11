@@ -150,6 +150,9 @@ export async function main(argv: string[]): Promise<void> {
     filters: options.filters,
     maxPages: options.maxPages,
   });
+  // Capture juste apres la recuperation : le dialogue de nommage qui suit
+  // peut trainer, et fetchedAt doit dater la recuperation, pas la saisie.
+  const fetchedAt = new Date();
 
   console.log(
     `\n${result.battles.length} match(s) dans la fenetre ` +
@@ -168,7 +171,7 @@ export async function main(argv: string[]): Promise<void> {
   // Nommer apres le bilan : on choisit le nom en voyant ce que la fenetre a
   // ramene. Fournir --name vaut "je donne tout en ligne de commande" et
   // n'ouvre aucun dialogue, meme si --type manque.
-  const meta = await resolveSessionMeta(options);
+  const meta = await resolveSessionMetaOrFallback(options);
   if (meta.name === undefined) {
     console.warn(
       "\nSession enregistree sans nom. Relancer avec --name pour la nommer.",
@@ -182,7 +185,7 @@ export async function main(argv: string[]): Promise<void> {
     window: options.window,
     filters: options.filters,
     battles: result.battles,
-    fetchedAt: new Date(),
+    fetchedAt,
   });
   const path = await writeSession(file, options.outDir);
 
@@ -223,11 +226,13 @@ export async function resolveSessionMeta(
     return { name, type: options.type };
   }
 
-  console.log("");
   if (deps.ask !== undefined) {
     return promptSessionMeta(deps.ask, { type: options.type });
   }
 
+  // Ligne vide reservee au vrai dialogue interactif : l'ask injecte par les
+  // tests ne doit rien afficher, sous peine de polluer la sortie de npm test.
+  console.log("");
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
     return await promptSessionMeta(createReadlineAsk(rl), {
@@ -235,6 +240,30 @@ export async function resolveSessionMeta(
     });
   } finally {
     rl.close();
+  }
+}
+
+/**
+ * Enrobe `resolveSessionMeta` d'un filet de secours : le dialogue de nommage
+ * s'intercale entre la recuperation reseau et l'ecriture du fichier, et une
+ * erreur qui y survient (stdin ferme, `createInterface` en echec,
+ * `ERR_USE_AFTER_CLOSE`...) ne doit pas faire perdre des matchs deja payes en
+ * appels reseau. En cas d'echec, on retombe donc sur les seules metadonnees
+ * fournies en ligne de commande, comme hors terminal interactif.
+ */
+export async function resolveSessionMetaOrFallback(
+  options: CliOptions,
+  deps: ResolveSessionMetaDeps = {},
+): Promise<SessionMeta> {
+  try {
+    return await resolveSessionMeta(options, deps);
+  } catch (error) {
+    console.warn(
+      `\nDialogue de nommage interrompu (${
+        error instanceof Error ? error.message : String(error)
+      }), poursuite sans dialogue.`,
+    );
+    return { name: options.name?.trim() || undefined, type: options.type };
   }
 }
 
@@ -247,15 +276,18 @@ export async function resolveSessionMeta(
  * indefiniment, alors que les matchs deja recuperes ne sont pas encore
  * ecrits sur disque. La fermeture de l'interface donne alors une reponse
  * vide, traitee comme une reponse vide ordinaire par `promptSessionMeta`.
+ *
+ * La promesse de fermeture est creee une seule fois, a la construction, et
+ * partagee entre toutes les questions : une promesse par appel accumulerait
+ * un listener `close` par question et declencherait un
+ * `MaxListenersExceededWarning` sur un dialogue a rallonge (le bouclage sur
+ * type invalide de `promptSessionMeta` n'est pas plafonne). Une fois
+ * resolue, elle gagne aussi immediatement toute course ulterieure, ce qui
+ * evite un `rl.question()` tardif sur une interface deja fermee.
  */
 export function createReadlineAsk(rl: Interface): Ask {
-  return (question) =>
-    Promise.race([
-      rl.question(question),
-      new Promise<string>((resolve) => {
-        rl.once("close", () => resolve(""));
-      }),
-    ]);
+  const fermeture = new Promise<string>((resolve) => rl.once("close", () => resolve("")));
+  return (question) => Promise.race([rl.question(question), fermeture]);
 }
 
 /** Recapitulatif minimal, juste pour verifier d'un oeil que c'est la bonne session. */

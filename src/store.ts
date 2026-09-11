@@ -9,7 +9,11 @@ import type { SessionType } from "./sessionMeta.ts";
 export type SessionFile = {
   source: "stat.ink";
   user: string;
-  /** Nom libre donne a la session. Absent si non fourni. */
+  /**
+   * Nom libre donne a la session. Contrat rempli par `buildSessionFile` :
+   * la valeur est trimee, et absente si non fournie ou reduite a des
+   * espaces apres trim.
+   */
   name?: string;
   /** Nature de la session. Absent si non fourni. */
   type?: SessionType;
@@ -55,7 +59,7 @@ export function buildSessionFile(
     // Spread conditionnel : une cle absente plutot qu'une cle a undefined,
     // pour que l'ordre du JSON reste lisible et le champ vraiment omis.
     ...(name ? { name } : {}),
-    ...(options.type ? { type: options.type } : {}),
+    ...(options.type !== undefined ? { type: options.type } : {}),
     fetchedAt: options.fetchedAt.toISOString(),
     window: {
       from: new Date(options.window.fromMs).toISOString(),

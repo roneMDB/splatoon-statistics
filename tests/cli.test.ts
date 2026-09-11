@@ -5,6 +5,7 @@ import {
   createReadlineAsk,
   parseCliArgs,
   resolveSessionMeta,
+  resolveSessionMetaOrFallback,
   type CliOptions,
 } from "../src/cli.ts";
 import type { SessionWindow } from "../src/window.ts";
@@ -205,6 +206,34 @@ describe("resolveSessionMeta", () => {
     const ask = async () => reponses.shift() ?? "";
     const options = baseOptions({ name: "" });
     const meta = await resolveSessionMeta(options, { isInteractive: true, ask });
+    expect(meta.name).toBe("Nom saisi au dialogue");
+  });
+});
+
+describe("resolveSessionMetaOrFallback", () => {
+  test("un ask qui leve retombe sur les options de ligne de commande, sans exception", async () => {
+    const ask = () => {
+      throw new Error("stdin indisponible");
+    };
+    const options = baseOptions({ name: "", type: "scrim" });
+    const meta = await resolveSessionMetaOrFallback(options, { isInteractive: true, ask });
+    expect(meta).toEqual({ name: undefined, type: "scrim" });
+  });
+
+  test("--name reduit a des espaces retombe sur undefined apres un dialogue en echec", async () => {
+    const ask = () => {
+      throw new Error("erreur readline");
+    };
+    const options = baseOptions({ name: "   " });
+    const meta = await resolveSessionMetaOrFallback(options, { isInteractive: true, ask });
+    expect(meta).toEqual({ name: undefined, type: undefined });
+  });
+
+  test("sans erreur, le comportement est celui de resolveSessionMeta", async () => {
+    const reponses = ["Nom saisi au dialogue", ""];
+    const ask = async () => reponses.shift() ?? "";
+    const options = baseOptions({ name: "" });
+    const meta = await resolveSessionMetaOrFallback(options, { isInteractive: true, ask });
     expect(meta.name).toBe("Nom saisi au dialogue");
   });
 });

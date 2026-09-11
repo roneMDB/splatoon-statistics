@@ -18,7 +18,7 @@ npm install
 ## Utilisation
 
 ```bash
-npm run fetch -- --from "2026-08-04 21:00" --to "2026-08-04 23:59" --lobby private --name "Scrim contre Les Corsaires"
+npm run fetch -- --from "2026-08-04 21:00" --to "2026-08-04 23:59" --lobby private --name "Scrim contre Les Corsaires" --type scrim
 ```
 
 ```
@@ -102,7 +102,7 @@ Trois particularités vérifiées en direct, toutes traitées dans le code :
 ## Développement
 
 ```bash
-npm test                          # 98 tests unitaires, hors-ligne
+npm test                          # 108 tests unitaires, hors-ligne
 STATINK_INTEGRATION=1 npm test    # + 3 tests contre le vrai stat.ink
 npm run typecheck
 ```
