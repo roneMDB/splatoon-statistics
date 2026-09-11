@@ -588,12 +588,41 @@ npx vitest run tests/electron/sessionFetchHandler.test.ts --reporter=basic
 npm run typecheck
 ```
 
-Attendu : 15 tests passent. `npm run typecheck` signalera que `main.ts` appelle encore `handleFetchSession` — c'est normal, la tâche 4 le recâble. Si cela gêne, faire les tâches 2, 3 et 4 avant de commiter ; sinon commiter ici et laisser le typecheck rouge jusqu'à la tâche 4, **à condition de le noter dans le message de commit**.
+Attendu : 15 tests passent, `tsc --noEmit` silencieux, `npm run app:build` sans erreur — à condition d'avoir fait l'étape 3 bis ci-dessous.
+
+- [ ] **Step 3 bis: Retirer le canal devenu orphelin**
+
+`src/electron/main.ts` enregistre encore `IPC.fetchSession`, qui appelait
+`handleFetchSession`. Le laisser ferait échouer la compilation. Supprimer le bloc
+entier :
+
+```ts
+ipcMain.handle(
+  IPC.fetchSession,
+  async (event, input: FetchSessionFormInput) =>
+    handleFetchSession(input, {
+      // La progression ne part qu'a la fenetre qui a demande la recuperation.
+      onProgress: (progress) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send(IPC.fetchProgress, progress);
+        }
+      },
+    }),
+);
+```
+
+ainsi que l'import de `handleFetchSession` et, s'il n'est plus utilisé,
+celui de `FetchSessionFormInput`. Ne pas supprimer `IPC.fetchSession` de
+`ipcChannels.ts` : la tâche 4 s'en charge en même temps qu'elle ajoute les
+nouveaux canaux.
+
+L'application n'a donc plus de canal de récupération entre cette tâche et la
+tâche 4. C'est sans conséquence : la fenêtre n'est recâblée qu'à la tâche 5.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/electron/sessionFetchHandler.ts tests/electron/sessionFetchHandler.test.ts
+git add src/electron/sessionFetchHandler.ts src/electron/main.ts tests/electron/sessionFetchHandler.test.ts
 git commit -m "feat: scinde la recuperation de l'ecriture"
 ```
 
@@ -1028,7 +1057,7 @@ import { summarizeSessionFile } from "../sessionList.ts";
 
 (Fusionner les imports venant du même module plutôt que de les répéter.)
 
-Remplacer le `ipcMain.handle(IPC.fetchSession, ...)` par :
+Ajouter les gestionnaires, à l'emplacement du bloc `IPC.fetchSession` supprimé à la tâche 2 :
 
 ```ts
 ipcMain.handle(
