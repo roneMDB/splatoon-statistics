@@ -1,7 +1,7 @@
 /**
  * Pont entre la fenetre et le processus principal.
  *
- * La fenetre n'a aucun acces a Node : elle ne voit que les quatre fonctions
+ * La fenetre n'a aucun acces a Node : elle ne voit que les fonctions
  * exposees ici.
  *
  * Deux contraintes expliquent la forme inhabituelle de ce fichier :
@@ -19,7 +19,11 @@ import { contextBridge, ipcRenderer } from "electron";
 
 const CANAUX = {
   listSessions: "sessions:list",
-  fetchSession: "session:fetch",
+  previewSession: "session:preview",
+  saveSession: "session:save",
+  readSession: "session:read",
+  updateSession: "session:update",
+  deleteSession: "session:delete",
   fetchProgress: "session:fetch-progress",
   choices: "app:choices",
 } as const;
@@ -27,8 +31,19 @@ const CANAUX = {
 contextBridge.exposeInMainWorld("splatoonApi", {
   listSessions: () => ipcRenderer.invoke(CANAUX.listSessions),
 
-  fetchSession: (input: unknown) =>
-    ipcRenderer.invoke(CANAUX.fetchSession, input),
+  previewSession: (input: unknown) =>
+    ipcRenderer.invoke(CANAUX.previewSession, input),
+
+  saveSession: (previewId: string) =>
+    ipcRenderer.invoke(CANAUX.saveSession, previewId),
+
+  readSession: (path: string) => ipcRenderer.invoke(CANAUX.readSession, path),
+
+  updateSession: (input: unknown) =>
+    ipcRenderer.invoke(CANAUX.updateSession, input),
+
+  deleteSession: (path: string) =>
+    ipcRenderer.invoke(CANAUX.deleteSession, path),
 
   choices: () => ipcRenderer.invoke(CANAUX.choices),
 

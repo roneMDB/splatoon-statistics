@@ -26,10 +26,14 @@ describe("preload", () => {
     }
   });
 
-  test("expose les quatre fonctions du pont", () => {
+  test("expose les fonctions du pont", () => {
     for (const fonction of [
       "listSessions",
-      "fetchSession",
+      "previewSession",
+      "saveSession",
+      "readSession",
+      "updateSession",
+      "deleteSession",
       "choices",
       "onFetchProgress",
     ]) {

@@ -11,8 +11,16 @@ import type { SessionType } from "../sessionMeta.ts";
 export const IPC = {
   /** Inventaire des sessions deja ecrites. */
   listSessions: "sessions:list",
-  /** Lance une recuperation et ecrit la session. */
-  fetchSession: "session:fetch",
+  /** Interroge stat.ink sans rien ecrire, et retient l'apercu. */
+  previewSession: "session:preview",
+  /** Ecrit l'apercu retenu. */
+  saveSession: "session:save",
+  /** Relit une session ecrite, matchs compris. */
+  readSession: "session:read",
+  /** Change le nom et le type d'une session ecrite. */
+  updateSession: "session:update",
+  /** Supprime definitivement une session. */
+  deleteSession: "session:delete",
   /** Avancement d'une recuperation en cours, page par page. */
   fetchProgress: "session:fetch-progress",
   /**
@@ -40,11 +48,22 @@ export type FetchSessionFormInput = {
 /** Type du pont expose a la fenetre par le preload. */
 export type SplatoonApi = {
   listSessions: () => Promise<import("../sessionList.ts").ListSessionsResult>;
-  // Canal orphelin entre les taches 2 et 4 : plus aucun cote n'implemente
-  // encore `previewSession`/`saveSession` au bout de ce pont. Le type est
-  // volontairement lache le temps que la tache 4 le recable sur les nouveaux
-  // canaux d'apercu et d'enregistrement.
-  fetchSession: (input: FetchSessionFormInput) => Promise<unknown>;
+  previewSession: (
+    input: FetchSessionFormInput,
+  ) => Promise<import("./sessionFetchHandler.ts").SessionPreview>;
+  saveSession: (
+    previewId: string,
+  ) => Promise<import("../sessionList.ts").SessionSummary>;
+  readSession: (path: string) => Promise<{
+    summary: import("../sessionList.ts").SessionSummary;
+    rows: import("../battleRows.ts").BattleRow[];
+  }>;
+  updateSession: (input: {
+    path: string;
+    name?: string;
+    type?: string;
+  }) => Promise<import("../sessionList.ts").SessionSummary>;
+  deleteSession: (path: string) => Promise<void>;
   /** Renvoie la fonction de desabonnement. */
   onFetchProgress: (
     listener: (progress: import("../fetchSession.ts").FetchPageProgress) => void,
