@@ -12,6 +12,7 @@ import {
   isSessionType,
   promptSessionMeta,
   SESSION_TYPES,
+  type Ask,
   type SessionMeta,
   type SessionType,
 } from "./sessionMeta.ts";
@@ -193,16 +194,40 @@ export async function main(argv: string[]): Promise<void> {
 }
 
 /**
+ * Dependances injectables de `resolveSessionMeta`, pour l'eprouver sans TTY
+ * ni vraie interface readline. Par defaut, `isInteractive` vaut
+ * `process.stdin.isTTY` et `ask` ouvre une interface readline reelle.
+ */
+export type ResolveSessionMetaDeps = {
+  /** Vrai si l'entree est un terminal interactif. */
+  isInteractive?: boolean;
+  /** Fonction de question a utiliser pour le dialogue, si celui-ci s'ouvre. */
+  ask?: Ask;
+};
+
+/**
  * Complete les metadonnees manquantes en interrogeant l'utilisateur. Hors
  * terminal interactif, la session est simplement enregistree sans nom : un
- * defaut de label ne doit pas faire echouer une recuperation scriptee.
+ * defaut de label ne doit pas faire echouer une recuperation scriptee. Un
+ * `--name` vide ou reduit a des espaces compte comme absent, au meme titre
+ * qu'un `--name` non fourni.
  */
-async function resolveSessionMeta(options: CliOptions): Promise<SessionMeta> {
-  if (options.name !== undefined || process.stdin.isTTY !== true) {
-    return { name: options.name, type: options.type };
+export async function resolveSessionMeta(
+  options: CliOptions,
+  deps: ResolveSessionMetaDeps = {},
+): Promise<SessionMeta> {
+  const name = options.name?.trim() || undefined;
+  const isInteractive = deps.isInteractive ?? process.stdin.isTTY === true;
+
+  if (name !== undefined || !isInteractive) {
+    return { name, type: options.type };
   }
 
   console.log("");
+  if (deps.ask !== undefined) {
+    return promptSessionMeta(deps.ask, { type: options.type });
+  }
+
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
     return await promptSessionMeta((question) => rl.question(question), {

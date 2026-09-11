@@ -1,5 +1,24 @@
 import { describe, expect, test } from "vitest";
-import { parseCliArgs } from "../src/cli.ts";
+import { parseCliArgs, resolveSessionMeta, type CliOptions } from "../src/cli.ts";
+import type { SessionWindow } from "../src/window.ts";
+
+/** Options minimales valides, pour ne pas repeter tous les champs dans chaque test. */
+function baseOptions(overrides: Partial<CliOptions> = {}): CliOptions {
+  const window: SessionWindow = {
+    fromMs: Date.UTC(2026, 7, 18, 18, 0, 0),
+    toMs: Date.UTC(2026, 7, 18, 21, 30, 0),
+    paddedFromMs: Date.UTC(2026, 7, 17, 18, 0, 0),
+    paddedToMs: Date.UTC(2026, 7, 19, 21, 30, 0),
+  };
+  return {
+    user: "Gloup",
+    window,
+    filters: {},
+    outDir: "data/sessions",
+    maxPages: 10,
+    ...overrides,
+  };
+}
 
 describe("parseCliArgs", () => {
   test("lit la fenetre depuis --from et --to", () => {
@@ -95,5 +114,71 @@ describe("parseCliArgs, nom et type de session", () => {
 
   test("refuse un type hors liste en listant les valeurs acceptees", () => {
     expect(() => parseCliArgs([...from, "--type", "tournoi"])).toThrow(/intra/);
+  });
+});
+
+describe("resolveSessionMeta", () => {
+  test("--name fourni : aucun dialogue, le nom est repris tel quel", async () => {
+    const ask = () => {
+      throw new Error("le dialogue ne doit pas s'ouvrir");
+    };
+    const options = baseOptions({ name: "Scrim contre Les Corsaires" });
+    const meta = await resolveSessionMeta(options, { isInteractive: true, ask });
+    expect(meta).toEqual({ name: "Scrim contre Les Corsaires", type: undefined });
+  });
+
+  test("--name avec --type : les deux sont repris, toujours sans dialogue", async () => {
+    const ask = () => {
+      throw new Error("le dialogue ne doit pas s'ouvrir");
+    };
+    const options = baseOptions({ name: "Scrim contre Les Corsaires", type: "scrim" });
+    const meta = await resolveSessionMeta(options, { isInteractive: true, ask });
+    expect(meta).toEqual({ name: "Scrim contre Les Corsaires", type: "scrim" });
+  });
+
+  test("pas de --name et entree non interactive : aucun dialogue, aucun nom", async () => {
+    const ask = () => {
+      throw new Error("le dialogue ne doit pas s'ouvrir");
+    };
+    const options = baseOptions();
+    const meta = await resolveSessionMeta(options, { isInteractive: false, ask });
+    expect(meta).toEqual({ name: undefined, type: undefined });
+  });
+
+  test("le type venu de --type est transmis au dialogue, sans etre redemande", async () => {
+    const questions: string[] = [];
+    const ask = async (question: string) => {
+      questions.push(question);
+      return "Scrim contre Les Corsaires";
+    };
+    const options = baseOptions({ type: "scrim" });
+    const meta = await resolveSessionMeta(options, { isInteractive: true, ask });
+    expect(meta).toEqual({ name: "Scrim contre Les Corsaires", type: "scrim" });
+    // Une seule question posee : le type connu ne doit pas etre redemande.
+    expect(questions).toHaveLength(1);
+  });
+
+  test("--name vide ou reduit a des espaces compte comme absent, sans dialogue hors TTY", async () => {
+    const ask = () => {
+      throw new Error("le dialogue ne doit pas s'ouvrir");
+    };
+    const vide = await resolveSessionMeta(baseOptions({ name: "" }), {
+      isInteractive: false,
+      ask,
+    });
+    const espaces = await resolveSessionMeta(baseOptions({ name: "   " }), {
+      isInteractive: false,
+      ask,
+    });
+    expect(vide).toEqual({ name: undefined, type: undefined });
+    expect(espaces).toEqual({ name: undefined, type: undefined });
+  });
+
+  test("--name vide ouvre le dialogue quand l'entree est interactive", async () => {
+    const reponses = ["Nom saisi au dialogue", ""];
+    const ask = async () => reponses.shift() ?? "";
+    const options = baseOptions({ name: "" });
+    const meta = await resolveSessionMeta(options, { isInteractive: true, ask });
+    expect(meta.name).toBe("Nom saisi au dialogue");
   });
 });
