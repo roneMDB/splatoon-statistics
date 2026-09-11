@@ -1,6 +1,32 @@
+import { createInterface } from "node:readline/promises";
+import { Readable, Writable } from "node:stream";
 import { describe, expect, test } from "vitest";
-import { parseCliArgs, resolveSessionMeta, type CliOptions } from "../src/cli.ts";
+import {
+  createReadlineAsk,
+  parseCliArgs,
+  resolveSessionMeta,
+  type CliOptions,
+} from "../src/cli.ts";
 import type { SessionWindow } from "../src/window.ts";
+
+/** Flux de sortie muet : les tests ne doivent rien afficher a l'ecran. */
+function sortieMuette(): Writable {
+  return new Writable({
+    write(_chunk, _encoding, callback) {
+      callback();
+    },
+  });
+}
+
+/** Attend une promesse, ou echoue au bout de `ms` plutot que de rester bloque. */
+function avecDelaiMax<T>(promesse: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promesse,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error(`delai depasse (${ms} ms)`)), ms);
+    }),
+  ]);
+}
 
 /** Options minimales valides, pour ne pas repeter tous les champs dans chaque test. */
 function baseOptions(overrides: Partial<CliOptions> = {}): CliOptions {
@@ -180,5 +206,18 @@ describe("resolveSessionMeta", () => {
     const options = baseOptions({ name: "" });
     const meta = await resolveSessionMeta(options, { isInteractive: true, ask });
     expect(meta.name).toBe("Nom saisi au dialogue");
+  });
+});
+
+describe("createReadlineAsk", () => {
+  test("une entree deja terminee (Ctrl+D) donne une reponse vide au lieu de rester bloquee", async () => {
+    const rl = createInterface({ input: Readable.from([]), output: sortieMuette() });
+    const ask = createReadlineAsk(rl);
+    try {
+      const reponse = await avecDelaiMax(ask("Question : "), 500);
+      expect(reponse).toBe("");
+    } finally {
+      rl.close();
+    }
   });
 });

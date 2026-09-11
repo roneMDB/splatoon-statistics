@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { createInterface } from "node:readline/promises";
+import { createInterface, type Interface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import {
@@ -230,12 +230,32 @@ export async function resolveSessionMeta(
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
-    return await promptSessionMeta((question) => rl.question(question), {
+    return await promptSessionMeta(createReadlineAsk(rl), {
       type: options.type,
     });
   } finally {
     rl.close();
   }
+}
+
+/**
+ * Construit une fonction de question a partir d'une interface readline, en
+ * faisant perdre la promesse de `rl.question()` a une course contre la
+ * fermeture de l'interface. Sans cette course, une entree qui atteint EOF
+ * (Ctrl+D, le reflexe courant pour "je ne veux pas repondre") ne resout ni
+ * ne rejette jamais `rl.question()` : le processus reste suspendu
+ * indefiniment, alors que les matchs deja recuperes ne sont pas encore
+ * ecrits sur disque. La fermeture de l'interface donne alors une reponse
+ * vide, traitee comme une reponse vide ordinaire par `promptSessionMeta`.
+ */
+export function createReadlineAsk(rl: Interface): Ask {
+  return (question) =>
+    Promise.race([
+      rl.question(question),
+      new Promise<string>((resolve) => {
+        rl.once("close", () => resolve(""));
+      }),
+    ]);
 }
 
 /** Recapitulatif minimal, juste pour verifier d'un oeil que c'est la bonne session. */
