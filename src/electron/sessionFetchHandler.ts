@@ -21,11 +21,7 @@ import {
   type FetchSessionDeps,
   type StopReason,
 } from "../fetchSession.ts";
-import {
-  isSessionType,
-  SESSION_TYPES,
-  type SessionType,
-} from "../sessionMeta.ts";
+import { parseSessionType, type SessionType } from "../sessionMeta.ts";
 import {
   summarizeSessionFile,
   tallyResults,
@@ -114,7 +110,7 @@ export async function previewSession(
     throw new Error("Le pseudo stat.ink est vide.");
   }
 
-  const type = parseType(input.type);
+  const type = parseSessionType(input.type, "--type");
   const lobby = parseLobby(input.lobby);
   const maxPages = parseMaxPages(input.maxPages);
   const name = input.name?.trim() || undefined;
@@ -209,18 +205,6 @@ export async function saveSession(
   }
 
   return summarizeSessionFile(file, path);
-}
-
-/** Meme refus, meme message que `--type`. */
-function parseType(value: string | undefined): SessionType | undefined {
-  if (value === undefined || value === "") return undefined;
-  if (!isSessionType(value)) {
-    throw new Error(
-      `Valeur de --type inconnue : "${value}". ` +
-        `Valeurs acceptees : ${SESSION_TYPES.join(", ")}`,
-    );
-  }
-  return value;
 }
 
 /** Meme refus, meme message que `--lobby`. */

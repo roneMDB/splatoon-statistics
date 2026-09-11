@@ -21,6 +21,36 @@ export function isSessionType(value: string): value is SessionType {
   return (SESSION_TYPES as readonly string[]).includes(value);
 }
 
+/**
+ * Convertit une saisie en SessionType, ou refuse avec un message explicite.
+ *
+ * Reunit une validation autrefois dupliquee entre le processus principal
+ * (fenetre d'edition) et l'apercu de recuperation, avec un message legerement
+ * different d'un site a l'autre (« type » contre « --type »). Vivait en
+ * partie dans `main.ts`, qui importe `electron` et ne peut donc rien tester :
+ * une seule regle ici la rend verifiable hors-ligne, et empeche les deux
+ * appelants de deriver encore l'un de l'autre.
+ *
+ * @param value saisie de l'appelant ; vide ou absente si rien n'a ete choisi
+ *   (ni erreur ni type dans ce cas, tel que les deux appelants l'attendent).
+ * @param label mot repris dans le message de refus, propre au contexte de
+ *   l'appelant : "--type" pour la ligne de commande et l'apercu de
+ *   recuperation, "type" (par defaut) pour le formulaire de mise a jour.
+ */
+export function parseSessionType(
+  value: string | undefined,
+  label = "type",
+): SessionType | undefined {
+  if (value === undefined || value === "") return undefined;
+  if (!isSessionType(value)) {
+    throw new Error(
+      `Valeur de ${label} inconnue : "${value}". ` +
+        `Valeurs acceptees : ${SESSION_TYPES.join(", ")}`,
+    );
+  }
+  return value;
+}
+
 const NAME_QUESTION = "Nom de la session : ";
 const TYPE_QUESTION = `Type [${SESSION_TYPES.join("/")}, Entree pour aucun] : `;
 

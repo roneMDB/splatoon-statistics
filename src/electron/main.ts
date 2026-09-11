@@ -19,11 +19,7 @@ import {
   updateSessionMeta,
 } from "../sessionList.ts";
 import { toBattleRows } from "../battleRows.ts";
-import {
-  isSessionType,
-  SESSION_TYPES,
-  type SessionType,
-} from "../sessionMeta.ts";
+import { parseSessionType, SESSION_TYPES } from "../sessionMeta.ts";
 import { KNOWN_LOBBIES } from "../statink/url.ts";
 import { IPC, type FetchSessionFormInput } from "./ipcChannels.ts";
 
@@ -88,7 +84,7 @@ ipcMain.handle(
   (_event, input: { path: string; name?: string; type?: string }) =>
     updateSessionMeta(input.path, {
       name: input.name,
-      type: input.type === undefined || input.type === "" ? undefined : parseTypeRecu(input.type),
+      type: parseSessionType(input.type),
     }),
 );
 
@@ -106,14 +102,3 @@ void app.whenReady().then(() => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
-
-/** Le type vient de la fenetre : il est valide avant d'atteindre le fichier. */
-function parseTypeRecu(value: string): SessionType {
-  if (!isSessionType(value)) {
-    throw new Error(
-      `Valeur de type inconnue : "${value}". ` +
-        `Valeurs acceptees : ${SESSION_TYPES.join(", ")}`,
-    );
-  }
-  return value;
-}

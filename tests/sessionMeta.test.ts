@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { isSessionType, promptSessionMeta, SESSION_TYPES } from "../src/sessionMeta.ts";
+import {
+  isSessionType,
+  parseSessionType,
+  promptSessionMeta,
+  SESSION_TYPES,
+} from "../src/sessionMeta.ts";
 
 /** Repond aux questions dans l'ordre, et retient ce qui a ete demande. */
 const scriptedAsk = (answers: string[]) => {
@@ -26,6 +31,32 @@ describe("isSessionType", () => {
   test("refuse une valeur hors liste", () => {
     expect(isSessionType("tournoi")).toBe(false);
     expect(isSessionType("")).toBe(false);
+  });
+});
+
+describe("parseSessionType", () => {
+  test("accepte une valeur de la liste fermee", () => {
+    for (const value of SESSION_TYPES) {
+      expect(parseSessionType(value)).toBe(value);
+    }
+  });
+
+  test("traite une valeur absente ou vide comme aucun type, tel que les appelants actuels l'attendent", () => {
+    expect(parseSessionType(undefined)).toBeUndefined();
+    expect(parseSessionType("")).toBeUndefined();
+  });
+
+  test("refuse une valeur hors liste, avec le mot du contexte de l'appelant dans le message", () => {
+    expect(() => parseSessionType("tournoi", "--type")).toThrow(
+      /Valeur de --type inconnue : "tournoi"\. Valeurs acceptees : intra, scrim, compet, autre/,
+    );
+    expect(() => parseSessionType("tournoi", "type")).toThrow(
+      /Valeur de type inconnue : "tournoi"\. Valeurs acceptees : intra, scrim, compet, autre/,
+    );
+  });
+
+  test("utilise \"type\" par defaut quand aucun mot de contexte n'est fourni", () => {
+    expect(() => parseSessionType("tournoi")).toThrow(/Valeur de type inconnue/);
   });
 });
 

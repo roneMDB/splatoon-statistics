@@ -13,6 +13,77 @@ const preloadPath = fileURLToPath(
 );
 const preload = await readFile(preloadPath, "utf8");
 
+/**
+ * Fonctions exposees par le pont, avec la cle de IPC qu'elles sont censees
+ * invoquer. Identique au nom de la fonction, sauf `onFetchProgress` : le
+ * prefixe `on` note un abonnement, la cle du canal reste `fetchProgress`.
+ */
+const FONCTIONS = [
+  ["listSessions", "listSessions"],
+  ["previewSession", "previewSession"],
+  ["saveSession", "saveSession"],
+  ["readSession", "readSession"],
+  ["updateSession", "updateSession"],
+  ["deleteSession", "deleteSession"],
+  ["choices", "choices"],
+  ["onFetchProgress", "fetchProgress"],
+] as const satisfies ReadonlyArray<readonly [string, keyof typeof IPC]>;
+
+/**
+ * Lit le bloc `const CANAUX = { ... } as const;` et rend la table nom ->
+ * valeur de canal qu'il redeclare. Sert a resoudre une reference
+ * `CANAUX.xxx` trouvee plus loin dans le fichier vers sa vraie valeur.
+ */
+function canauxRedeclares(source: string): Record<string, string> {
+  const bloc = source.match(/const CANAUX = \{([\s\S]*?)\}\s*as const;/);
+  const corps = bloc?.[1];
+  if (corps === undefined) {
+    throw new Error("Bloc CANAUX introuvable dans le preload.");
+  }
+  const table: Record<string, string> = {};
+  for (const paire of corps.matchAll(/(\w+):\s*"([^"]+)"/g)) {
+    const nom = paire[1];
+    const valeur = paire[2];
+    if (nom === undefined || valeur === undefined) continue;
+    table[nom] = valeur;
+  }
+  return table;
+}
+
+/**
+ * Decoupe le fichier en segments, un par fonction exposee : de son nom a
+ * celui de la fonction suivante (ou la fin du fichier). Insensible a l'ordre
+ * et a la mise en forme (saut de ligne, espace) puisqu'il ne cherche que les
+ * bornes `nomDeFonction:`.
+ */
+function segmentsParFonction(source: string): Map<string, string> {
+  // Les noms de fonction (listSessions, previewSession, ...) sont aussi les
+  // cles du bloc CANAUX plus haut dans le fichier : il faut chercher leurs
+  // bornes uniquement a partir de l'objet expose, sous peine de decouper le
+  // bloc CANAUX au lieu des fonctions elles-memes.
+  const debutExpose = source.indexOf("exposeInMainWorld(");
+  if (debutExpose === -1) {
+    throw new Error("Appel a exposeInMainWorld introuvable dans le preload.");
+  }
+  const expose = source.slice(debutExpose);
+
+  const positions = FONCTIONS.map(([nom]) => {
+    const trouve = new RegExp(`\\b${nom}:`).exec(expose);
+    if (!trouve) {
+      throw new Error(`Fonction "${nom}" introuvable dans le preload.`);
+    }
+    return { nom, index: trouve.index };
+  }).sort((a, b) => a.index - b.index);
+
+  const segments = new Map<string, string>();
+  positions.forEach(({ nom, index }, i) => {
+    const suivante = positions[i + 1];
+    const fin = suivante !== undefined ? suivante.index : expose.length;
+    segments.set(nom, expose.slice(index, fin));
+  });
+  return segments;
+}
+
 describe("preload", () => {
   test("n'importe rien d'autre qu'electron", () => {
     const imports = preload.match(/^import .*/gm) ?? [];
@@ -27,17 +98,41 @@ describe("preload", () => {
   });
 
   test("expose les fonctions du pont", () => {
-    for (const fonction of [
-      "listSessions",
-      "previewSession",
-      "saveSession",
-      "readSession",
-      "updateSession",
-      "deleteSession",
-      "choices",
-      "onFetchProgress",
-    ]) {
+    for (const [fonction] of FONCTIONS) {
       expect(preload).toContain(`${fonction}:`);
+    }
+  });
+
+  test("chaque fonction invoque le canal IPC qui porte son nom", () => {
+    // Ne suffit pas que chaque canal et chaque nom de fonction figurent
+    // quelque part dans le fichier (les tests precedents) : il faut que
+    // CHAQUE fonction invoque LE canal qui lui correspond. Un pont mal cable
+    // (ex : previewSession invoquant CANAUX.saveSession) passerait les tests
+    // ci-dessus sans broncher, puisque toutes les chaines attendues
+    // resteraient presentes ailleurs dans le fichier.
+    const table = canauxRedeclares(preload);
+    const segments = segmentsParFonction(preload);
+
+    for (const [fonction, cleAttendue] of FONCTIONS) {
+      const segment = segments.get(fonction)!;
+      const reference = segment.match(/CANAUX\.(\w+)/);
+      const cle = reference?.[1];
+      expect(
+        cle,
+        `la fonction "${fonction}" n'invoque aucun CANAUX.xxx`,
+      ).toBeDefined();
+
+      const valeurInvoquee = cle === undefined ? undefined : table[cle];
+      expect(
+        valeurInvoquee,
+        `la fonction "${fonction}" invoque "CANAUX.${cle}", absent du bloc CANAUX`,
+      ).toBeDefined();
+
+      expect(
+        valeurInvoquee,
+        `la fonction "${fonction}" invoque le canal "${valeurInvoquee}" ` +
+          `("CANAUX.${cle}") au lieu du canal "${IPC[cleAttendue]}" attendu`,
+      ).toBe(IPC[cleAttendue]);
     }
   });
 });
