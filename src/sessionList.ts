@@ -5,12 +5,14 @@
  * session, sans garder les matchs en memoire une fois le bilan calcule.
  */
 
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readdir, readFile, realpath, rm } from "node:fs/promises";
+import { join, resolve, sep } from "node:path";
 import { DEFAULT_OUT_DIR } from "./config.ts";
 import type { SessionType } from "./sessionMeta.ts";
 import type { StatinkBattle } from "./statink/types.ts";
+import { buildSessionFile, sessionWindowOf, writeSession } from "./store.ts";
 import type { SessionFile } from "./store.ts";
+import type { BattleFilters } from "./statink/url.ts";
 
 /** Bilan d'une session : victoires, defaites, egalites. */
 export type SessionResults = {
@@ -136,4 +138,85 @@ function parseSessionFile(raw: string): SessionFile {
   }
 
   return file as SessionFile;
+}
+
+/**
+ * Refuse tout chemin qui sort du dossier des sessions.
+ *
+ * La fenetre envoie ce chemin : sans ce controle, un rendu compromis ferait
+ * lire ou supprimer n'importe quel fichier accessible a l'utilisateur.
+ *
+ * Le controle syntaxique (`startsWith`/`endsWith`) ne suffit pas seul : un
+ * lien symbolique depose dans le dossier des sessions et pointant ailleurs le
+ * traverserait sans etre detecte. On resout donc aussi la cible reelle ; un
+ * fichier absent (erreur ENOENT) n'est pas refuse ici, `readFile`/`rm` en
+ * aval le signaleront a leur maniere.
+ */
+async function cheminDeSession(path: string, outDir: string): Promise<string> {
+  const resolu = resolve(path);
+  const racine = resolve(outDir);
+  if (!resolu.startsWith(racine + sep) || !resolu.endsWith(".json")) {
+    throw new Error(`Chemin de session refuse : ${path}`);
+  }
+
+  try {
+    const reel = await realpath(resolu);
+    if (!reel.startsWith(racine + sep)) {
+      throw new Error(`Chemin de session refuse : ${path}`);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  return resolu;
+}
+
+/** Lit une session complete, matchs compris. */
+export async function readSession(
+  path: string,
+  outDir: string = DEFAULT_OUT_DIR,
+): Promise<SessionFile> {
+  const resolu = await cheminDeSession(path, outDir);
+  return parseSessionFile(await readFile(resolu, "utf8"));
+}
+
+/**
+ * Change le nom et le type d'une session ecrite.
+ *
+ * Le fichier est reconstruit par `buildSessionFile` plutot que retouche : le
+ * format et l'ordre des cles restent identiques a l'ecriture initiale.
+ * `fetchedAt` est repris tel quel, c'est la recuperation qui date le fichier.
+ * Le nom de fichier ne depend que du compte et de la fenetre : il ne bouge pas.
+ */
+export async function updateSessionMeta(
+  path: string,
+  meta: { name?: string; type?: SessionType },
+  outDir: string = DEFAULT_OUT_DIR,
+): Promise<SessionSummary> {
+  const resolu = await cheminDeSession(path, outDir);
+  const file = parseSessionFile(await readFile(resolu, "utf8"));
+
+  const reconstruit = buildSessionFile({
+    user: file.user,
+    name: meta.name,
+    type: meta.type,
+    window: sessionWindowOf(file),
+    // Le fichier stocke les filtres a plat ; ils repartent tels quels.
+    filters: file.filters as BattleFilters,
+    battles: file.battles,
+    fetchedAt: new Date(file.fetchedAt),
+  });
+
+  const ecrit = await writeSession(reconstruit, outDir);
+  return summarizeSessionFile(reconstruit, ecrit);
+}
+
+/** Supprime definitivement une session. */
+export async function deleteSession(
+  path: string,
+  outDir: string = DEFAULT_OUT_DIR,
+): Promise<void> {
+  await rm(await cheminDeSession(path, outDir));
 }

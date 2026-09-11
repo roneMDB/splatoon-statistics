@@ -97,13 +97,16 @@ export async function writeSession(
   outDir: string,
 ): Promise<string> {
   await mkdir(outDir, { recursive: true });
-  const path = join(outDir, buildSessionFileName(file.user, windowOf(file)));
+  const path = join(outDir, buildSessionFileName(file.user, sessionWindowOf(file)));
   await writeFile(path, `${JSON.stringify(file, null, 2)}\n`, "utf8");
   return path;
 }
 
-/** Reconstitue les bornes locales depuis le fichier, pour nommer le fichier. */
-function windowOf(file: SessionFile): SessionWindow {
+/**
+ * Reconstitue les bornes d'une session depuis son fichier. Exporte parce que
+ * modifier une session passe par `buildSessionFile`, qui en a besoin.
+ */
+export function sessionWindowOf(file: SessionFile): SessionWindow {
   const fromMs = Date.parse(file.window.from);
   const toMs = Date.parse(file.window.to);
   return { fromMs, toMs, paddedFromMs: fromMs, paddedToMs: toMs };

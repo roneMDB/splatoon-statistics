@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  deleteSession,
   listSessions,
+  readSession,
   summarizeSessionFile,
   tallyResults,
+  updateSessionMeta,
 } from "../src/sessionList.ts";
 import { buildSessionFile, writeSession } from "../src/store.ts";
 import { buildWindow } from "../src/window.ts";
@@ -205,5 +208,154 @@ describe("listSessions", () => {
 
     expect(sessions).toHaveLength(1);
     expect(errors).toEqual([]);
+  });
+});
+
+describe("garde de chemin", () => {
+  test("refuse un chemin hors du dossier des sessions", async () => {
+    const dir = await tempDir();
+
+    await expect(readSession("/etc/passwd.json", dir)).rejects.toThrow(/refuse/i);
+    await expect(deleteSession("/etc/passwd.json", dir)).rejects.toThrow(/refuse/i);
+  });
+
+  test("refuse une evasion par ..", async () => {
+    const dir = await tempDir();
+    const evasion = join(dir, "..", "ailleurs.json");
+
+    await expect(readSession(evasion, dir)).rejects.toThrow(/refuse/i);
+  });
+
+  test("refuse un fichier qui n'est pas un .json", async () => {
+    const dir = await tempDir();
+
+    await expect(readSession(join(dir, "notes.txt"), dir)).rejects.toThrow(/refuse/i);
+  });
+
+  test("refuse un lien symbolique qui pointe hors du dossier des sessions", async () => {
+    const dir = await tempDir();
+    const ailleurs = await tempDir();
+    const cible = join(ailleurs, "secret.json");
+    await writeFile(cible, '{"quelque":"chose"}', "utf8");
+    const lien = join(dir, "session.json");
+    await symlink(cible, lien);
+
+    await expect(readSession(lien, dir)).rejects.toThrow(/refuse/i);
+    await expect(deleteSession(lien, dir)).rejects.toThrow(/refuse/i);
+  });
+});
+
+describe("readSession", () => {
+  test("rend la session complete, matchs compris", async () => {
+    const dir = await tempDir();
+    const path = await ecrisSession(dir, {
+      name: "Scrim contre Les Corsaires",
+      from: "2026-08-19 20:00",
+      to: "2026-08-19 22:00",
+      battles: [battle("a", "win"), battle("b", "lose")],
+    });
+
+    const file = await readSession(path, dir);
+
+    expect(file.name).toBe("Scrim contre Les Corsaires");
+    expect(file.battles).toHaveLength(2);
+  });
+
+  test("echoue clairement sur un fichier absent", async () => {
+    const dir = await tempDir();
+
+    await expect(readSession(join(dir, "jamais-ecrit.json"), dir)).rejects.toThrow();
+  });
+});
+
+describe("updateSessionMeta", () => {
+  test("change le nom et le type sans toucher au reste", async () => {
+    const dir = await tempDir();
+    const path = await ecrisSession(dir, {
+      name: "faute de frappe",
+      type: "intra",
+      from: "2026-08-19 20:00",
+      to: "2026-08-19 22:00",
+      battles: [battle("a", "win")],
+    });
+
+    const resume = await updateSessionMeta(
+      path,
+      { name: "Intra Équipe A vs Équipe N", type: "scrim" },
+      dir,
+    );
+
+    expect(resume.name).toBe("Intra Équipe A vs Équipe N");
+    expect(resume.type).toBe("scrim");
+    expect(resume.path).toBe(path);
+
+    const relu = await readSession(path, dir);
+    expect(relu.battles).toHaveLength(1);
+    expect(relu.window.from).toBe("2026-08-19T18:00:00.000Z");
+  });
+
+  test("preserve fetchedAt : c'est la recuperation qui date le fichier", async () => {
+    const dir = await tempDir();
+    const path = await ecrisSession(dir, {
+      name: "avant",
+      from: "2026-08-19 20:00",
+      to: "2026-08-19 22:00",
+    });
+    const avant = (await readSession(path, dir)).fetchedAt;
+
+    await updateSessionMeta(path, { name: "apres" }, dir);
+
+    expect((await readSession(path, dir)).fetchedAt).toBe(avant);
+  });
+
+  test("traite un nom vide comme une suppression du nom", async () => {
+    const dir = await tempDir();
+    const path = await ecrisSession(dir, {
+      name: "a effacer",
+      from: "2026-08-19 20:00",
+      to: "2026-08-19 22:00",
+    });
+
+    const resume = await updateSessionMeta(path, { name: "   " }, dir);
+
+    expect(resume.name).toBeUndefined();
+    expect(Object.keys(await readSession(path, dir))).not.toContain("name");
+  });
+
+  test("n'ecrit pas un second fichier : le nom ne depend pas du label", async () => {
+    const dir = await tempDir();
+    const path = await ecrisSession(dir, {
+      name: "premier nom",
+      from: "2026-08-19 20:00",
+      to: "2026-08-19 22:00",
+    });
+
+    await updateSessionMeta(path, { name: "tout autre nom" }, dir);
+
+    const { sessions } = await listSessions(dir);
+    expect(sessions).toHaveLength(1);
+  });
+});
+
+describe("deleteSession", () => {
+  test("retire la session de l'inventaire", async () => {
+    const dir = await tempDir();
+    const path = await ecrisSession(dir, {
+      name: "a jeter",
+      from: "2026-08-19 20:00",
+      to: "2026-08-19 22:00",
+    });
+    await ecrisSession(dir, { name: "a garder", from: "2026-08-20 20:00", to: "2026-08-20 22:00" });
+
+    await deleteSession(path, dir);
+
+    const { sessions } = await listSessions(dir);
+    expect(sessions.map((session) => session.name)).toEqual(["a garder"]);
+  });
+
+  test("echoue sur un fichier absent plutot que de faire semblant", async () => {
+    const dir = await tempDir();
+
+    await expect(deleteSession(join(dir, "jamais-ecrit.json"), dir)).rejects.toThrow();
   });
 });
