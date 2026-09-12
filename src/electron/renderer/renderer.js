@@ -5,6 +5,8 @@
  * build. Il n'a acces qu'a `window.splatoonApi`, expose par le preload.
  */
 
+import { construisLeRendu } from "./markdown.js";
+
 const api = window.splatoonApi;
 
 const elements = {
@@ -33,6 +35,25 @@ const elements = {
   boutonAnnuler: document.getElementById("bouton-annuler"),
   ficheNom: document.getElementById("fiche-nom"),
   ficheType: document.getElementById("fiche-type"),
+  ficheObjectif: document.getElementById("fiche-objectif"),
+  ficheRessenti: document.getElementById("fiche-ressenti"),
+  compteRenduSections: document.getElementById("compte-rendu-sections"),
+  compteRenduTexte: document.getElementById("compte-rendu-texte"),
+  boutonGenerer: document.getElementById("bouton-generer"),
+  boutonCopier: document.getElementById("bouton-copier"),
+  compteRenduOnglets: document.getElementById("compte-rendu-onglets"),
+  compteRenduApercu: document.getElementById("compte-rendu-apercu"),
+  ongletApercu: document.getElementById("onglet-apercu"),
+  ongletMarkdown: document.getElementById("onglet-markdown"),
+  vueManche: document.getElementById("vue-manche"),
+  manchePosition: document.getElementById("manche-position"),
+  mancheResume: document.getElementById("manche-resume"),
+  mancheMedailles: document.getElementById("manche-medailles"),
+  mancheEquipes: document.getElementById("manche-equipes"),
+  boutonManchePrecedente: document.getElementById("bouton-manche-precedente"),
+  boutonMancheSuivante: document.getElementById("bouton-manche-suivante"),
+  boutonMancheRetour: document.getElementById("bouton-manche-retour"),
+  boutonMancheStatink: document.getElementById("bouton-manche-statink"),
   ficheResume: document.getElementById("fiche-resume"),
   ficheMatchs: document.getElementById("fiche-matchs"),
   boutonFicheEnregistrer: document.getElementById("bouton-fiche-enregistrer"),
@@ -45,20 +66,40 @@ function montreLaVue(nom) {
   elements.vueFormulaire.hidden = nom !== "formulaire";
   elements.vueApercu.hidden = nom !== "apercu";
   elements.vueFiche.hidden = nom !== "fiche";
+  elements.vueManche.hidden = nom !== "manche";
 }
 
-/** Tableau des matchs, partage par l'apercu et la fiche. */
-function construisLesMatchs(rows) {
-  return rows.map((row) => {
+/**
+ * Tableau des matchs, partage par l'apercu et la fiche.
+ *
+ * `ouvrable` n'est vrai que dans la fiche : l'apercu d'une recuperation n'a pas
+ * encore de fichier sur disque, donc pas de manche a relire.
+ */
+function construisLesMatchs(rows, ouvrable = false) {
+  return rows.map((row, index) => {
     const ligne = document.createElement("div");
     ligne.className = `match match--${row.result ?? "inconnu"}`;
+    if (ouvrable) {
+      ligne.classList.add("match--ouvrable");
+      ligne.setAttribute("role", "button");
+      ligne.setAttribute("tabindex", "0");
+      ligne.addEventListener("click", () => ouvreLaManche(index));
+      ligne.addEventListener("keydown", (evenement) => {
+        if (evenement.key === "Enter" || evenement.key === " ") {
+          evenement.preventDefault();
+          ouvreLaManche(index);
+        }
+      });
+    }
     const heure = row.startedAt
       ? new Date(row.startedAt).toLocaleTimeString("fr-FR", {
           hour: "2-digit",
           minute: "2-digit",
         })
       : "—";
-    for (const valeur of [heure, row.rule ?? "—", row.stage ?? "—", row.result ?? "—"]) {
+    // `row.result` reste la cle de mise en forme (classe CSS ci-dessus) ;
+    // c'est `row.resultLabel` qui porte le libelle francais.
+    for (const valeur of [heure, row.rule ?? "—", row.stage ?? "—", row.resultLabel ?? "—"]) {
       const cellule = document.createElement("span");
       cellule.textContent = valeur;
       ligne.append(cellule);
@@ -127,6 +168,17 @@ async function chargeLesChoix() {
     elements.ficheType.append(new Option(type, type));
   }
 
+  for (const section of choix.reportSections) {
+    const etiquette = document.createElement("label");
+    etiquette.className = "section";
+    const case_ = document.createElement("input");
+    case_.type = "checkbox";
+    case_.value = section.cle;
+    case_.checked = true;
+    etiquette.append(case_, document.createTextNode(` ${section.libelle}`));
+    elements.compteRenduSections.append(etiquette);
+  }
+
   elements.lobby.append(new Option("— tous —", ""));
   for (const lobby of choix.lobbies) {
     elements.lobby.append(new Option(lobby, lobby));
@@ -156,10 +208,15 @@ async function ouvreLaFiche(session) {
     ficheCourante = summary;
     elements.ficheNom.value = summary.name ?? "";
     elements.ficheType.value = summary.type ?? "";
+    elements.ficheObjectif.value = summary.objectif ?? "";
+    elements.ficheRessenti.value = summary.ressenti ?? "";
+    // Un compte rendu affiche appartient a la session precedente : on le vide.
+    cacheLeCompteRendu();
     elements.ficheResume.textContent =
       `${formateLaDate(summary.window.from)} → ${formateLaDate(summary.window.to)}\n` +
       `${summary.battleCount} match(s) — ${summary.results.win}V - ${summary.results.lose}D`;
-    elements.ficheMatchs.replaceChildren(...construisLesMatchs(rows));
+    manchesCourantes = rows;
+    elements.ficheMatchs.replaceChildren(...construisLesMatchs(rows, true));
     montreLaVue("fiche");
   } catch (erreur) {
     bandeau(elements.erreur, String(erreur?.message ?? erreur));
@@ -256,6 +313,11 @@ function verrouilleLeFormulaire(verrouille) {
 /** Apercu en cours, consomme par l'enregistrement ; session ouverte dans la fiche. */
 let apercuCourant;
 let ficheCourante;
+/** Lignes de la session ouverte, et rang de la manche affichee. */
+let manchesCourantes = [];
+let rangDeLaManche = -1;
+/** Detail affiche, pour savoir quel lien stat.ink ouvrir. */
+let mancheCourante;
 
 elements.formulaire.addEventListener("submit", async (evenement) => {
   evenement.preventDefault();
@@ -340,6 +402,8 @@ elements.boutonFicheEnregistrer.addEventListener("click", async () => {
       path: ficheCourante.path,
       name: elements.ficheNom.value.trim() || undefined,
       type: elements.ficheType.value || undefined,
+      objectif: elements.ficheObjectif.value.trim() || undefined,
+      ressenti: elements.ficheRessenti.value.trim() || undefined,
     });
     // Sans cela, la fiche garde le resume perime : une confirmation de
     // suppression juste apres un renommage afficherait encore l'ancien nom.
@@ -371,6 +435,229 @@ elements.boutonSupprimer.addEventListener("click", async () => {
     bandeau(elements.erreur, String(erreur?.message ?? erreur));
   } finally {
     elements.boutonSupprimer.disabled = false;
+  }
+});
+
+/** Une ligne « libellé : valeur », brique des blocs de la vue manche. */
+function ligneDeJoueur(joueur) {
+  const bloc = document.createElement("div");
+  bloc.className = joueur.moi ? "joueur joueur--moi" : "joueur";
+
+  const entete = document.createElement("div");
+  entete.className = "joueur__entete";
+
+  const nom = document.createElement("b");
+  nom.textContent = joueur.moi ? `→ ${joueur.nom}` : joueur.nom;
+  entete.append(nom);
+
+  const arme = document.createElement("span");
+  arme.className = "joueur__arme";
+  arme.textContent = joueur.arme;
+  entete.append(arme);
+
+  const chiffres = document.createElement("span");
+  chiffres.className = "joueur__chiffres";
+  chiffres.textContent =
+    `${joueur.kill} élim. · ${joueur.assist} assist. · ${joueur.death} morts · ` +
+    `${joueur.special} spé · ${joueur.inked} encre`;
+  entete.append(chiffres);
+
+  if (joueur.deconnecte) {
+    const deco = document.createElement("span");
+    deco.className = "joueur__deco";
+    deco.textContent = "déconnecté";
+    entete.append(deco);
+  }
+
+  bloc.append(entete);
+
+  for (const piece of joueur.equipement) {
+    const ligne = document.createElement("div");
+    ligne.className = "joueur__gear";
+    const nomPiece = document.createElement("span");
+    nomPiece.className = "joueur__piece";
+    nomPiece.textContent = piece.piece;
+    ligne.append(nomPiece, document.createTextNode(piece.capacites.join(" · ")));
+    bloc.append(ligne);
+  }
+
+  return bloc;
+}
+
+/** Un camp : son titre et ses joueurs. */
+function construisUneEquipe(titre, joueurs) {
+  const section = document.createElement("section");
+  section.className = "equipe";
+  const entete = document.createElement("h4");
+  entete.textContent = titre;
+  section.append(entete, ...joueurs.map(ligneDeJoueur));
+  return section;
+}
+
+/** Affiche le detail d'une manche de la session ouverte, par son rang. */
+async function ouvreLaManche(rang) {
+  if (ficheCourante === undefined) return;
+  const row = manchesCourantes[rang];
+  if (row === undefined) return;
+
+  cacheLesBandeaux();
+  try {
+    const detail = await api.readBattle({ path: ficheCourante.path, uuid: row.uuid });
+    mancheCourante = detail;
+    rangDeLaManche = rang;
+
+    elements.manchePosition.textContent =
+      `Manche ${rang + 1} / ${manchesCourantes.length}`;
+
+    const heure = detail.startedAt
+      ? new Date(detail.startedAt).toLocaleTimeString("fr-FR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "—";
+    const score =
+      detail.score === undefined
+        ? ""
+        : ` ${detail.score.nous}-${detail.score.eux}${detail.score.unite === "%" ? " %" : ""}`;
+    const duree =
+      detail.dureeSecondes === undefined
+        ? ""
+        : ` · ${Math.floor(detail.dureeSecondes / 60)} min ${String(detail.dureeSecondes % 60).padStart(2, "0")}`;
+    elements.mancheResume.textContent =
+      `${heure} · ${detail.rule} · ${detail.stage}
+` +
+      `${detail.resultLabel ?? "—"}${score}${duree}${detail.ko ? " · KO" : ""}`;
+
+    bandeau(
+      elements.mancheMedailles,
+      detail.medailles.length ? `🏅 ${detail.medailles.join(" · ")}` : "",
+    );
+
+    elements.mancheEquipes.replaceChildren(
+      construisUneEquipe("Nous", detail.nous),
+      construisUneEquipe("Eux", detail.eux),
+    );
+
+    elements.boutonManchePrecedente.disabled = rang === 0;
+    elements.boutonMancheSuivante.disabled = rang === manchesCourantes.length - 1;
+    elements.boutonMancheStatink.hidden = !detail.url;
+
+    montreLaVue("manche");
+  } catch (erreur) {
+    bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  }
+}
+
+elements.boutonManchePrecedente.addEventListener("click", () => {
+  ouvreLaManche(rangDeLaManche - 1);
+});
+
+elements.boutonMancheSuivante.addEventListener("click", () => {
+  ouvreLaManche(rangDeLaManche + 1);
+});
+
+elements.boutonMancheRetour.addEventListener("click", () => {
+  mancheCourante = undefined;
+  rangDeLaManche = -1;
+  montreLaVue("fiche");
+});
+
+elements.boutonMancheStatink.addEventListener("click", async () => {
+  if (mancheCourante === undefined || !mancheCourante.url) return;
+  cacheLesBandeaux();
+  elements.boutonMancheStatink.disabled = true;
+  try {
+    const issue = await api.openExternal(mancheCourante.url);
+    // Le processus principal a copie le lien faute de pouvoir l'ouvrir : soit
+    // xdg-open manque, soit aucun navigateur n'est atteignable - le cas normal
+    // sous WSL, ou le navigateur vit du cote Windows.
+    if (issue === "copie") {
+      bandeau(
+        elements.avertissement,
+        "Aucun navigateur n'est accessible depuis cette machine. L'adresse a été " +
+          "copiée dans le presse-papier. Pour ouvrir les liens directement, " +
+          "renseignez la variable BROWSER ou installez wslu.",
+      );
+    }
+  } catch (erreur) {
+    bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  } finally {
+    elements.boutonMancheStatink.disabled = false;
+  }
+});
+
+/** Bascule entre l'apercu rendu et le Markdown source. */
+function montreLOnglet(nom) {
+  const apercu = nom === "apercu";
+  elements.ongletApercu.setAttribute("aria-selected", String(apercu));
+  elements.ongletMarkdown.setAttribute("aria-selected", String(!apercu));
+  elements.compteRenduApercu.hidden = !apercu;
+  elements.compteRenduTexte.hidden = apercu;
+}
+
+elements.ongletApercu.addEventListener("click", () => montreLOnglet("apercu"));
+elements.ongletMarkdown.addEventListener("click", () => montreLOnglet("markdown"));
+
+/** Sections cochees, dans l'ordre du document. */
+function sectionsChoisies() {
+  return [...elements.compteRenduSections.querySelectorAll("input:checked")].map(
+    (case_) => case_.value,
+  );
+}
+
+/** Remet le compte rendu a zero : rien a copier tant que rien n'est genere. */
+function cacheLeCompteRendu() {
+  elements.compteRenduTexte.value = "";
+  elements.compteRenduTexte.hidden = true;
+  elements.compteRenduApercu.replaceChildren();
+  elements.compteRenduApercu.hidden = true;
+  elements.compteRenduOnglets.hidden = true;
+  elements.boutonCopier.disabled = true;
+}
+
+elements.boutonGenerer.addEventListener("click", async () => {
+  if (ficheCourante === undefined) return;
+  cacheLesBandeaux();
+
+  const sections = sectionsChoisies();
+  if (sections.length === 0) {
+    bandeau(elements.avertissement, "Cochez au moins une section.");
+    return;
+  }
+
+  elements.boutonGenerer.disabled = true;
+  try {
+    const texte = await api.buildReport({
+      path: ficheCourante.path,
+      sections,
+      // La saisie en cours prime sur ce qui est enregistre : on peut relire un
+      // compte rendu avant de decider de garder l'objectif qu'on vient d'ecrire.
+      objectif: elements.ficheObjectif.value.trim(),
+      ressenti: elements.ficheRessenti.value.trim(),
+    });
+    elements.compteRenduTexte.value = texte;
+    elements.compteRenduApercu.replaceChildren(construisLeRendu(texte));
+    elements.compteRenduOnglets.hidden = false;
+    montreLOnglet("apercu");
+    elements.boutonCopier.disabled = false;
+  } catch (erreur) {
+    cacheLeCompteRendu();
+    bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  } finally {
+    elements.boutonGenerer.disabled = false;
+  }
+});
+
+elements.boutonCopier.addEventListener("click", async () => {
+  cacheLesBandeaux();
+  elements.boutonCopier.disabled = true;
+  try {
+    await api.copyToClipboard(elements.compteRenduTexte.value);
+    bandeau(elements.succes, "Compte rendu copié — prêt à coller dans Discord.");
+  } catch (erreur) {
+    bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  } finally {
+    elements.boutonCopier.disabled = false;
   }
 });
 

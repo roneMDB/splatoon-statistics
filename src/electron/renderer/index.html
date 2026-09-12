@@ -88,6 +88,23 @@
             <label for="fiche-type">Type</label>
             <select id="fiche-type"></select>
           </div>
+          <div class="champ">
+            <label for="fiche-objectif">Objectif de la session</label>
+            <input
+              type="text"
+              id="fiche-objectif"
+              placeholder="Tenir le rôle de support"
+              autocomplete="off"
+            />
+          </div>
+          <div class="champ">
+            <label for="fiche-ressenti">Ressenti</label>
+            <textarea
+              id="fiche-ressenti"
+              rows="3"
+              placeholder="Ce que les chiffres ne disent pas."
+            ></textarea>
+          </div>
           <p class="resume" id="fiche-resume"></p>
           <div class="matchs" id="fiche-matchs"></div>
           <div class="actions">
@@ -95,6 +112,70 @@
             <button type="button" class="bouton--danger" id="bouton-supprimer">Supprimer</button>
             <button type="button" class="bouton--discret" id="bouton-retour">Retour</button>
           </div>
+
+          <section class="compte-rendu" aria-labelledby="titre-compte-rendu">
+            <h3 id="titre-compte-rendu">Compte rendu</h3>
+            <fieldset class="sections">
+              <legend>Sections à inclure</legend>
+              <div id="compte-rendu-sections"></div>
+            </fieldset>
+            <div class="actions">
+              <button type="button" id="bouton-generer">Générer</button>
+              <button type="button" class="bouton--discret" id="bouton-copier" disabled>
+                Copier
+              </button>
+            </div>
+            <div class="onglets" id="compte-rendu-onglets" role="tablist" hidden>
+              <button type="button" role="tab" id="onglet-apercu" aria-selected="true">
+                Aperçu
+              </button>
+              <button type="button" role="tab" id="onglet-markdown" aria-selected="false">
+                Markdown
+              </button>
+            </div>
+            <div
+              id="compte-rendu-apercu"
+              class="compte-rendu__apercu"
+              role="tabpanel"
+              aria-labelledby="onglet-apercu"
+              hidden
+            ></div>
+            <textarea
+              id="compte-rendu-texte"
+              class="compte-rendu__texte"
+              rows="16"
+              spellcheck="false"
+              aria-label="Compte rendu en Markdown"
+              role="tabpanel"
+              aria-labelledby="onglet-markdown"
+              hidden
+            ></textarea>
+          </section>
+        </div>
+
+        <div id="vue-manche" hidden>
+          <div class="manche__entete">
+            <h3 id="manche-position"></h3>
+            <div class="actions">
+              <button type="button" class="bouton--discret" id="bouton-manche-precedente">
+                ‹ Précédente
+              </button>
+              <button type="button" class="bouton--discret" id="bouton-manche-suivante">
+                Suivante ›
+              </button>
+              <button type="button" class="bouton--discret" id="bouton-manche-retour">
+                Retour
+              </button>
+            </div>
+          </div>
+          <p class="resume" id="manche-resume"></p>
+          <p class="manche__medailles" id="manche-medailles" hidden></p>
+          <div id="manche-equipes"></div>
+          <p class="manche__lien">
+            <button type="button" class="bouton--discret" id="bouton-manche-statink">
+              Ouvrir sur stat.ink
+            </button>
+          </p>
         </div>
 
         <p class="bandeau bandeau--progression" id="progression" hidden></p>

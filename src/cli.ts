@@ -8,6 +8,7 @@ import {
   DEFAULT_USER,
 } from "./config.ts";
 import { fetchSession } from "./fetchSession.ts";
+import { libelleDuMode, libelleDuResultat, libelleDuStage } from "./libelles.fr.ts";
 import { tallyResults } from "./sessionList.ts";
 import {
   parseSessionType,
@@ -282,8 +283,10 @@ function summarize(battles: Parameters<typeof buildSessionFile>[0]["battles"]): 
   for (const battle of battles) {
     const time = battle.start_at?.iso8601 ?? "?";
     console.log(
-      `  ${time}  ${battle.lobby?.key ?? "?"}  ${battle.rule?.key ?? "?"}  ` +
-        `${battle.stage?.key ?? "?"}  ${battle.result ?? "?"}`,
+      `  ${time}  ${battle.lobby?.key ?? "?"}  ` +
+        `${libelleDuMode(battle.rule?.key, battle.rule?.name?.en_US)}  ` +
+        `${libelleDuStage(battle.stage?.key, battle.stage?.name?.en_US)}  ` +
+        `${libelleDuResultat(battle.result ?? undefined)}`,
     );
   }
 }

@@ -62,7 +62,7 @@ describe("previewSession", () => {
     expect(apercu.battleCount).toBe(2);
     expect(apercu.results).toEqual({ win: 1, lose: 1, draw: 0 });
     expect(apercu.rows).toHaveLength(2);
-    expect(apercu.rows[0]).toMatchObject({ rule: "yagura", stage: "yagara" });
+    expect(apercu.rows[0]).toMatchObject({ rule: "Expédition Risquée", stage: "Marché Grefin" });
     expect(apercu.name).toBe("Scrim contre Les Corsaires");
     expect(apercu.previewId).not.toBe("");
     await expect(listSessions(outDir)).resolves.toEqual({ sessions: [], errors: [] });

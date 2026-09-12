@@ -28,6 +28,10 @@ export type SessionSummary = {
   user: string;
   name?: string;
   type?: SessionType;
+  /** Objectif de session saisi a la main. Absent s'il n'a jamais ete rempli. */
+  objectif?: string;
+  /** Ressenti saisi a la main. Absent s'il n'a jamais ete rempli. */
+  ressenti?: string;
   fetchedAt: string;
   window: { from: string; to: string };
   battleCount: number;
@@ -70,6 +74,8 @@ export function summarizeSessionFile(
     user: file.user,
     ...(file.name !== undefined ? { name: file.name } : {}),
     ...(file.type !== undefined ? { type: file.type } : {}),
+    ...(file.objectif !== undefined ? { objectif: file.objectif } : {}),
+    ...(file.ressenti !== undefined ? { ressenti: file.ressenti } : {}),
     fetchedAt: file.fetchedAt,
     window: { from: file.window.from, to: file.window.to },
     battleCount: file.battleCount,
@@ -247,15 +253,15 @@ export async function readSession(
  * en ecrive un second a cote sous le nom canonique et laisse l'original
  * intact avec ses anciennes metadonnees.
  *
- * Remplace les metadonnees, ne les fusionne pas : omettre `name` ou `type`
- * les efface du fichier plutot que de conserver la valeur existante. C'est
- * voulu, l'appelant est un formulaire qui pre-remplit les deux champs depuis
- * la session et les renvoie toujours tous les deux ; un futur appel partiel
- * devra relire la session au prealable s'il veut en garder un des deux.
+ * Remplace les metadonnees, ne les fusionne pas : omettre l'un des champs
+ * l'efface du fichier plutot que de conserver la valeur existante. C'est
+ * voulu, l'appelant est un formulaire qui les pre-remplit tous depuis la
+ * session et les renvoie toujours tous ; un futur appel partiel devra relire
+ * la session au prealable s'il veut en garder un.
  */
 export async function updateSessionMeta(
   path: string,
-  meta: { name?: string; type?: SessionType },
+  meta: { name?: string; type?: SessionType; objectif?: string; ressenti?: string },
   outDir: string = DEFAULT_OUT_DIR,
 ): Promise<SessionSummary> {
   const resolu = await cheminDeSession(path, outDir);
@@ -265,6 +271,8 @@ export async function updateSessionMeta(
     user: file.user,
     name: meta.name,
     type: meta.type,
+    objectif: meta.objectif,
+    ressenti: meta.ressenti,
     window: sessionWindowOf(file),
     // Le fichier stocke les filtres a plat ; ils repartent tels quels.
     filters: file.filters as BattleFilters,

@@ -12,17 +12,38 @@ const complet = {
 } as unknown as StatinkBattle;
 
 describe("toBattleRows", () => {
-  test("retient les colonnes affichees, aplaties", () => {
+  test("retient les colonnes affichees, aplaties et traduites", () => {
     expect(toBattleRows([complet])).toEqual([
       {
         uuid: "a",
         startedAt: "2026-08-04T19:44:28+00:00",
         lobby: "private",
-        rule: "yagura",
-        stage: "yagara",
+        rule: "Expédition Risquée",
+        stage: "Marché Grefin",
         result: "win",
+        resultLabel: "Victoire",
       },
     ]);
+  });
+
+  test("garde le resultat brut a cote du libelle : la fenetre s'en sert pour colorer", () => {
+    const [row] = toBattleRows([complet]);
+
+    expect(row?.result).toBe("win");
+    expect(row?.resultLabel).toBe("Victoire");
+  });
+
+  test("laisse le lobby en cle : c'est un filtre, pas un libelle affiche", () => {
+    expect(toBattleRows([complet])[0]?.lobby).toBe("private");
+  });
+
+  test("retombe sur l'anglais du payload pour une carte inconnue de la table", () => {
+    const futur = {
+      ...complet,
+      stage: { key: "carte_future", name: { en_US: "Future Stage" } },
+    } as unknown as StatinkBattle;
+
+    expect(toBattleRows([futur])[0]?.stage).toBe("Future Stage");
   });
 
   test("preserve l'ordre recu", () => {
@@ -52,6 +73,7 @@ describe("toBattleRows", () => {
     const [row] = toBattleRows([avecNull]);
 
     expect(row).toEqual({ uuid: "avec-null", startedAt: "" });
+    expect(Object.keys(row ?? {})).not.toContain("resultLabel");
     // Object.keys ne comprend que les cles reellement presentes, pas undefined
     expect(Object.keys(row ?? {})).not.toContain("result");
     expect(Object.keys(row ?? {})).not.toContain("lobby");

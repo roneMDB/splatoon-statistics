@@ -34,6 +34,10 @@ const FONCTIONS = [
   ["readSession", "readSession"],
   ["updateSession", "updateSession"],
   ["deleteSession", "deleteSession"],
+  ["readBattle", "readBattle"],
+  ["buildReport", "buildReport"],
+  ["openExternal", "openExternal"],
+  ["copyToClipboard", "copyToClipboard"],
   ["choices", "choices"],
   ["onFetchProgress", "fetchProgress"],
 ] as const satisfies ReadonlyArray<readonly [string, keyof typeof IPC]>;

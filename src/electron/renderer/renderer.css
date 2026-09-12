@@ -156,6 +156,7 @@ label {
 
 input,
 select,
+textarea,
 button {
   font: inherit;
   color: inherit;
@@ -167,6 +168,7 @@ button {
 
 input:focus-visible,
 select:focus-visible,
+textarea:focus-visible,
 button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
@@ -255,13 +257,23 @@ button:disabled {
   overflow-y: auto;
 }
 
+/* Les colonnes mode et carte tiennent les libelles francais les plus longs
+   (« Guerre de Territoire », « Supermarché Cétacé ») sur une seule ligne : sur
+   treize manches, un repli a deux lignes doublerait la hauteur du tableau. */
 .match {
   display: grid;
-  grid-template-columns: 5.5em 7em 1fr 5.5em;
+  grid-template-columns: 4.5em minmax(11em, auto) 1fr 5em;
   gap: 10px;
   padding: 6px 12px;
   border-bottom: 1px solid var(--trait);
   font-variant-numeric: tabular-nums;
+}
+
+.match > :nth-child(2),
+.match > :nth-child(3) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .match:last-child {
@@ -283,4 +295,276 @@ button:disabled {
 .session:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+/* --- Compte rendu --- */
+
+.compte-rendu {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--trait);
+  max-width: 560px;
+}
+
+/* Enfant direct : sans le `>`, cette regle atteindrait aussi les titres rendus
+   dans l'apercu, qui doivent garder la casse et la couleur de Discord. */
+.compte-rendu > h3 {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texte-doux);
+  margin: 0 0 12px;
+}
+
+.sections {
+  border: 1px solid var(--trait);
+  border-radius: 6px;
+  margin: 0 0 14px;
+  padding: 10px 12px 12px;
+}
+
+.sections legend {
+  color: var(--texte-doux);
+  font-size: 13px;
+  padding: 0 4px;
+}
+
+.sections > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+}
+
+.section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--texte);
+  cursor: pointer;
+}
+
+.section input {
+  accent-color: var(--accent);
+  margin: 0;
+  padding: 0;
+  width: auto;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 64px;
+}
+
+/* Le compte rendu est du Markdown : on le rend a la chasse fixe, comme il sera
+   colle. */
+.compte-rendu__texte {
+  margin-top: 14px;
+  width: 100%;
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
+/* --- Onglets aperçu / Markdown --- */
+
+.onglets {
+  display: flex;
+  gap: 4px;
+  margin-top: 14px;
+  border-bottom: 1px solid var(--trait);
+}
+
+.onglets button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 7px 14px;
+  color: var(--texte-doux);
+  cursor: pointer;
+}
+
+.onglets button[aria-selected="true"] {
+  color: var(--texte);
+  border-bottom-color: var(--accent);
+}
+
+/* --- Aperçu : palette et proportions de Discord ---
+   L'aperçu ne sert que s'il ressemble à sa destination. Les valeurs viennent du
+   thème sombre de Discord, y compris le bloc de code, plus sombre que le fond du
+   message et en chasse fixe réduite. */
+
+.compte-rendu__apercu {
+  margin-top: 14px;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: 16px;
+  border-radius: 8px;
+  background: #313338;
+  color: #dbdee1;
+  font-size: 15px;
+  line-height: 1.375;
+}
+
+/* Annule la regle globale `h1, h2` de cette feuille : elle met les titres de
+   l'application en majuscules et en lettres espacees, ce que Discord ne fait
+   pas. Un apercu qui ne ressemble pas a sa destination ne sert a rien. */
+.apercu__titre {
+  color: #f2f3f5;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+  margin: 16px 0 8px;
+}
+
+.apercu > .apercu__titre:first-child {
+  margin-top: 0;
+}
+
+h2.apercu__titre {
+  font-size: 20px;
+}
+
+h3.apercu__titre {
+  font-size: 16px;
+}
+
+.apercu__paragraphe {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+}
+
+.apercu__citation {
+  margin: 0 0 8px;
+  padding-left: 12px;
+  border-left: 4px solid #4e5058;
+}
+
+.apercu__citation p {
+  margin: 0;
+}
+
+.apercu__code {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border: 1px solid #1e1f22;
+  border-radius: 4px;
+  background: #2b2d31;
+  color: #b5bac1;
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", monospace;
+  font-size: 12px;
+  line-height: 1.3;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* --- Détail d'une manche --- */
+
+.match--ouvrable {
+  cursor: pointer;
+}
+
+.match--ouvrable:hover,
+.match--ouvrable:focus-visible {
+  background: var(--fond-champ);
+  outline: none;
+}
+
+.manche__entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.manche__entete h3 {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texte-doux);
+  margin: 0;
+}
+
+.manche__entete .actions {
+  margin: 0;
+}
+
+.manche__medailles {
+  margin: 0 0 14px;
+  color: var(--alerte);
+}
+
+.equipe {
+  margin-bottom: 16px;
+}
+
+.equipe h4 {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texte-doux);
+  margin: 0 0 6px;
+}
+
+.joueur {
+  border: 1px solid var(--trait);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+}
+
+/* Ma ligne se repère d'un coup d'œil parmi les huit. */
+.joueur--moi {
+  border-color: var(--accent);
+  background: var(--fond-champ);
+}
+
+.joueur__entete {
+  display: flex;
+  align-items: baseline;
+  gap: 4px 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.joueur__arme {
+  color: var(--texte-doux);
+}
+
+/* Ligne dediee : cote a cote avec le nom et l'arme, la serie de chiffres
+   debordait a droite des que le pseudo ou l'arme etait long - et les deux le
+   sont souvent, l'arme portant ses deux langues. */
+.joueur__chiffres {
+  flex-basis: 100%;
+  font-variant-numeric: tabular-nums;
+  color: var(--texte);
+}
+
+.joueur__deco {
+  color: var(--erreur);
+}
+
+.joueur__gear {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--texte-doux);
+  font-size: 13px;
+}
+
+.joueur__piece {
+  min-width: 3.5em;
+  color: var(--texte);
+}
+
+.manche__lien {
+  margin: 0;
 }

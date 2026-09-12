@@ -24,6 +24,10 @@ const CANAUX = {
   readSession: "session:read",
   updateSession: "session:update",
   deleteSession: "session:delete",
+  readBattle: "battle:read",
+  buildReport: "report:build",
+  openExternal: "app:open-external",
+  copyToClipboard: "app:clipboard",
   fetchProgress: "session:fetch-progress",
   choices: "app:choices",
 } as const;
@@ -44,6 +48,15 @@ contextBridge.exposeInMainWorld("splatoonApi", {
 
   deleteSession: (path: string) =>
     ipcRenderer.invoke(CANAUX.deleteSession, path),
+
+  readBattle: (input: unknown) => ipcRenderer.invoke(CANAUX.readBattle, input),
+
+  buildReport: (input: unknown) => ipcRenderer.invoke(CANAUX.buildReport, input),
+
+  openExternal: (url: string) => ipcRenderer.invoke(CANAUX.openExternal, url),
+
+  copyToClipboard: (texte: string) =>
+    ipcRenderer.invoke(CANAUX.copyToClipboard, texte),
 
   choices: () => ipcRenderer.invoke(CANAUX.choices),
 

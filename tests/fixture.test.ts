@@ -5,7 +5,14 @@ import type { StatinkBattle } from "../src/statink/types.ts";
 import { buildWindow, isWithinWindow } from "../src/window.ts";
 
 /**
- * Extrait reel et non modifie de /@Gloup/spl3/index.json.
+ * Extrait reel de /@Gloup/spl3/index.json, aux pseudos pres.
+ *
+ * Seuls `name`, `number` et `splashtag_title` des autres joueurs ont ete
+ * remplaces par des valeurs factices, stables d'un match a l'autre : ce fichier
+ * est versionne, et les personnes qui y figuraient - dont des inconnus croises
+ * en match public - n'ont pas a se retrouver dans un depot. La structure, les
+ * types et les valeurs dont le code depend sont intacts.
+ *
  * Ce test garde le contrat que le code suppose du payload de stat.ink : s'il
  * casse, c'est stat.ink qui a change, pas notre logique.
  */

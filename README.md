@@ -4,8 +4,8 @@ Récupère les matchs d'une session Splatoon 3 (intra, scrim, compétition) depu
 [stat.ink](https://stat.ink) et les stocke en JSON brut, un fichier par session.
 
 Deux façades sur le même noyau : une **application de bureau** et une **ligne de
-commande**. Elles se limitent à récupérer et stocker ; les comptes rendus de match
-viendront se loger dans l'application, construits sur ces fichiers.
+commande**. À partir des fichiers stockés, l'application rédige aussi les **comptes
+rendus de session** à coller dans Discord.
 
 ## Prérequis
 
@@ -31,14 +31,114 @@ nouvelle récupération à droite. **Prévisualiser** interroge stat.ink et affi
 les matchs trouvés sans rien écrire ; **Enregistrer** écrit exactement ce que
 l'aperçu montrait, sans second appel réseau.
 
-Cliquer une session ouvre sa fiche : ses matchs, et son nom et son type
-modifiables. On peut aussi l'y supprimer, après confirmation.
+Cliquer une session ouvre sa fiche : ses matchs, son nom, son type, l'objectif
+qu'on s'était fixé et son ressenti, tous modifiables. On peut aussi l'y supprimer,
+après confirmation.
+
+Cliquer une **manche** ouvre son détail : les huit joueurs avec leur arme, leurs
+statistiques et leurs trois pièces d'équipement, les médailles, le score et la durée.
+On passe d'une manche à l'autre sans revenir en arrière, et un bouton ouvre la page
+stat.ink du match.
+
+#### Ouvrir un lien sous WSL
+
+Deux échecs silencieux se cumulent, et aucun ne remonte à l'application :
+`shell.openExternal` d'Electron délègue à `xdg-open` et **réussit même quand celui-ci
+est absent** ; et `xdg-open` lui-même se lance puis échoue faute de navigateur — le
+cas normal sous WSL, où le navigateur vit du côté Windows.
+
+L'application vérifie donc elle-même qu'un navigateur est atteignable. À défaut, elle
+**copie l'adresse** et le signale, au lieu de laisser croire à une ouverture.
+
+Pour l'ouverture directe, deux chemins :
+
+```bash
+# Pointer vers le navigateur Windows (à mettre dans ~/.zshrc ou ~/.bashrc)
+export BROWSER="/mnt/c/Users/<vous>/AppData/Local/Vivaldi/Application/vivaldi.exe"
+
+# Ou installer le pont WSL, qui s'enregistre comme navigateur par défaut
+sudo apt install wslu
+```
 
 Les dates se saisissent au sélecteur natif, le lobby et le type se choisissent
 dans des listes, et la fenêtre est pré-remplie sur la soirée en cours. La
 progression défile page par page pendant la récupération.
 
 Sous WSL2, l'affichage passe par WSLg, sans configuration particulière.
+
+## Le compte rendu
+
+En bas de la fiche, quatre sections se cochent puis se rédigent d'un clic :
+
+| Section | Ce qu'elle répond |
+|---|---|
+| Courbe de session | Quand la session a-t-elle basculé ? |
+| Bulletin de rôle | Ai-je tenu mon poste, comparé à mes coéquipiers ? |
+| Carte des modes | Quel mode nous coûte des manches ? |
+| Scouting adverse | À quoi faisait-on face ? |
+
+Deux onglets : **Aperçu** montre le rendu tel que Discord l'affichera, **Markdown**
+le texte source. **Copier** met le Markdown dans le presse-papier dans les deux cas.
+
+> Les données chiffrées sortent en **blocs de code**, pas en tableaux Markdown :
+> Discord ne rend pas ces derniers et en affiche les barres verticales telles
+> quelles. Un bloc de code y est rendu à chasse fixe, donc réellement aligné — en
+> contrepartie, il n'accepte ni gras ni emoji, et les colonnes doivent rester
+> courtes.
+
+La rédaction est **déterministe** : des règles détectent les faits, remplissent des
+gabarits, et n'écrivent une phrase que si le fait est constaté — pas de décrochage
+annoncé sans série de défaites. Aucun modèle de langage n'intervient ; deux fois la
+même session donnent deux fois le même texte. Les seuils sont réunis dans
+`src/report/seuils.ts`.
+
+Seuls l'objectif et le ressenti sont saisis à la main, et ils sont enregistrés dans
+le fichier de session.
+
+Les adversaires sont désignés par leur arme, jamais par leur pseudo : en intra, ce
+sont des camarades de club qui lisent le même Discord.
+
+```bash
+npm run report -- data/sessions/Gloup_20260911-2000_20260911-2301.json
+npm run report -- <fichier> --sections role,modes
+```
+
+La ligne de commande imprime le même document sur la sortie standard ; elle sert à
+travailler une formulation sans relancer l'application.
+
+### D'où vient le français
+
+stat.ink n'en publie aucun, pas même sur ses référentiels : il ne sert que l'anglais
+et le japonais. Les tables vivent donc dans le dépôt.
+
+| Quoi | Source | Fichier |
+|---|---|---|
+| 25 cartes | Localisation officielle du jeu, confirmée par [sendou.ink](https://github.com/sendou-ink/sendou.ink/tree/main/locales/fr-EU) | `src/libelles.fr.ts` |
+| 5 modes | Idem, à la casse compétitive de sendou.ink | `src/libelles.fr.ts` |
+| 172 armes | sendou.ink, jointes aux clés stat.ink par leur alias numérique | `src/armes.fr.ts` |
+| 55 médailles | [Wiki français du jeu](https://fr.splatoonwiki.org/wiki/Médaille) | `src/medailles.fr.ts` |
+
+Les armes portent les deux langues (« Liquidateur (Splattershot) ») : le français est
+ce qu'affiche le jeu, l'anglais ce qu'emploient la communauté compétitive et les
+outils d'analyse.
+
+La traduction a lieu dans le noyau, avant l'IPC (`src/battleRows.ts`) : la fenêtre
+n'importe rien et ne peut donc pas traduire elle-même. Le tableau de matchs, le
+compte rendu et le récapitulatif de la ligne de commande parlent ainsi la même langue.
+
+Une clé inconnue retombe sur l'anglais plutôt que de casser l'affichage : une carte
+ajoutée par une mise à jour s'affichera en anglais en attendant d'être traduite.
+
+Trois pièges vérifiés, chacun tenu par un test :
+
+- `yagura` (Tower Control) est l'**Expédition Risquée**, `hoko` (Rainmaker) la
+  **Mission Bazookarpe**. Les intervertir ne se voit pas à la lecture.
+- Les capacités d'équipement ne peuvent pas être jointes par acronyme : *Special
+  Power Up* et *Sub Power Up* donnent tous deux `SPU`, *Ink Recovery Up* et *Ink
+  Resistance Up* tous deux `IRU`.
+- Les médailles sont traduites **en entier**, rang compris : le français ne place
+  pas toujours le rang en tête — « № 1 du coup de main », mais « Cible privilégiée
+  № 1 ».
 
 ## La ligne de commande
 
@@ -53,7 +153,7 @@ Lobby   : private
 
 13 match(s) dans la fenetre (2 page(s) lue(s), arret : page-deja-vue).
 Bilan   : 7V - 6D
-  2026-08-04T19:44:28+00:00  private  yagura  yagara  win
+  2026-08-04T19:44:28+00:00  private  Expédition Risquée  Marché Grefin  Victoire
   ...
 
 Session : Scrim contre Les Corsaires (scrim)
@@ -127,14 +227,20 @@ Trois particularités vérifiées en direct, toutes traitées dans le code :
 ## Développement
 
 ```bash
-npm test                          # 175 tests unitaires, hors-ligne
+npm test                          # 347 tests unitaires, hors-ligne
 STATINK_INTEGRATION=1 npm test    # + 3 tests contre le vrai stat.ink
 npm run typecheck
 ```
 
-`tests/fixtures/battles-page1.json` est un extrait **réel et non modifié** de
-`index.json`. `tests/fixture.test.ts` vérifie contre lui les hypothèses du code
-sur le payload : si ce test casse, c'est stat.ink qui a changé.
+`tests/fixtures/battles-page1.json` est un extrait **réel** de `index.json`.
+`tests/fixture.test.ts` vérifie contre lui les hypothèses du code sur le payload :
+si ce test casse, c'est stat.ink qui a changé.
+
+Seuls les **pseudos y ont été remplacés** — `name`, `number` et `splashtag_title`
+des autres joueurs, par des valeurs factices stables d'un match à l'autre. Le
+fichier est versionné, et les personnes qui y figuraient, dont des inconnus croisés
+en match public, n'ont pas à se retrouver dans un dépôt. Tout le reste est intact :
+structure, types et valeurs dont le code dépend.
 
 ### Structure
 
@@ -148,13 +254,26 @@ sur le payload : si ce test casse, c'est stat.ink qui a changé.
 | `src/fetchSession.ts` | Pagination, conditions d'arrêt, déduplication, tri |
 | `src/sessionMeta.ts` | Nom et type de session : liste fermée, validation, dialogue |
 | `src/sessionList.ts` | Inventaire des sessions écrites, résumé et bilan |
-| `src/battleRows.ts` | Vue allégée d'un match : ce que la fenêtre affiche |
+| `src/libelles.fr.ts` | Modes, cartes, résultats et médailles en français |
+| `src/armes.fr.ts` | Les 172 armes en français, par clé stat.ink |
+| `src/abilites.fr.ts` | Les 26 capacités d'équipement en français |
+| `src/medailles.fr.ts` | Les 55 médailles de fin de match en français |
+| `src/battleRows.ts` | Vue allégée d'un match : ce que la fenêtre affiche, traduit |
+| `src/battleDetail.ts` | Détail d'une manche, à la demande |
+| `src/lienExterne.ts` | Ce qu'on accepte d'ouvrir, et si la machine sait le faire |
+| `src/report/analyse.ts` | Réduit une session en chiffres. Ne rédige rien |
+
+| `src/report/seuils.ts` | Où passe la frontière entre un fait et du bruit |
+| `src/report/sections/` | Les quatre rédacteurs, un par section |
+| `src/report/index.ts` | Assemble le document Markdown |
+| `src/reportCli.ts` | `npm run report` : le même document sur la sortie standard |
 | `src/store.ts` | Écriture du fichier de session |
 | `src/cli.ts` | Arguments, câblage, récapitulatif console |
 | `src/electron/main.ts` | Fenêtre et câblage IPC. Aucune logique métier |
 | `src/electron/preload.cts` | Pont vers la fenêtre. Autonome : le bac à sable ne résout aucun module local |
 | `src/electron/sessionFetchHandler.ts` | Récupération pilotée par le formulaire, sans Electron |
 | `src/electron/renderer/` | La fenêtre : HTML, CSS, JavaScript simple, non transpilé |
+| `src/electron/renderer/markdown.js` | Rendu de l'aperçu. Moitié pure testée, DOM sans `innerHTML` |
 
 Le noyau ignore laquelle des deux façades l'appelle. Les modules `src/electron/`
 qui portent de la logique n'importent pas `electron` : ils se testent hors-ligne

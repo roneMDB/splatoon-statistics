@@ -42,6 +42,8 @@ async function ecrisSession(
     user?: string;
     name?: string;
     type?: "intra" | "scrim" | "compet" | "autre";
+    objectif?: string;
+    ressenti?: string;
     from: string;
     to: string;
     battles?: StatinkBattle[];
@@ -52,6 +54,8 @@ async function ecrisSession(
       user: options.user ?? "Gloup",
       name: options.name,
       type: options.type,
+      objectif: options.objectif,
+      ressenti: options.ressenti,
       window: buildWindow(options.from, options.to),
       battles: options.battles ?? [],
       fetchedAt: new Date("2026-08-19T17:34:00Z"),
@@ -370,6 +374,69 @@ describe("updateSessionMeta", () => {
     const relu = await readSession(path, dir);
     expect(relu.battles).toHaveLength(1);
     expect(relu.window.from).toBe("2026-08-19T18:00:00.000Z");
+  });
+
+  test("rend l'objectif et le ressenti dans le resume", async () => {
+    const dir = await tempDir();
+    const path = await ecrisSession(dir, {
+      name: "Intra",
+      objectif: "Tenir le support",
+      ressenti: "Trop de 1v1 tentes",
+      from: "2026-08-19 20:00",
+      to: "2026-08-19 22:00",
+    });
+
+    const resume = await updateSessionMeta(
+      path,
+      {
+        name: "Intra",
+        objectif: "Tenir le support",
+        ressenti: "Trop de 1v1 tentes",
+      },
+      dir,
+    );
+
+    expect(resume.objectif).toBe("Tenir le support");
+    expect(resume.ressenti).toBe("Trop de 1v1 tentes");
+  });
+
+  test("l'objectif et le ressenti survivent a une modification du nom", async () => {
+    // buildSessionFile ne connait qu'une liste fermee de champs de niveau
+    // fichier : un champ qu'il ignorerait disparaitrait a la premiere edition.
+    const dir = await tempDir();
+    const path = await ecrisSession(dir, {
+      name: "avant",
+      objectif: "Tenir le support",
+      ressenti: "Trop de 1v1 tentes",
+      from: "2026-08-19 20:00",
+      to: "2026-08-19 22:00",
+    });
+
+    const avant = await readSession(path, dir);
+    await updateSessionMeta(
+      path,
+      { name: "apres", objectif: avant.objectif, ressenti: avant.ressenti },
+      dir,
+    );
+
+    const relu = await readSession(path, dir);
+    expect(relu.name).toBe("apres");
+    expect(relu.objectif).toBe("Tenir le support");
+    expect(relu.ressenti).toBe("Trop de 1v1 tentes");
+  });
+
+  test("un formulaire qui omet l'objectif l'efface, comme pour le nom", async () => {
+    const dir = await tempDir();
+    const path = await ecrisSession(dir, {
+      name: "Intra",
+      objectif: "a effacer",
+      from: "2026-08-19 20:00",
+      to: "2026-08-19 22:00",
+    });
+
+    await updateSessionMeta(path, { name: "Intra" }, dir);
+
+    expect(Object.keys(await readSession(path, dir))).not.toContain("objectif");
   });
 
   test("preserve fetchedAt : c'est la recuperation qui date le fichier", async () => {

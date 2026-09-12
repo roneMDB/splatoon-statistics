@@ -17,6 +17,17 @@ export type SessionFile = {
   name?: string;
   /** Nature de la session. Absent si non fourni. */
   type?: SessionType;
+  /**
+   * Objectif que le joueur s'etait fixe pour la session (« tenir le support »).
+   * Saisi a la main : aucune donnee stat.ink ne le porte. Trime et absent s'il
+   * est vide, comme `name`.
+   */
+  objectif?: string;
+  /**
+   * Ressenti du joueur sur la session, saisi a la main lui aussi. Meme contrat
+   * de trim et d'absence que `objectif`.
+   */
+  ressenti?: string;
   /** Instant de la recuperation, en ISO 8601 UTC. */
   fetchedAt: string;
   /** Fenetre demandee, en ISO 8601 UTC pour lever toute ambiguite de fuseau. */
@@ -34,6 +45,10 @@ export type BuildSessionFileOptions = {
   name?: string;
   /** Nature de la session. Facultatif. */
   type?: SessionType;
+  /** Objectif de session, saisi a la main. Facultatif. */
+  objectif?: string;
+  /** Ressenti sur la session, saisi a la main. Facultatif. */
+  ressenti?: string;
   window: SessionWindow;
   filters?: BattleFilters;
   battles: StatinkBattle[];
@@ -52,6 +67,8 @@ export function buildSessionFile(
   }
 
   const name = options.name?.trim();
+  const objectif = options.objectif?.trim();
+  const ressenti = options.ressenti?.trim();
 
   return {
     source: "stat.ink",
@@ -60,6 +77,8 @@ export function buildSessionFile(
     // pour que l'ordre du JSON reste lisible et le champ vraiment omis.
     ...(name ? { name } : {}),
     ...(options.type !== undefined ? { type: options.type } : {}),
+    ...(objectif ? { objectif } : {}),
+    ...(ressenti ? { ressenti } : {}),
     fetchedAt: options.fetchedAt.toISOString(),
     window: {
       from: new Date(options.window.fromMs).toISOString(),
