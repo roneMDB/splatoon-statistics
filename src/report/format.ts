@@ -2,7 +2,8 @@
  * Mise en forme partagee par les sections : nombres, tableaux, designations.
  */
 
-import type { StatsJoueur } from "./analyse.ts";
+import type { AnalyseSession, StatsJoueur } from "./analyse.ts";
+import type { SessionFile } from "../store.ts";
 import { libelleDeLArme } from "../libelles.fr.ts";
 
 /** Un ratio a deux decimales, virgule francaise. Rend « — » si le diviseur est nul. */
@@ -124,4 +125,44 @@ export function designeLesAdversaires(adversaires: StatsJoueur[]): string[] {
     vus.set(nom, rang);
     return `${nom} (${rang})`;
   });
+}
+
+/** `2026-09-11T18:00:00Z` -> `11/09`. */
+export function jourEtMois(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "date inconnue";
+  return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+}
+
+/**
+ * Titre d'une session : « Intra du 04/08 — Équipe O ».
+ *
+ * Partage par le compte rendu et la planche. Les deux documents sont postes
+ * l'un sous l'autre sur Discord : ils doivent porter le meme nom, et ce nom ne
+ * doit se decider qu'a un seul endroit.
+ */
+export function titreDeSession(file: SessionFile, analyse: AnalyseSession): string {
+  const quoi =
+    analyse.type !== undefined
+      ? analyse.type[0]?.toUpperCase() + analyse.type.slice(1)
+      : "Session";
+  return analyse.nom !== undefined
+    ? `${quoi} du ${jourEtMois(file.window.from)} — ${analyse.nom}`
+    : `${quoi} du ${jourEtMois(file.window.from)}`;
+}
+
+/**
+ * Bilan d'une session, en morceaux : « 7V - 6D », « 13 manches », « 95 min de jeu ».
+ *
+ * Rendu sans aucune mise en forme, parce que ses deux consommateurs n'en
+ * veulent pas la meme : le compte rendu met le premier morceau en gras
+ * Markdown, la planche les prend tels quels.
+ */
+export function bilanDeSession(analyse: AnalyseSession): string[] {
+  const { victoires, defaites, nuls, total } = analyse.bilan;
+  const parts = [`${victoires}V - ${defaites}D`];
+  if (nuls > 0) parts.push(`${nuls} ${pluriel(nuls, "nul")}`);
+  parts.push(`${total} ${pluriel(total, "manche")}`);
+  if (analyse.tempsDeJeuMinutes > 0) parts.push(`${analyse.tempsDeJeuMinutes} min de jeu`);
+  return parts;
 }

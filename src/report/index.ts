@@ -12,7 +12,7 @@
 import type { SessionFile } from "../store.ts";
 import { analyseSession } from "./analyse.ts";
 import type { AnalyseSession } from "./analyse.ts";
-import { pluriel } from "./format.ts";
+import { bilanDeSession, titreDeSession } from "./format.ts";
 import { sectionCourbe } from "./sections/courbe.ts";
 import { sectionModes } from "./sections/modes.ts";
 import { sectionRole } from "./sections/role.ts";
@@ -52,27 +52,12 @@ export type OptionsCompteRendu = {
   ressenti?: string;
 };
 
-/** `2026-09-11T18:00:00Z` -> `11/09`. */
-function jourEtMois(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "date inconnue";
-  return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
-}
-
 /** Titre et bilan, toujours presents : c'est ce qui identifie le post. */
 function entete(file: SessionFile, analyse: AnalyseSession): string[] {
-  const quoi = analyse.type !== undefined ? analyse.type[0]?.toUpperCase() + analyse.type.slice(1) : "Session";
-  const titre = analyse.nom !== undefined
-    ? `${quoi} du ${jourEtMois(file.window.from)} — ${analyse.nom}`
-    : `${quoi} du ${jourEtMois(file.window.from)}`;
+  const [premier, ...reste] = bilanDeSession(analyse);
+  const bilan = [`**${premier}**`, ...reste].join(" · ");
 
-  const { victoires, defaites, nuls, total } = analyse.bilan;
-  const bilan = [`**${victoires}V - ${defaites}D**`];
-  if (nuls > 0) bilan.push(`${nuls} ${pluriel(nuls, "nul")}`);
-  bilan.push(`${total} ${pluriel(total, "manche")}`);
-  if (analyse.tempsDeJeuMinutes > 0) bilan.push(`${analyse.tempsDeJeuMinutes} min de jeu`);
-
-  return [`## ${titre}`, "", bilan.join(" · "), ""];
+  return [`## ${titreDeSession(file, analyse)}`, "", bilan, ""];
 }
 
 /**
