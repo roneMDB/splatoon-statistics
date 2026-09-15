@@ -12,6 +12,7 @@ import {
   type OutilsDePlanche,
 } from "../../src/electron/plancheHandler.ts";
 import type { SessionFile } from "../../src/store.ts";
+import { LARGEUR_PLANCHE } from "../../src/report/planche.ts";
 
 const sessionVide = (): SessionFile =>
   ({
@@ -57,7 +58,7 @@ function outils(
       journal.push(`capture:${hauteurDemandee}`);
       return {
         png: PNG_FACTICE,
-        largeur: reglages.captureLargeur ?? 1080,
+        largeur: reglages.captureLargeur ?? LARGEUR_PLANCHE,
         hauteur: reglages.captureHauteur ?? hauteurDemandee,
       };
     },
@@ -93,7 +94,7 @@ describe("fabriqueLaPlanche", () => {
         join(dossier, "Gloup_20260804-2100_20260804-2359.png"),
       );
       expect(resultat.hauteur).toBe(3120);
-      expect(resultat.largeur).toBe(1080);
+      expect(resultat.largeur).toBe(LARGEUR_PLANCHE);
       expect(resultat.octets).toBe(PNG_FACTICE.byteLength);
       expect(new Uint8Array(await readFile(resultat.chemin))).toEqual(PNG_FACTICE);
     } finally {
@@ -235,7 +236,7 @@ describe("fabriqueLaPlanche", () => {
       await fabriqueLaPlanche("a/b.json", doublure, dossier);
       expect(doublure.journal).toEqual([
         "lis:a/b.json",
-        "mesure:1080:true",
+        `mesure:${LARGEUR_PLANCHE}:true`,
         "capture:2400",
         "ferme",
         "copie",

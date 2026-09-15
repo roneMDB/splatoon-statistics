@@ -38,8 +38,13 @@ import { bilanDeSession, titreDeSession } from "./format.ts";
 /**
  * Largeur de rendu, en pixels CSS. La capture ouvre sa fenetre a cette
  * largeur : la changer ici la change partout.
+ *
+ * 1600 et non 1080 depuis le passage a deux colonnes : une planche d'une seule
+ * colonne donnait 1080 x 6947 px pour vingt et une manches, un ruban que
+ * Discord reduisait a une vignette illisible. A deux colonnes, la meme session
+ * tient en 1600 x 3484 - le rapport tombe de 1:6,4 a 1:2,2.
  */
-export const LARGEUR_PLANCHE = 1080;
+export const LARGEUR_PLANCHE = 1600;
 
 /**
  * Echappe ce qui part dans le document.
@@ -90,8 +95,8 @@ body {
 .planche__entete { margin-bottom: 20px; }
 .planche__entete h1 { font-size: 26px; letter-spacing: -0.01em; }
 .planche__entete p { margin-top: 4px; color: #9aa0bb; font-size: 15px; }
+.planche__grille { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
 .manche {
-  margin-bottom: 14px;
   border-radius: 10px;
   overflow: hidden;
   background: #222534;
@@ -266,7 +271,9 @@ export function construisLaPlanche(file: SessionFile): string {
     `<h1>${echappe(titre)}</h1>`,
     `<p>${echappe(bilanDeSession(analyse).join(" · "))}</p>`,
     "</header>",
+    '<main class="planche__grille">',
     manches,
+    "</main>",
     "</body>",
     "</html>",
     "",

@@ -119,6 +119,21 @@ describe("construisLaPlanche", () => {
     expect(p2).toBeLessThan(p3);
   });
 
+  test("range les manches dans une grille a deux colonnes", () => {
+    const html = construisLaPlanche(session([battle("a", "win"), battle("b", "lose")]));
+
+    // Le conteneur existe et enveloppe les cartes : sans lui, la grille CSS
+    // n'a pas de parent sur qui s'appliquer.
+    expect(html).toContain('<main class="planche__grille">');
+    expect(html).toContain("</main>");
+
+    const grille = html.split('<main class="planche__grille">')[1]?.split("</main>")[0] ?? "";
+    expect(grille.match(/class="manche manche--/g)).toHaveLength(2);
+
+    // Deux colonnes, declarees sur le conteneur et non sur le corps.
+    expect(html).toMatch(/\.planche__grille\s*\{[^}]*grid-template-columns:\s*1fr 1fr/);
+  });
+
   test("nomme les huit joueurs, adversaires compris", () => {
     const html = construisLaPlanche(session([battle("a", "win")]));
     expect(html).toContain("☆Gloup☆");
