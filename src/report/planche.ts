@@ -1,6 +1,6 @@
 /**
- * Planche de manches : toutes les manches d'une session, empilees en un seul
- * document destine a etre photographie.
+ * Planche de manches : toutes les manches d'une session, rangees sur deux
+ * colonnes dans un seul document destine a etre photographie.
  *
  * Pourquoi une image plutot que du Markdown : un bloc de manche pese environ
  * 700 caracteres, et treize manches en font 9000 — cinq a six messages
