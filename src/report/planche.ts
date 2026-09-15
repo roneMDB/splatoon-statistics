@@ -70,79 +70,115 @@ function echappe(texte: string): string {
 /**
  * Feuille de style, en ligne.
  *
- * Pile de polices choisie pour couvrir le cyrillique, le grec et les symboles
- * que les pseudos Splatoon contiennent regulierement (`к? Reby`, `Ayσmαl`,
- * `☆Gloup☆`) : sans cela, ce sont des tofus. Aucune n'est telechargee.
+ * Pile de polices choisie pour couvrir le cyrillique, le grec, le japonais et
+ * les symboles que les pseudos Splatoon contiennent regulierement (`к? Reby`,
+ * `Sひ freebox`, `☆Gloup☆`) : sans cela, ce sont des tofus. Aucune n'est
+ * telechargee. Lato ouvre la pile pour ses graisses Black et Heavy, qui
+ * portent les titres ; DejaVu Sans assure la couverture derriere elle.
+ *
+ * Les polices officielles du jeu sont hors d'atteinte : la planche ne charge
+ * aucune ressource externe, et cette regle ne se negocie pas pour un effet de
+ * style. L'allure vient donc de la couleur et de la typographie disponible.
  *
  * Aucun emoji : leur rendu hors ecran depend d'une police d'emoji installee,
  * ce qui n'est pas acquis. Victoire et defaite passent par la couleur du
  * bandeau et par le mot.
- *
- * La ligne "moi" est ciblee par la classe `joueur--moi`, comme `manche--win`
- * et `manche--lose` juste en dessous.
  */
 const STYLE = `
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   width: ${LARGEUR_PLANCHE}px;
   padding: 28px;
-  background: #171922;
-  color: #eceef5;
-  font-family: "DejaVu Sans", "Noto Sans", "Liberation Sans", Arial, sans-serif;
+  background: #0e0f18;
+  color: #f2f3fa;
+  font-family: "Lato", "DejaVu Sans", "Noto Sans", "Liberation Sans", Arial, sans-serif;
   font-size: 15px;
   line-height: 1.35;
 }
-.planche__entete { margin-bottom: 20px; }
-.planche__entete h1 { font-size: 26px; letter-spacing: -0.01em; }
-.planche__entete p { margin-top: 4px; color: #9aa0bb; font-size: 15px; }
-.planche__grille { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
-.manche {
-  border-radius: 10px;
-  overflow: hidden;
-  background: #222534;
+.planche__entete { margin-bottom: 22px; padding-left: 6px; }
+.planche__entete h1 {
+  font-family: "Lato Black", "Lato", "DejaVu Sans", sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 40px;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  color: #eaff3d;
 }
-.manche__bandeau {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 16px;
-  padding: 9px 16px;
-  background: #4a4d63;
-}
-.manche--win .manche__bandeau { background: #2c7a44; }
-.manche--lose .manche__bandeau { background: #9c3566; }
-.manche__resultat {
+.planche__entete p {
+  margin-top: 2px;
+  font-size: 17px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  white-space: nowrap;
-}
-.manche__contexte { font-size: 13px; color: #f0f1f7; text-align: right; }
-.manche__equipes { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #171922; }
-.equipe { padding: 12px 14px; background: #222534; }
-.equipe__titre {
-  margin-bottom: 8px;
   color: #9aa0bb;
-  font-size: 11px;
-  letter-spacing: 0.09em;
+}
+.planche__grille { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.manche { border-radius: 4px; overflow: hidden; background: #1a1c2b; }
+.manche__bandeau {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px 8px 10px;
+  background: #4a4d63;
+}
+.manche--win .manche__bandeau { background: linear-gradient(100deg, #19d719 0%, #12a512 100%); }
+.manche--lose .manche__bandeau { background: linear-gradient(100deg, #f02d7d 0%, #c01e63 100%); }
+.manche__numero {
+  font-family: "Lato Black", "Lato", "DejaVu Sans", sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 26px;
+  line-height: 1;
+  min-width: 34px;
+  text-align: center;
+  color: #0e0f18;
+}
+.manche__resultat {
+  font-family: "Lato Black", "Lato", "DejaVu Sans", sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 16px;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: #0e0f18;
+}
+.manche__contexte {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+  color: #0e0f18;
+  opacity: 0.82;
+}
+.manche__equipes { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #0e0f18; }
+.equipe { padding: 10px 12px; background: #1a1c2b; }
+.equipe__titre {
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #6f7699;
 }
 .joueur {
   display: grid;
   grid-template-columns: 1fr auto;
-  padding: 5px 8px;
-  border-radius: 6px;
+  padding: 4px 7px;
+  border-radius: 5px;
 }
 .joueur + .joueur { margin-top: 2px; }
-.joueur--moi { background: #39405f; }
-.joueur__nom { font-weight: 600; }
-.joueur__chiffres { color: #cfd3e6; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.joueur__arme { grid-column: 1 / -1; color: #8f95b0; font-size: 12px; }
+.joueur--moi { background: #2e3352; box-shadow: inset 3px 0 0 #eaff3d; }
+.joueur__nom { font-weight: 700; }
+.joueur__chiffres { color: #c9cee6; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.joueur__arme { grid-column: 1 / -1; font-size: 11px; color: #7d84a8; }
 .manche__medailles {
-  padding: 9px 16px;
-  border-top: 1px solid #171922;
-  color: #d8c78c;
-  font-size: 12px;
+  padding: 7px 14px;
+  border-top: 1px solid #0e0f18;
+  font-size: 11px;
+  font-weight: 700;
+  color: #eaff3d;
 }
 `.trim();
 
@@ -203,10 +239,13 @@ function equipeEnHtml(titre: string, joueurs: JoueurDeManche[]): string {
  * « Nous » passe toujours en premier, meme quand on perd : le jeu place
  * l'equipe victorieuse en haut, mais ici la constance de lecture d'une carte a
  * l'autre vaut mieux que la mimique.
+ *
+ * Le numero a son propre element, hors du contexte : a deux colonnes, c'est
+ * lui qui donne le rythme a la grille et permet de retrouver une manche sans
+ * compter les cartes.
  */
 function mancheEnHtml(detail: BattleDetail, numero: number): string {
   const contexte = [
-    `#${numero}`,
     heureDe(detail.startedAt),
     detail.rule,
     detail.stage,
@@ -223,6 +262,7 @@ function mancheEnHtml(detail: BattleDetail, numero: number): string {
   return (
     `<article class="manche manche--${echappe(detail.result ?? "inconnu")}">` +
     `<div class="manche__bandeau">` +
+    `<span class="manche__numero">${numero}</span>` +
     `<span class="manche__resultat">${echappe(detail.resultLabel ?? "—")}</span>` +
     `<span class="manche__contexte">${echappe(contexte.join(" · "))}</span>` +
     `</div>` +

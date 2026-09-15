@@ -207,9 +207,9 @@ Trois pièges vérifiés, chacun tenu par un test :
 ### La planche de manches
 
 **Fabriquer la planche** rend une image unique — toutes les manches de la session
-empilées, les huit joueurs de chacune avec leur arme, leurs chiffres et les
-médailles. C'est ce que la session se postait autrefois en captures d'écran,
-une par manche.
+rangées sur deux colonnes, les huit joueurs de chacune avec leur arme, leurs
+chiffres et les médailles. C'est ce que la session se postait autrefois en
+captures d'écran, une par manche.
 
 Une image plutôt qu'un bloc de texte parce que le détail ne tient pas dans
 Discord : un bloc de manche pèse ~700 caractères, treize manches ~9 000, pour

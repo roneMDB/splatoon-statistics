@@ -106,12 +106,20 @@ describe("construisLaPlanche", () => {
         hour: "2-digit",
         minute: "2-digit",
       });
-    const position = (numero: number, uuid: string) =>
-      corps.indexOf(`class="manche__contexte">#${numero} · ${heureAttendue(uuid)}`);
+    // Le numero est toujours croissant par construction (il vaut index+1) :
+    // seul ne prouve rien. Ce qui compte, c'est que le numero N porte l'heure
+    // de LA manche N. On ancre donc sur le bandeau entier, du numero jusqu'a
+    // l'heure — une sequence que la feuille de style ne peut pas contenir.
+    const position = (numero: number, uuid: string, libelle: string) =>
+      corps.indexOf(
+        `class="manche__numero">${numero}</span>` +
+          `<span class="manche__resultat">${libelle}</span>` +
+          `<span class="manche__contexte">${heureAttendue(uuid)}`,
+      );
 
-    const p1 = position(1, "a");
-    const p2 = position(2, "b");
-    const p3 = position(3, "c");
+    const p1 = position(1, "a", "Victoire");
+    const p2 = position(2, "b", "Défaite");
+    const p3 = position(3, "c", "Victoire");
     expect(p1).toBeGreaterThanOrEqual(0);
     expect(p2).toBeGreaterThanOrEqual(0);
     expect(p3).toBeGreaterThanOrEqual(0);
