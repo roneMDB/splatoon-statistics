@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import {
+  cheminDePlanche,
   fabriqueLaPlanche,
   fabriqueLaPlancheAvecReprise,
   HAUTEUR_MAXIMALE_PLANCHE,
@@ -339,6 +340,103 @@ describe("fabriqueLaPlancheAvecReprise", () => {
       expect(appels).toBe(1);
     } finally {
       await rm(dossier, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("cheminDePlanche", () => {
+  const tempDir = () => mkdtemp(join(tmpdir(), "planches-garde-"));
+
+  test("accepte un .png ecrit dans le dossier des planches", async () => {
+    const dir = await tempDir();
+    try {
+      const path = join(dir, "Gloup_x.png");
+      await writeFile(path, "png", "utf8");
+
+      await expect(cheminDePlanche(path, dir)).resolves.toBe(resolve(path));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("refuse un chemin hors du dossier des planches", async () => {
+    const dir = await tempDir();
+    try {
+      await expect(cheminDePlanche("/etc/passwd.png", dir)).rejects.toThrow(/refuse/i);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("refuse une evasion par ..", async () => {
+    const dir = await tempDir();
+    try {
+      const evasion = join(dir, "..", "ailleurs.png");
+      await expect(cheminDePlanche(evasion, dir)).rejects.toThrow(/refuse/i);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("refuse un fichier qui n'est pas un .png", async () => {
+    const dir = await tempDir();
+    try {
+      const path = join(dir, "notes.txt");
+      await writeFile(path, "rien a voir", "utf8");
+      await expect(cheminDePlanche(path, dir)).rejects.toThrow(/refuse/i);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("refuse un lien symbolique qui pointe hors du dossier des planches", async () => {
+    const dir = await tempDir();
+    const ailleurs = await tempDir();
+    try {
+      const cible = join(ailleurs, "secret.png");
+      await writeFile(cible, "png", "utf8");
+      const lien = join(dir, "planche.png");
+      await symlink(cible, lien);
+
+      await expect(cheminDePlanche(lien, dir)).rejects.toThrow(/refuse/i);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+      await rm(ailleurs, { recursive: true, force: true });
+    }
+  });
+
+  test("un dossier voisin dont le nom est prefixe par celui des planches n'est pas pris pour un sous-dossier", async () => {
+    const parent = await tempDir();
+    try {
+      const dir = join(parent, "planches");
+      const voisin = join(parent, "planches-evil");
+      await mkdir(voisin);
+      const cible = join(voisin, "fichier.png");
+      await writeFile(cible, "png", "utf8");
+
+      await expect(cheminDePlanche(cible, dir)).rejects.toThrow(/refuse/i);
+    } finally {
+      await rm(parent, { recursive: true, force: true });
+    }
+  });
+
+  test("refuse un chemin contenant un octet NUL avec le meme message que les autres refus", async () => {
+    const dir = await tempDir();
+    try {
+      const avecNul = join(dir, `planche${String.fromCharCode(0)}.png`);
+      await expect(cheminDePlanche(avecNul, dir)).rejects.toThrow(/refuse/i);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("n'echoue pas quand le dossier des planches n'existe pas encore", async () => {
+    const parent = await tempDir();
+    try {
+      const dir = join(parent, "jamais-cree");
+      await expect(cheminDePlanche(join(dir, "planche.png"), dir)).rejects.toThrow();
+    } finally {
+      await rm(parent, { recursive: true, force: true });
     }
   });
 });

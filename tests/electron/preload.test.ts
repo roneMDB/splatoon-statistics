@@ -37,6 +37,7 @@ const FONCTIONS = [
   ["readBattle", "readBattle"],
   ["buildReport", "buildReport"],
   ["buildPlanche", "buildPlanche"],
+  ["revealPlanche", "revealPlanche"],
   ["openExternal", "openExternal"],
   ["copyToClipboard", "copyToClipboard"],
   ["choices", "choices"],

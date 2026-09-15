@@ -27,6 +27,7 @@ const CANAUX = {
   readBattle: "battle:read",
   buildReport: "report:build",
   buildPlanche: "planche:build",
+  revealPlanche: "planche:reveal",
   openExternal: "app:open-external",
   copyToClipboard: "app:clipboard",
   fetchProgress: "session:fetch-progress",
@@ -56,6 +57,8 @@ contextBridge.exposeInMainWorld("splatoonApi", {
 
   buildPlanche: (input: unknown) =>
     ipcRenderer.invoke(CANAUX.buildPlanche, input),
+
+  revealPlanche: (path: string) => ipcRenderer.invoke(CANAUX.revealPlanche, path),
 
   openExternal: (url: string) => ipcRenderer.invoke(CANAUX.openExternal, url),
 

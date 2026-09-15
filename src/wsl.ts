@@ -55,3 +55,45 @@ export function tourneSousWsl(
   const minuscules = version.toLowerCase();
   return minuscules.includes("microsoft") || minuscules.includes("wsl");
 }
+
+/** Un disque Windows monte sous `/mnt/<lettre>`, capture la lettre et le reste. */
+const DISQUE_MONTE = /^\/mnt\/([a-zA-Z])(\/.*)?$/;
+
+/**
+ * Convertit un chemin POSIX absolu en chemin Windows, tel qu'un explorateur
+ * Windows le comprend.
+ *
+ * Fonction pure, sans appel a `wslpath` : la regle se code, et une fonction
+ * pure se teste sans processus fils.
+ *
+ * Deux cas :
+ * - `/mnt/<lettre>/...` designe un disque Windows monte : `/mnt/c/Users/x`
+ *   devient `C:\Users\x`. Ce cas ne depend pas du nom de distribution, un
+ *   disque Windows etant le meme quelle que soit la distribution qui le monte.
+ * - tout autre chemin absolu vit dans la distribution : `/home/erwan/y`
+ *   devient `\\wsl.localhost\<distribution>\home\erwan\y`, ou la distribution
+ *   vient de `WSL_DISTRO_NAME`.
+ *
+ * Rend `undefined` plutot que d'inventer quand la conversion ne peut pas
+ * aboutir : chemin relatif, ou nom de distribution manquant pour le second
+ * cas. L'appelant retombe alors sur le chemin Linux.
+ */
+export function versCheminWindows(
+  cheminPosix: string,
+  environnement: { WSL_DISTRO_NAME?: string | undefined },
+): string | undefined {
+  if (!cheminPosix.startsWith("/")) return undefined;
+
+  const disque = DISQUE_MONTE.exec(cheminPosix);
+  if (disque !== null) {
+    const lettre = disque[1]!.toUpperCase();
+    const reste = (disque[2] ?? "").slice(1).split("/").join("\\");
+    return reste === "" ? `${lettre}:\\` : `${lettre}:\\${reste}`;
+  }
+
+  const distribution = environnement.WSL_DISTRO_NAME;
+  if (distribution === undefined || distribution === "") return undefined;
+
+  const reste = cheminPosix.slice(1).split("/").join("\\");
+  return `\\\\wsl.localhost\\${distribution}\\${reste}`;
+}

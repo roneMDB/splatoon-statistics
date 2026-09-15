@@ -42,6 +42,7 @@ const elements = {
   boutonGenerer: document.getElementById("bouton-generer"),
   boutonCopier: document.getElementById("bouton-copier"),
   boutonPlanche: document.getElementById("bouton-planche"),
+  boutonPlancheOuvrir: document.getElementById("bouton-planche-ouvrir"),
   plancheResultat: document.getElementById("planche-resultat"),
   compteRenduOnglets: document.getElementById("compte-rendu-onglets"),
   compteRenduApercu: document.getElementById("compte-rendu-apercu"),
@@ -322,6 +323,8 @@ let manchesCourantes = [];
 let rangDeLaManche = -1;
 /** Detail affiche, pour savoir quel lien stat.ink ouvrir. */
 let mancheCourante;
+/** Chemin du dernier PNG de planche fabrique, pour le bouton "Ouvrir le dossier". */
+let cheminPlancheCourante;
 
 elements.formulaire.addEventListener("submit", async (evenement) => {
   evenement.preventDefault();
@@ -629,6 +632,8 @@ function cacheLeCompteRendu() {
 function cacheLaPlanche() {
   elements.plancheResultat.hidden = true;
   elements.plancheResultat.textContent = "";
+  elements.boutonPlancheOuvrir.hidden = true;
+  cheminPlancheCourante = undefined;
 }
 
 elements.boutonGenerer.addEventListener("click", async () => {
@@ -686,7 +691,11 @@ elements.boutonPlanche.addEventListener("click", async () => {
   try {
     const planche = await api.buildPlanche({ path: ficheCourante.path });
     const ko = Math.round(planche.octets / 1024);
-    const lignes = [`${planche.chemin} · ${planche.largeur} × ${planche.hauteur} px · ${ko} Ko`];
+    // Sous WSL, le chemin Linux ne se colle pas dans l'explorateur Windows :
+    // on affiche l'equivalent Windows quand l'application l'a fourni, le
+    // chemin Linux sinon.
+    const cheminAffiche = planche.cheminWindows ?? planche.chemin;
+    const lignes = [`${cheminAffiche} · ${planche.largeur} × ${planche.hauteur} px · ${ko} Ko`];
     // "Copier" met le Markdown dans le presse-papier ; la planche l'y
     // remplace par l'image. Le dire evite de perdre un compte rendu qu'on
     // vient de copier sans s'en apercevoir.
@@ -698,10 +707,32 @@ elements.boutonPlanche.addEventListener("click", async () => {
     if (planche.avertissement !== undefined) lignes.push(planche.avertissement);
     elements.plancheResultat.textContent = lignes.join("\n");
     elements.plancheResultat.hidden = false;
+    cheminPlancheCourante = planche.chemin;
+    elements.boutonPlancheOuvrir.hidden = false;
   } catch (erreur) {
     bandeau(elements.erreur, String(erreur?.message ?? erreur));
   } finally {
     elements.boutonPlanche.disabled = false;
+  }
+});
+
+elements.boutonPlancheOuvrir.addEventListener("click", async () => {
+  if (cheminPlancheCourante === undefined) return;
+  cacheLesBandeaux();
+
+  elements.boutonPlancheOuvrir.disabled = true;
+  try {
+    const issue = await api.revealPlanche(cheminPlancheCourante);
+    if (issue === "copie") {
+      bandeau(
+        elements.succes,
+        "Explorateur indisponible : le chemin a été copié dans le presse-papier.",
+      );
+    }
+  } catch (erreur) {
+    bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  } finally {
+    elements.boutonPlancheOuvrir.disabled = false;
   }
 });
 

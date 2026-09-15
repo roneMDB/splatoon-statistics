@@ -11,8 +11,8 @@
  * outils.
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { mkdir, realpath, writeFile } from "node:fs/promises";
+import { basename, join, resolve, sep } from "node:path";
 import { DEFAULT_PLANCHE_DIR } from "../config.ts";
 import { construisLaPlanche, LARGEUR_PLANCHE } from "../report/planche.ts";
 import type { SessionFile } from "../store.ts";
@@ -32,6 +32,14 @@ export const HAUTEUR_MAXIMALE_PLANCHE = 16_000;
 export type ResultatPlanche = {
   /** Chemin absolu du PNG ecrit. Toujours renseigne : le fichier est le chemin fiable. */
   chemin: string;
+  /**
+   * Equivalent Windows de `chemin`, pour un utilisateur sous WSL qui va
+   * chercher le fichier dans l'explorateur Windows. Renseigne seulement sous
+   * WSL, et seulement quand la conversion aboutit (`WSL_DISTRO_NAME` present)
+   * - voir `versCheminWindows` dans `wsl.ts`. Absent partout ailleurs :
+   * `chemin` reste la reference que le reste du code emploie.
+   */
+  cheminWindows?: string;
   /** Largeur reellement capturee, en pixels — pas l'intention. Voir `capture`. */
   largeur: number;
   /** Hauteur reellement capturee, en pixels — pas l'intention. Voir `capture`. */
@@ -103,6 +111,65 @@ export type OutilsDePlanche = {
 /** `…/Gloup_20260804-2100_20260804-2359.json` -> `Gloup_20260804-2100_20260804-2359.png`. */
 export function nomDePlanche(cheminDeSession: string): string {
   return `${basename(cheminDeSession, ".json")}.png`;
+}
+
+/**
+ * Refuse tout chemin qui sort du dossier des planches, ou qui n'est pas un
+ * `.png`.
+ *
+ * Le chemin vient de la fenetre, potentiellement compromise : c'est cette
+ * garde qui protege le canal qui revele la planche dans l'explorateur.
+ * Sans elle, un rendu altere ferait ouvrir n'importe quel fichier accessible
+ * a l'utilisateur.
+ *
+ * Meme raisonnement que `cheminDeSession` dans `sessionList.ts`, adapte au
+ * dossier et a l'extension des planches : le controle syntaxique
+ * (`startsWith`/`endsWith`) ne suffit pas seul, un lien symbolique depose
+ * dans le dossier des planches et pointant ailleurs le traverserait sans
+ * etre detecte. On resout donc aussi la cible reelle avec `realpath`, racine
+ * comprise - un dossier de planches deporte par lien symbolique doit rester
+ * utilisable.
+ *
+ * Un dossier des planches absent (ENOENT) n'est pas une erreur ici : c'est
+ * l'etat normal avant la premiere planche, et la racine syntaxique sert
+ * alors de repli - le chemin demande echouera de toute facon plus loin, sur
+ * son propre `realpath`.
+ */
+export async function cheminDePlanche(
+  path: string,
+  plancheDir: string = DEFAULT_PLANCHE_DIR,
+): Promise<string> {
+  const resolu = resolve(path);
+  const racineSyntaxique = resolve(plancheDir);
+  if (!resolu.startsWith(racineSyntaxique + sep) || !resolu.endsWith(".png")) {
+    throw new Error(`Chemin de planche refuse : ${path}`);
+  }
+
+  let racine: string;
+  try {
+    racine = await realpath(racineSyntaxique);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      racine = racineSyntaxique;
+    } else {
+      throw error;
+    }
+  }
+
+  let reel: string;
+  try {
+    reel = await realpath(resolu);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ERR_INVALID_ARG_VALUE") {
+      throw new Error(`Chemin de planche refuse : ${path}`);
+    }
+    throw error;
+  }
+  if (!reel.startsWith(racine + sep)) {
+    throw new Error(`Chemin de planche refuse : ${path}`);
+  }
+
+  return resolu;
 }
 
 /**

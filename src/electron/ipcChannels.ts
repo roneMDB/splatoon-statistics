@@ -27,6 +27,8 @@ export const IPC = {
   buildReport: "report:build",
   /** Fabrique la planche de manches d'une session et l'ecrit en PNG. */
   buildPlanche: "planche:build",
+  /** Revele le PNG d'une planche dans le gestionnaire de fichiers du systeme. */
+  revealPlanche: "planche:reveal",
   /** Ouvre un lien stat.ink dans le navigateur du systeme. */
   openExternal: "app:open-external",
   /** Met un texte dans le presse-papier du systeme. */
@@ -111,6 +113,14 @@ export type SplatoonApi = {
   buildPlanche: (
     input: BuildPlancheInput,
   ) => Promise<import("./plancheHandler.ts").ResultatPlanche>;
+  /**
+   * Revele le PNG d'une planche dans le gestionnaire de fichiers. Refuse tout
+   * chemin hors du dossier des planches. Rend `"copie"` quand la machine ne
+   * sait pas le faire directement (WSL sans `explorer.exe` atteignable) : le
+   * chemin est alors mis dans le presse-papier plutot que de laisser croire
+   * a une ouverture.
+   */
+  revealPlanche: (path: string) => Promise<"ouvert" | "copie">;
   /**
    * Ouvre une URL stat.ink dans le navigateur. Refuse toute autre origine.
    * Rend `"copie"` quand la machine ne sait pas ouvrir de lien : l'adresse est

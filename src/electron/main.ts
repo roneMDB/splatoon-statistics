@@ -7,7 +7,8 @@
  */
 
 import { app, BrowserWindow, clipboard, ipcMain, shell } from "electron";
-import { existsSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { DEFAULT_USER } from "../config.ts";
@@ -22,8 +23,10 @@ import {
 import { toBattleRows } from "../battleRows.ts";
 import { toBattleDetail } from "../battleDetail.ts";
 import { estUneUrlStatink, saitOuvrirUnLien } from "../lienExterne.ts";
+import { saitOuvrirExplorer } from "../revelePlanche.ts";
 import { parseSessionType, SESSION_TYPES } from "../sessionMeta.ts";
 import { KNOWN_LOBBIES } from "../statink/url.ts";
+import { tourneSousWsl, versCheminWindows } from "../wsl.ts";
 import {
   IPC,
   type BuildPlancheInput,
@@ -37,7 +40,7 @@ import {
   LIBELLES_SECTIONS,
   SECTIONS,
 } from "../report/index.ts";
-import { fabriqueLaPlancheAvecReprise } from "./plancheHandler.ts";
+import { cheminDePlanche, fabriqueLaPlancheAvecReprise } from "./plancheHandler.ts";
 import { outilsDePlanche } from "./planchePhotographe.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -76,6 +79,22 @@ const here = dirname(fileURLToPath(import.meta.url));
 // Sans cela, Chromium affiche les champs de date au format de sa propre locale,
 // soit du JJ/MM inverse pour un utilisateur francais.
 app.commandLine.appendSwitch("lang", "fr-FR");
+
+const lisLaVersionDuNoyau = (): string | undefined => {
+  try {
+    return readFileSync("/proc/version", "utf8");
+  } catch {
+    return undefined;
+  }
+};
+
+/** Environnement WSL, lu une fois : ni la plateforme ni les variables ne changent en cours de route. */
+const environnementWsl = {
+  WSL_DISTRO_NAME: process.env["WSL_DISTRO_NAME"],
+  WSL_INTEROP: process.env["WSL_INTEROP"],
+};
+
+const sousWslActif = tourneSousWsl(process.platform, environnementWsl, lisLaVersionDuNoyau);
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -177,15 +196,66 @@ ipcMain.handle(IPC.buildReport, async (_event, input: BuildReportInput) => {
   });
 });
 
-ipcMain.handle(IPC.buildPlanche, (_event, input: BuildPlancheInput) =>
+ipcMain.handle(IPC.buildPlanche, async (_event, input: BuildPlancheInput) => {
   // `readSession`, appele par les outils, refuse tout chemin hors du dossier
   // des sessions : la garde est la meme que pour `readBattle`.
   //
   // `outilsDePlanche` est passee telle quelle, comme fabrique : chaque
   // reprise a besoin d'une fenetre hors ecran neuve, pas de celle deja
   // detruite par la tentative precedente. Voir `plancheHandler.ts`.
-  fabriqueLaPlancheAvecReprise(input.path, outilsDePlanche),
-);
+  const resultat = await fabriqueLaPlancheAvecReprise(input.path, outilsDePlanche);
+  if (!sousWslActif) return resultat;
+
+  // Sous WSL, le chemin Linux affiche ne se colle pas dans l'explorateur
+  // Windows : on ajoute son equivalent quand la conversion aboutit (voir
+  // `versCheminWindows`), sans rien changer a `chemin` lui-meme.
+  const cheminWindows = versCheminWindows(resultat.chemin, environnementWsl);
+  return cheminWindows === undefined ? resultat : { ...resultat, cheminWindows };
+});
+
+/**
+ * Revele le PNG d'une planche dans le gestionnaire de fichiers.
+ *
+ * Le chemin vient de la fenetre : `cheminDePlanche` refuse tout ce qui n'est
+ * pas un `.png` du dossier des planches, meme raisonnement que pour les
+ * sessions et les manches.
+ *
+ * Sous WSL, `shell.showItemInFolder` ouvrirait l'explorateur Linux (absent)
+ * plutot que celui de Windows : on lance `explorer.exe` nous-memes, apres
+ * avoir verifie qu'il est atteignable - comme `openExternal` le fait pour un
+ * navigateur. Son code de sortie ne prouve rien, y compris en cas de reussite
+ * (mesure sur la machine de developpement : 1 a chaque fois) ; on ne l'attend
+ * donc pas et on ne le lit jamais.
+ *
+ * Quand `explorer.exe` est hors d'atteinte, ou que le chemin Windows ne peut
+ * pas se calculer (nom de distribution absent), le chemin est copie dans le
+ * presse-papier plutot que de laisser croire a une ouverture - a defaut du
+ * chemin Windows, c'est le chemin Linux qui est copie.
+ */
+ipcMain.handle(IPC.revealPlanche, async (_event, path: unknown) => {
+  if (typeof path !== "string") {
+    throw new Error("Chemin de planche invalide.");
+  }
+  const resolu = await cheminDePlanche(path);
+
+  if (!sousWslActif) {
+    shell.showItemInFolder(resolu);
+    return "ouvert" as const;
+  }
+
+  const cheminWindows = versCheminWindows(resolu, environnementWsl);
+  const environnementPath = { PATH: process.env["PATH"] };
+  if (cheminWindows !== undefined && saitOuvrirExplorer(environnementPath, existsSync)) {
+    spawn("explorer.exe", [`/select,${cheminWindows}`], {
+      detached: true,
+      stdio: "ignore",
+    }).unref();
+    return "ouvert" as const;
+  }
+
+  await clipboard.writeText(cheminWindows ?? resolu);
+  return "copie" as const;
+});
 
 /**
  * Copie un texte fourni par la fenetre.

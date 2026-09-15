@@ -96,6 +96,29 @@ plutôt que de rester bloquée : le rendu graphique de la machine ne répond
 plus, c'est un défaut connu de WSLg, et relancer l'application — ou WSL lui-même
 si elle ne redémarre plus — rétablit généralement la capture.
 
+#### Retrouver la planche dans l'explorateur Windows
+
+La planche s'écrit côté Linux (`/home/…/data/planches/…png`), mais c'est dans
+l'explorateur Windows qu'on va la chercher pour la glisser dans Discord — un
+chemin Linux n'y mène à rien.
+
+Sous WSL, l'application affiche donc l'équivalent Windows du chemin plutôt
+que le chemin Linux, converti sans appel externe (`versCheminWindows` dans
+`src/wsl.ts`) : un disque monté sous `/mnt/<lettre>` devient ce disque
+(`/mnt/c/Users/x` → `C:\Users\x`), et tout le reste devient un chemin UNC vers
+la distribution (`/home/erwan/x.png` → `\\wsl.localhost\Ubuntu\home\erwan\x.png`).
+Sans nom de distribution disponible, elle retombe sur le chemin Linux plutôt
+que d'inventer.
+
+Le bouton **Ouvrir le dossier**, à côté de **Fabriquer la planche**, lance
+`explorer.exe /select,<chemin Windows>` pour l'y sélectionner directement.
+Comme pour l'ouverture d'un lien, l'application vérifie d'abord qu'`explorer.exe`
+est atteignable dans le `PATH` plutôt que de le supposer ; sinon, elle copie
+le chemin dans le presse-papier et le dit, au lieu de laisser croire à une
+ouverture. Son code de sortie, lui, ne prouve rien : `explorer.exe` le rend à
+1 même quand il réussit (mesuré sur la machine de développement), donc
+l'application ne l'attend ni ne le lit.
+
 Les dates se saisissent au sélecteur natif, le lobby et le type se choisissent
 dans des listes, et la fenêtre est pré-remplie sur la soirée en cours. La
 progression défile page par page pendant la récupération.
@@ -326,7 +349,8 @@ structure, types et valeurs dont le code dépend.
 | `src/battleRows.ts` | Vue allégée d'un match : ce que la fenêtre affiche, traduit |
 | `src/battleDetail.ts` | Détail d'une manche, à la demande |
 | `src/lienExterne.ts` | Ce qu'on accepte d'ouvrir, et si la machine sait le faire |
-| `src/wsl.ts` | Détection de WSL, pure et testable |
+| `src/wsl.ts` | Détection de WSL et conversion de chemin, pures et testables |
+| `src/revelePlanche.ts` | Si `explorer.exe` est atteignable, pour révéler la planche sous WSL |
 | `src/report/analyse.ts` | Réduit une session en chiffres. Ne rédige rien |
 | `src/report/format.ts` | Mise en forme partagée : tableaux, ratios, désignation des joueurs |
 | `src/report/seuils.ts` | Où passe la frontière entre un fait et du bruit |

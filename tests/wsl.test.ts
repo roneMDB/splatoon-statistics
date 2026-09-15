@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { tourneSousWsl } from "../src/wsl.ts";
+import { tourneSousWsl, versCheminWindows } from "../src/wsl.ts";
 
 /** Le `/proc/version` d'une vraie machine WSL2. */
 const VERSION_WSL =
@@ -36,5 +36,49 @@ describe("tourneSousWsl", () => {
   test("repond non hors de Linux, sans rien lire", () => {
     expect(tourneSousWsl("win32", { WSL_DISTRO_NAME: "Ubuntu" }, jamaisLu)).toBe(false);
     expect(tourneSousWsl("darwin", {}, jamaisLu)).toBe(false);
+  });
+});
+
+describe("versCheminWindows", () => {
+  test("convertit un disque monte sous /mnt en lettre Windows", () => {
+    expect(versCheminWindows("/mnt/c/Users/erwan/x.png", {})).toBe(
+      "C:\\Users\\erwan\\x.png",
+    );
+  });
+
+  test("met la lettre de lecteur en majuscule", () => {
+    expect(versCheminWindows("/mnt/d/dossier/fichier.txt", {})).toBe(
+      "D:\\dossier\\fichier.txt",
+    );
+  });
+
+  test("un disque /mnt ne depend pas du nom de distribution", () => {
+    expect(versCheminWindows("/mnt/c/Users/x", { WSL_DISTRO_NAME: undefined })).toBe(
+      "C:\\Users\\x",
+    );
+  });
+
+  test("convertit un chemin de la distribution en UNC wsl.localhost", () => {
+    expect(
+      versCheminWindows("/home/erwan/repositories/x.png", { WSL_DISTRO_NAME: "Ubuntu" }),
+    ).toBe("\\\\wsl.localhost\\Ubuntu\\home\\erwan\\repositories\\x.png");
+  });
+
+  test("rend undefined quand le nom de distribution manque", () => {
+    expect(versCheminWindows("/home/erwan/x.png", {})).toBeUndefined();
+    expect(
+      versCheminWindows("/home/erwan/x.png", { WSL_DISTRO_NAME: undefined }),
+    ).toBeUndefined();
+  });
+
+  test("rend undefined pour un chemin relatif", () => {
+    expect(versCheminWindows("data/planches/x.png", { WSL_DISTRO_NAME: "Ubuntu" })).toBeUndefined();
+  });
+
+  test("ne prend pas /mnt2 ou /mntx pour un disque monte", () => {
+    // "/mnt" doit etre un segment complet, pas un prefixe de nom de dossier.
+    expect(
+      versCheminWindows("/mnt2/c/x", { WSL_DISTRO_NAME: "Ubuntu" }),
+    ).toBe("\\\\wsl.localhost\\Ubuntu\\mnt2\\c\\x");
   });
 });
