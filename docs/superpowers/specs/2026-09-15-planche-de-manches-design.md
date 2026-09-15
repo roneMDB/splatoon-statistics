@@ -41,11 +41,22 @@ génération, aucun identifiant aléatoire. Deux appels sur le même fichier ren
 deux fois la même chaîne. C'est ce qui la rend testable par assertion de chaîne,
 sans navigateur.
 
-**`src/electron/plancheHandler.ts`** (nouveau) : reçoit ce HTML et le
-photographie. C'est le seul endroit qui connaît Electron.
+**`src/electron/plancheHandler.ts`** (nouveau) : reçoit ce HTML et orchestre sa
+photographie — mesure, garde-fou de hauteur, capture, écriture du PNG,
+presse-papier. Il n'importe pas Electron : tout ce qui exige un vrai Chromium
+lui est injecté sous la forme d'`OutilsDePlanche`, ce qui le rend testable sans
+fenêtre.
+
+**`src/electron/planchePhotographe.ts`** (nouveau) : l'implémentation réelle de
+ces outils. C'est le seul fichier du chantier qui importe Electron — fenêtre
+hors écran, mesure du document, capture, presse-papier — et le seul qui ne se
+teste pas en unitaire : il lui faut un vrai Chromium.
 
 Le noyau n'importe rien d'Electron ; la fenêtre n'importe rien du noyau. La
-planche ne change pas cette frontière, elle la suit.
+planche ne change pas cette frontière, elle la déplace seulement d'un cran :
+avant elle, un seul fichier connaissait Electron ; ici, l'orchestration et la
+capture sont deux fichiers séparés, pour que la première reste testable sans
+la seconde.
 
 ## B. Ce que montre une carte de manche
 
@@ -105,7 +116,7 @@ sans lui.
 ## C. La photographie
 
 Le handler reçoit `{ path }`, relit la session, appelle `construisLaPlanche`,
-puis :
+puis orchestre — via les outils qu'implémente `planchePhotographe.ts` :
 
 1. Écrit le HTML dans un fichier temporaire (`app.getPath("temp")`). Pas de
    `data:` URL : sa longueur est plafonnée par Chromium, et une planche de
@@ -123,9 +134,22 @@ Le PNG est écrit dans `data/planches/`, sous une nouvelle constante
 `DEFAULT_PLANCHE_DIR` posée dans `config.ts` à côté de `DEFAULT_OUT_DIR`. Le nom
 de fichier reprend celui de la session, extension changée.
 
-Puis on tente `clipboard.writeImage()` — **et on vérifie le résultat** par
-`clipboard.readImage().isEmpty()`, au lieu de supposer que l'appel a fait ce
-qu'il annonce.
+Puis on tente d'écrire l'image dans le presse-papier — **et on relit le
+presse-papier pour constater** qu'elle y est bien arrivée, au lieu de supposer
+que l'appel a fait ce qu'il annonce.
+
+**Écart avec ce brief :** ce document prévoyait `clipboard.writeImage()` puis
+`clipboard.readImage()`, une paire synchrone. L'Electron installé (44.3.0) ne
+la propose plus : `Clipboard` n'expose que `write(ClipboardItem[])` et `read()`,
+asynchrones, bâtis sur les types web `ClipboardItem` et `Blob` — vérifiable dans
+`node_modules/electron/electron.d.ts`. Le principe ne change pas, seule l'API
+change : on écrit un `ClipboardItem` portant un `Blob` `"image/png"`, puis on
+relit la liste rendue par `read()`, on y cherche l'entrée `"image/png"`, on
+relit son `Blob`, et on compare sa taille décodée à celle du PNG qu'on vient
+d'écrire — jamais à la hauteur CSS demandée, qui ne dit rien de l'échelle de
+l'écran (voir le commentaire de `copie` dans `planchePhotographe.ts`). Tout
+rejet, délai dépassé ou entrée absente vaut « indisponible », jamais une
+exception.
 
 C'est la leçon déjà tirée de `xdg-open` et consignée dans `lienExterne.ts` :
 sous WSLg, un appel système peut réussir sans rien faire. Le presse-papier
@@ -136,7 +160,7 @@ perdre un collage silencieux.
 Le handler rend donc :
 
 ```
-{ chemin, largeur, hauteur, octets, pressePapier: "copié" | "indisponible" }
+{ chemin, largeur, hauteur, octets, pressePapier: "copie" | "indisponible" }
 ```
 
 Le fichier, lui, est toujours écrit. C'est le chemin fiable ; le presse-papier
@@ -211,8 +235,18 @@ garde ses emoji, parce que c'est Discord qui les rend.
 - le HTML ne contient **aucune URL externe** — ni police, ni image, ni script ;
 - deux appels rendent la même chaîne.
 
-**`tests/electron/plancheHandler.test.ts`** : la garde de chemin, et le garde-fou
-de hauteur qui refuse au-delà du seuil.
+**`tests/electron/plancheHandler.test.ts`** : l'ordre des opérations (lit,
+mesure, capture, ferme, copie), le garde-fou de hauteur qui refuse au-delà du
+seuil, le nommage et l'écriture du fichier, et l'annonce du presse-papier.
+`lisLaSession` y est une doublure injectée : ces tests ne peuvent donc pas
+couvrir la garde de chemin, qui vit dans `readSession` et non dans le handler.
+
+La garde de chemin elle-même est couverte, mais ailleurs : `tests/sessionList.test.ts`
+(« garde de chemin ») la vérifie directement sur `readSession`. Rien en
+revanche n'atteste par test que le canal IPC `planche:build` — câblé dans
+`main.ts` avec l'implémentation réelle d'`OutilsDePlanche` — passe bien par
+cette fonction gardée : la garantie tient sur `readSession`, pas sur le
+câblage qui l'appelle.
 
 La capture elle-même exige un vrai Chromium et n'est pas testée automatiquement.
 Elle se vérifie à l'œil, une fois : c'est une image, et son seul juge utile est
