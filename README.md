@@ -140,6 +140,30 @@ Trois pièges vérifiés, chacun tenu par un test :
   pas toujours le rang en tête — « № 1 du coup de main », mais « Cible privilégiée
   № 1 ».
 
+### La planche de manches
+
+**Fabriquer la planche** rend une image unique — toutes les manches de la session
+empilées, les huit joueurs de chacune avec leur arme, leurs chiffres et les
+médailles. C'est ce que la session se postait autrefois en captures d'écran,
+une par manche.
+
+Une image plutôt qu'un bloc de texte parce que le détail ne tient pas dans
+Discord : un bloc de manche pèse ~700 caractères, treize manches ~9 000, pour
+une limite de 2 000 par message.
+
+Le PNG est écrit dans `data/planches/`, et **aussi** mis dans le presse-papier —
+quand le système l'accepte. Sous WSL, il ne l'accepte pas toujours : le
+presse-papier image ne franchit pas la frontière Windows aussi fiablement que le
+texte. L'application relit donc le presse-papier pour vérifier qu'il a bien reçu
+l'image, et le dit franchement quand ce n'est pas le cas — comme elle le fait
+déjà pour l'ouverture de liens. Le fichier, lui, est toujours écrit : il suffit
+de le glisser dans Discord.
+
+Contrairement au compte rendu, la planche **nomme les adversaires**. Elle ne
+juge pas : elle reproduit le tableau de fin de manche que les huit joueurs ont
+déjà vu à l'écran. La règle de l'arme continue de tenir dans les sections
+analytiques, où un chiffre porte un verdict.
+
 ## La ligne de commande
 
 ```bash

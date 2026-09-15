@@ -41,6 +41,8 @@ const elements = {
   compteRenduTexte: document.getElementById("compte-rendu-texte"),
   boutonGenerer: document.getElementById("bouton-generer"),
   boutonCopier: document.getElementById("bouton-copier"),
+  boutonPlanche: document.getElementById("bouton-planche"),
+  plancheResultat: document.getElementById("planche-resultat"),
   compteRenduOnglets: document.getElementById("compte-rendu-onglets"),
   compteRenduApercu: document.getElementById("compte-rendu-apercu"),
   ongletApercu: document.getElementById("onglet-apercu"),
@@ -613,6 +615,10 @@ function cacheLeCompteRendu() {
   elements.compteRenduApercu.hidden = true;
   elements.compteRenduOnglets.hidden = true;
   elements.boutonCopier.disabled = true;
+  // La planche affichee appartient a la session precedente, comme le compte
+  // rendu : on la vide en meme temps.
+  elements.plancheResultat.hidden = true;
+  elements.plancheResultat.textContent = "";
 }
 
 elements.boutonGenerer.addEventListener("click", async () => {
@@ -658,6 +664,28 @@ elements.boutonCopier.addEventListener("click", async () => {
     bandeau(elements.erreur, String(erreur?.message ?? erreur));
   } finally {
     elements.boutonCopier.disabled = false;
+  }
+});
+
+elements.boutonPlanche.addEventListener("click", async () => {
+  if (ficheCourante === undefined) return;
+  cacheLesBandeaux();
+
+  elements.boutonPlanche.disabled = true;
+  elements.plancheResultat.hidden = true;
+  try {
+    const planche = await api.buildPlanche({ path: ficheCourante.path });
+    const ko = Math.round(planche.octets / 1024);
+    elements.plancheResultat.textContent =
+      `${planche.chemin} · ${planche.largeur} × ${planche.hauteur} px · ${ko} Ko\n` +
+      (planche.pressePapier === "copie"
+        ? "Aussi dans le presse-papier — prête à coller dans Discord."
+        : "Presse-papier indisponible : glissez le fichier dans Discord.");
+    elements.plancheResultat.hidden = false;
+  } catch (erreur) {
+    bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  } finally {
+    elements.boutonPlanche.disabled = false;
   }
 });
 
