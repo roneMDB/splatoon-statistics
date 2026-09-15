@@ -60,6 +60,42 @@ export BROWSER="/mnt/c/Users/<vous>/AppData/Local/Vivaldi/Application/vivaldi.ex
 sudo apt install wslu
 ```
 
+#### Fabriquer une planche sous WSL
+
+Sous WSLg, capturer une planche peut échouer sur `UnknownVizError` : le
+processus GPU de Chromium ne survit pas au rendu hors écran, l'échec
+s'aggrave d'un lancement à l'autre, et l'application finit par ne plus
+démarrer du tout — le preload n'étant plus chargé.
+
+Deux mesures, sur les vraies sessions de l'utilisateur (13 et 21 manches, soit
+4 374 et 6 947 px de haut) :
+
+| Configuration | Captures réussies |
+|---|---|
+| Témoin, aucun drapeau | 0 / 6 |
+| `--use-angle=swiftshader` en ligne de commande | 6 / 6, puis 3 / 8 plus tard |
+| `appendSwitch("use-angle","swiftshader")` depuis le code | 3 / 6 |
+| `app.disableHardwareAcceleration()` | 1 / 6 |
+| `--use-angle=swiftshader` plus reprise jusqu'à 5 essais | 7 / 8 |
+
+Deux remèdes en découlent, tous deux dans l'application :
+
+1. **`npm run app` ne lance plus `electron .` directement** mais passe par
+   `src/lanceApp.ts`, qui pose `--use-angle=swiftshader` sur la **vraie ligne
+   de commande** du processus, sous WSL seulement — Chromium lit ce drapeau
+   avant que le code applicatif s'exécute, ce qu'un `appendSwitch` posé de
+   l'intérieur (toujours présent dans `src/electron/main.ts`, et qui aide un
+   peu à lui seul) ne peut pas garantir.
+2. **La fabrication d'une planche réessaie jusqu'à 5 fois**
+   (`fabriqueLaPlancheAvecReprise` dans `src/electron/plancheHandler.ts`),
+   avec des outils neufs à chaque tentative : la panne résiduelle est
+   intermittente, et une reprise la rattrape le plus souvent.
+
+Si les cinq tentatives échouent quand même, l'application le dit clairement
+plutôt que de rester bloquée : le rendu graphique de la machine ne répond
+plus, c'est un défaut connu de WSLg, et relancer l'application — ou WSL lui-même
+si elle ne redémarre plus — rétablit généralement la capture.
+
 Les dates se saisissent au sélecteur natif, le lobby et le type se choisissent
 dans des listes, et la fenêtre est pré-remplie sur la soirée en cours. La
 progression défile page par page pendant la récupération.
@@ -256,7 +292,7 @@ Trois particularités vérifiées en direct, toutes traitées dans le code :
 ## Développement
 
 ```bash
-npm test                          # 391 tests unitaires, hors-ligne
+npm test                          # 399 tests unitaires, hors-ligne
 STATINK_INTEGRATION=1 npm test    # + 3 tests contre le vrai stat.ink
 npm run typecheck
 ```
@@ -290,6 +326,7 @@ structure, types et valeurs dont le code dépend.
 | `src/battleRows.ts` | Vue allégée d'un match : ce que la fenêtre affiche, traduit |
 | `src/battleDetail.ts` | Détail d'une manche, à la demande |
 | `src/lienExterne.ts` | Ce qu'on accepte d'ouvrir, et si la machine sait le faire |
+| `src/wsl.ts` | Détection de WSL, pure et testable |
 | `src/report/analyse.ts` | Réduit une session en chiffres. Ne rédige rien |
 | `src/report/format.ts` | Mise en forme partagée : tableaux, ratios, désignation des joueurs |
 | `src/report/seuils.ts` | Où passe la frontière entre un fait et du bruit |
@@ -299,10 +336,11 @@ structure, types et valeurs dont le code dépend.
 | `src/reportCli.ts` | `npm run report` : le même document sur la sortie standard |
 | `src/store.ts` | Écriture du fichier de session |
 | `src/cli.ts` | Arguments, câblage, récapitulatif console |
+| `src/lanceApp.ts` | Lance Electron en processus fils, avec `--use-angle=swiftshader` sous WSL |
 | `src/electron/main.ts` | Fenêtre et câblage IPC. Aucune logique métier |
 | `src/electron/preload.cts` | Pont vers la fenêtre. Autonome : le bac à sable ne résout aucun module local |
 | `src/electron/sessionFetchHandler.ts` | Récupération pilotée par le formulaire, sans Electron |
-| `src/electron/plancheHandler.ts` | Fabrique la planche : capture injectée, testable sans Chromium |
+| `src/electron/plancheHandler.ts` | Fabrique la planche : capture injectée, testable sans Chromium. Reprise jusqu'à 5 fois |
 | `src/electron/planchePhotographe.ts` | Capture Electron réelle : fenêtre hors écran, presse-papier |
 | `src/electron/renderer/` | La fenêtre : HTML, CSS, JavaScript simple, non transpilé |
 | `src/electron/renderer/markdown.js` | Rendu de l'aperçu. Moitié pure testée, DOM sans `innerHTML` |
@@ -310,5 +348,8 @@ structure, types et valeurs dont le code dépend.
 Le noyau ignore laquelle des deux façades l'appelle. Les modules `src/electron/`
 qui orchestrent — `plancheHandler.ts` compris — n'importent pas `electron` : ils
 se testent hors-ligne comme le reste. `planchePhotographe.ts` assume l'exception :
-seul fichier du dépôt à porter à la fois de la logique et l'import d'`electron`,
-il ne se teste donc pas en unitaire et se vérifie à l'œil.
+seul fichier à porter à la fois de la logique et l'API d'`electron`
+(`app`, `BrowserWindow`...), il ne se teste donc pas en unitaire et se vérifie à
+l'œil. `src/lanceApp.ts` importe `electron` lui aussi, mais seulement pour le
+chemin du binaire qu'il lance en processus fils : il ne s'exécute jamais dans le
+processus Electron, et reste donc à part du reste du noyau sans le rejoindre.

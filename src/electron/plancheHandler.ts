@@ -202,3 +202,62 @@ export async function fabriqueLaPlanche(
       : {}),
   };
 }
+
+/**
+ * Tentatives maximales avant d'abandonner.
+ *
+ * Mesure sur la machine de developpement (WSLg), planche de 21 manches, avec
+ * SwiftShader deja pose en ligne de commande : la panne residuelle du GPU est
+ * intermittente, et une reprise la rattrape le plus souvent - 7 succes sur 8
+ * jusqu'a 5 essais. Au-dela, la depense n'a plus de sens : quand le GPU est
+ * definitivement mort, aucune reprise ne le ressuscite.
+ */
+export const TENTATIVES_MAXIMALES_PLANCHE = 5;
+
+/** Pause entre deux tentatives, en ms : le temps de laisser souffler un GPU intermittent. */
+const PAUSE_ENTRE_TENTATIVES_MS = 250;
+
+function attend(ms: number): Promise<void> {
+  return new Promise((donneLaMain) => setTimeout(donneLaMain, ms));
+}
+
+/**
+ * Enveloppe `fabriqueLaPlanche` d'une reprise, pour la panne GPU intermittente
+ * de WSLg (voir `src/wsl.ts` et `src/lanceApp.ts`).
+ *
+ * Chaque tentative repart d'outils neufs : une fenetre hors ecran deja
+ * detruite par `ferme()` ne se recycle pas. C'est pourquoi cette fonction
+ * prend une **fabrique** d'outils, appelee une fois par tentative, plutot que
+ * des outils deja construits - a la difference de `fabriqueLaPlanche`, dont la
+ * signature ne change pas ici.
+ *
+ * Quand les `TENTATIVES_MAXIMALES_PLANCHE` tentatives ont toutes echoue,
+ * l'erreur levee ne repete pas seulement la derniere exception technique :
+ * elle dit ce qui se passe, pour quelqu'un qui ne connait pas WSLg.
+ */
+export async function fabriqueLaPlancheAvecReprise(
+  path: string,
+  fabriqueOutils: () => OutilsDePlanche,
+  plancheDir: string = DEFAULT_PLANCHE_DIR,
+): Promise<ResultatPlanche> {
+  let derniereErreur: unknown;
+
+  for (let tentative = 1; tentative <= TENTATIVES_MAXIMALES_PLANCHE; tentative++) {
+    try {
+      return await fabriqueLaPlanche(path, fabriqueOutils(), plancheDir);
+    } catch (erreur) {
+      derniereErreur = erreur;
+      if (tentative < TENTATIVES_MAXIMALES_PLANCHE) {
+        await attend(PAUSE_ENTRE_TENTATIVES_MS);
+      }
+    }
+  }
+
+  const detail = derniereErreur instanceof Error ? derniereErreur.message : String(derniereErreur);
+  throw new Error(
+    `Le rendu graphique de la machine ne répond plus, même après ${TENTATIVES_MAXIMALES_PLANCHE} ` +
+      `tentatives. C'est un défaut connu de WSLg : le processus GPU de Chromium ne survit pas ` +
+      `toujours à l'usage. Relancer l'application, ou WSL lui-même si elle ne redémarre plus, ` +
+      `rétablit généralement la capture. Dernière erreur rencontrée : ${detail}`,
+  );
+}

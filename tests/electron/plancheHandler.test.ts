@@ -4,8 +4,10 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import {
   fabriqueLaPlanche,
+  fabriqueLaPlancheAvecReprise,
   HAUTEUR_MAXIMALE_PLANCHE,
   nomDePlanche,
+  TENTATIVES_MAXIMALES_PLANCHE,
   type OutilsDePlanche,
 } from "../../src/electron/plancheHandler.ts";
 import type { SessionFile } from "../../src/store.ts";
@@ -272,5 +274,71 @@ describe("fabriqueLaPlanche", () => {
         await rm(dossier, { recursive: true, force: true });
       }
     });
+  });
+});
+
+describe("fabriqueLaPlancheAvecReprise", () => {
+  test("une tentative en echec puis une reussite rend le resultat, et la fabrique a ete appelee deux fois", async () => {
+    const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+    try {
+      let appels = 0;
+      const fabrique = (): OutilsDePlanche => {
+        appels += 1;
+        if (appels === 1) {
+          const doublure = outils();
+          doublure.mesure = async () => {
+            throw new Error("Chromium n'a pas repondu.");
+          };
+          return doublure;
+        }
+        return outils({ hauteur: 3120 });
+      };
+
+      const resultat = await fabriqueLaPlancheAvecReprise("a/b.json", fabrique, dossier);
+
+      expect(resultat.hauteur).toBe(3120);
+      expect(appels).toBe(2);
+    } finally {
+      await rm(dossier, { recursive: true, force: true });
+    }
+  });
+
+  test("cinq echecs levent une erreur dont le message parle du rendu graphique", async () => {
+    const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+    try {
+      let appels = 0;
+      const fabrique = (): OutilsDePlanche => {
+        appels += 1;
+        const doublure = outils();
+        doublure.mesure = async () => {
+          throw new Error("Chromium n'a pas repondu.");
+        };
+        return doublure;
+      };
+
+      await expect(fabriqueLaPlancheAvecReprise("a/b.json", fabrique, dossier)).rejects.toThrow(
+        /rendu graphique/i,
+      );
+      expect(appels).toBe(TENTATIVES_MAXIMALES_PLANCHE);
+    } finally {
+      await rm(dossier, { recursive: true, force: true });
+    }
+  });
+
+  test("un succes immediat n'appelle la fabrique qu'une fois", async () => {
+    const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+    try {
+      let appels = 0;
+      const fabrique = (): OutilsDePlanche => {
+        appels += 1;
+        return outils();
+      };
+
+      await fabriqueLaPlancheAvecReprise("a/b.json", fabrique, dossier);
+
+      expect(appels).toBe(1);
+    } finally {
+      await rm(dossier, { recursive: true, force: true });
+    }
   });
 });

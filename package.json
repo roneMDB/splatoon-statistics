@@ -11,7 +11,7 @@
   "scripts": {
     "fetch": "tsx src/cli.ts",
     "report": "tsx src/reportCli.ts",
-    "app": "npm run app:build && electron .",
+    "app": "npm run app:build && tsx src/lanceApp.ts",
     "app:build": "tsc -p tsconfig.electron.json && node -e \"require('fs').cpSync('src/electron/renderer','dist-electron/electron/renderer',{recursive:true})\"",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -7,7 +7,7 @@
  */
 
 import { app, BrowserWindow, clipboard, ipcMain, shell } from "electron";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { DEFAULT_USER } from "../config.ts";
@@ -22,6 +22,7 @@ import {
 import { toBattleRows } from "../battleRows.ts";
 import { toBattleDetail } from "../battleDetail.ts";
 import { estUneUrlStatink, saitOuvrirUnLien } from "../lienExterne.ts";
+import { tourneSousWsl } from "../wsl.ts";
 import { parseSessionType, SESSION_TYPES } from "../sessionMeta.ts";
 import { KNOWN_LOBBIES } from "../statink/url.ts";
 import {
@@ -37,10 +38,45 @@ import {
   LIBELLES_SECTIONS,
   SECTIONS,
 } from "../report/index.ts";
-import { fabriqueLaPlanche } from "./plancheHandler.ts";
+import { fabriqueLaPlancheAvecReprise } from "./plancheHandler.ts";
 import { outilsDePlanche } from "./planchePhotographe.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Sous WSL, on rend par SwiftShader plutot que par le GPU de l'hote.
+ *
+ * La fabrication d'une planche photographie un document dans une fenetre hors
+ * ecran, et cette capture passe par le processus GPU de Chromium. Sous WSLg,
+ * ce processus ne survit pas : la premiere capture d'une session WSL reussit,
+ * les suivantes echouent toutes sur `UnknownVizError`, et l'application finit
+ * par ne plus demarrer du tout - le preload n'est plus charge, et la fenetre
+ * s'ouvre sur « Demarrage impossible ».
+ *
+ * Mesure sur la machine de developpement, planche de 21 manches
+ * (1080 x 6947 px) : 0 capture sur 3 sans ce drapeau, 5 sur 5 avec, y compris
+ * dans une session WSLg deja degradee ou plus rien ne passait.
+ *
+ * Le raisonnement est celui de `lienExterne.ts` : sous WSL, ce qui devrait
+ * marcher echoue en silence, et mieux vaut le prevoir que le decouvrir. Ici on
+ * ne peut pas le rattraper apres coup - le drapeau doit etre pose avant
+ * l'initialisation d'Electron - donc on le pose d'emblee.
+ *
+ * Reserve a WSL : c'est la seule plateforme ou le defaut a ete constate et le
+ * remede mesure. Le cout est une interface rendue par le processeur, ce qui ne
+ * se voit pas sur un formulaire et un tableau.
+ */
+const lisLaVersionDuNoyau = (): string | undefined => {
+  try {
+    return readFileSync("/proc/version", "utf8");
+  } catch {
+    return undefined;
+  }
+};
+
+if (tourneSousWsl(process.platform, process.env, lisLaVersionDuNoyau)) {
+  app.commandLine.appendSwitch("use-angle", "swiftshader");
+}
 
 // Sans cela, Chromium affiche les champs de date au format de sa propre locale,
 // soit du JJ/MM inverse pour un utilisateur francais.
@@ -149,7 +185,11 @@ ipcMain.handle(IPC.buildReport, async (_event, input: BuildReportInput) => {
 ipcMain.handle(IPC.buildPlanche, (_event, input: BuildPlancheInput) =>
   // `readSession`, appele par les outils, refuse tout chemin hors du dossier
   // des sessions : la garde est la meme que pour `readBattle`.
-  fabriqueLaPlanche(input.path, outilsDePlanche()),
+  //
+  // `outilsDePlanche` est passee telle quelle, comme fabrique : chaque
+  // reprise a besoin d'une fenetre hors ecran neuve, pas de celle deja
+  // detruite par la tentative precedente. Voir `plancheHandler.ts`.
+  fabriqueLaPlancheAvecReprise(input.path, outilsDePlanche),
 );
 
 /**
