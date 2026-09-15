@@ -101,10 +101,15 @@ sont des camarades de club qui lisent le même Discord.
 ```bash
 npm run report -- data/sessions/Gloup_20260911-2000_20260911-2301.json
 npm run report -- <fichier> --sections role,modes
+npm run report -- <fichier> --planche
 ```
 
 La ligne de commande imprime le même document sur la sortie standard ; elle sert à
 travailler une formulation sans relancer l'application.
+
+Avec `--planche`, elle écrit le HTML de la planche dans `data/planches/` au lieu
+d'imprimer le compte rendu. Le PNG, lui, ne sort que de l'application : la
+capture demande Electron, que la ligne de commande n'a pas.
 
 ### D'où vient le français
 

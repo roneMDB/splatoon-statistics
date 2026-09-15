@@ -9,10 +9,12 @@
  * demande pas de lancer l'application.
  */
 
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { DEFAULT_OUT_DIR } from "./config.ts";
+import { DEFAULT_OUT_DIR, DEFAULT_PLANCHE_DIR } from "./config.ts";
+import { construisLaPlanche } from "./report/planche.ts";
 import { readSession } from "./sessionList.ts";
 import {
   construisLeCompteRendu,
@@ -34,6 +36,8 @@ Options
 ${SECTIONS.map((section) => `                      ${section.padEnd(10)} ${LIBELLES_SECTIONS[section]}`).join("\n")}
   --objectif <texte>  Objectif de la session. Prend le pas sur celui du fichier.
   --ressenti <texte>  Ressenti sur la session. Prend le pas sur celui du fichier.
+  --planche           Ecrit la planche de manches en HTML au lieu d'imprimer
+                      le compte rendu. Dans ${DEFAULT_PLANCHE_DIR}.
   --out <dossier>     Dossier des sessions. Par defaut : ${DEFAULT_OUT_DIR}.
   --help              Affiche cette aide.
 
@@ -47,6 +51,8 @@ export type ReportCliOptions = {
   objectif?: string;
   ressenti?: string;
   outDir: string;
+  /** Ecrit la planche en HTML au lieu d'imprimer le compte rendu. */
+  planche: boolean;
 };
 
 /** Analyse les arguments. Le chemin de session est positionnel. */
@@ -59,6 +65,7 @@ export function parseReportArgs(argv: string[]): ReportCliOptions {
       sections: { type: "string" },
       objectif: { type: "string" },
       ressenti: { type: "string" },
+      planche: { type: "boolean" },
       out: { type: "string" },
       help: { type: "boolean" },
     },
@@ -91,27 +98,30 @@ export function parseReportArgs(argv: string[]): ReportCliOptions {
     ...(values.objectif !== undefined ? { objectif: values.objectif } : {}),
     ...(values.ressenti !== undefined ? { ressenti: values.ressenti } : {}),
     outDir: values.out ?? DEFAULT_OUT_DIR,
+    planche: values.planche === true,
   };
 }
 
 /**
- * Lit la session et rend son compte rendu.
+ * Lit la session designee par la ligne de commande.
  *
  * Passe par `readSession`, qui refuse tout chemin hors du dossier des sessions,
  * sauf si l'appelant designe explicitement un autre dossier avec `--out` : en
- * ligne de commande, c'est l'utilisateur lui-meme qui choisit ou il lit.
+ * ligne de commande, c'est l'utilisateur lui-meme qui choisit ou il lit. La
+ * garde protege la fenetre, pas quelqu'un qui tape un chemin dans son terminal.
  */
+async function lisLaSession(options: ReportCliOptions): Promise<SessionFile> {
+  return readSession(options.path, options.outDir).catch(async (erreur: unknown) => {
+    if (erreur instanceof Error && erreur.message.startsWith("Chemin de session refuse")) {
+      return JSON.parse(await readFile(options.path, "utf8")) as SessionFile;
+    }
+    throw erreur;
+  });
+}
+
+/** Lit la session et rend son compte rendu. */
 export async function rendCompteRendu(options: ReportCliOptions): Promise<string> {
-  const file: SessionFile = await readSession(options.path, options.outDir).catch(
-    async (erreur: unknown) => {
-      // Hors du dossier des sessions, on lit quand meme : la garde protege la
-      // fenetre, pas un utilisateur qui tape un chemin dans son terminal.
-      if (erreur instanceof Error && erreur.message.startsWith("Chemin de session refuse")) {
-        return JSON.parse(await readFile(options.path, "utf8")) as SessionFile;
-      }
-      throw erreur;
-    },
-  );
+  const file = await lisLaSession(options);
 
   return construisLeCompteRendu(file, {
     sections: options.sections,
@@ -120,13 +130,37 @@ export async function rendCompteRendu(options: ReportCliOptions): Promise<string
   });
 }
 
+/**
+ * Ecrit la planche en HTML et rend son chemin.
+ *
+ * Le HTML, pas le PNG : la capture demande Electron, que la ligne de commande
+ * n'a pas et ne doit pas acquerir. Ouvert dans un navigateur, le fichier montre
+ * exactement ce que l'application photographiera - de quoi travailler le
+ * gabarit sans relancer l'application.
+ */
+export async function ecrisLaPlanche(options: ReportCliOptions): Promise<string> {
+  const file = await lisLaSession(options);
+  await mkdir(DEFAULT_PLANCHE_DIR, { recursive: true });
+
+  const chemin = join(DEFAULT_PLANCHE_DIR, `${basename(options.path, ".json")}.html`);
+  await writeFile(chemin, construisLaPlanche(file), "utf8");
+  return chemin;
+}
+
 export async function main(argv: string[]): Promise<void> {
   if (argv.includes("--help") || argv.includes("-h")) {
     console.log(USAGE);
     return;
   }
 
-  process.stdout.write(await rendCompteRendu(parseReportArgs(argv)));
+  const options = parseReportArgs(argv);
+
+  if (options.planche) {
+    console.log(`Planche écrite dans ${await ecrisLaPlanche(options)}`);
+    return;
+  }
+
+  process.stdout.write(await rendCompteRendu(options));
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

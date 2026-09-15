@@ -89,6 +89,22 @@ describe("parseReportArgs", () => {
   });
 });
 
+describe("parseReportArgs --planche", () => {
+  test("est faux par defaut", () => {
+    expect(parseReportArgs(["data/sessions/s.json"]).planche).toBe(false);
+  });
+
+  test("passe a vrai quand l'option est donnee", () => {
+    expect(parseReportArgs(["data/sessions/s.json", "--planche"]).planche).toBe(true);
+  });
+
+  test("se combine avec --out", () => {
+    const options = parseReportArgs(["s.json", "--planche", "--out", "ailleurs"]);
+    expect(options.planche).toBe(true);
+    expect(options.outDir).toBe("ailleurs");
+  });
+});
+
 describe("rendCompteRendu", () => {
   test("rend le compte rendu d'une session ecrite", async () => {
     const { dir, path } = await sessionSurDisque();
