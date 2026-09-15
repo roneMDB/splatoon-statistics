@@ -137,12 +137,20 @@ export async function rendCompteRendu(options: ReportCliOptions): Promise<string
  * n'a pas et ne doit pas acquerir. Ouvert dans un navigateur, le fichier montre
  * exactement ce que l'application photographiera - de quoi travailler le
  * gabarit sans relancer l'application.
+ *
+ * `plancheDir` reprend le meme role que le parametre homonyme de
+ * `fabriqueLaPlanche` : sans lui, cette fonction ecrirait toujours dans le
+ * vrai `DEFAULT_PLANCHE_DIR`, seule partie de la CLI a ecrire des fichiers et
+ * seule sans test.
  */
-export async function ecrisLaPlanche(options: ReportCliOptions): Promise<string> {
+export async function ecrisLaPlanche(
+  options: ReportCliOptions,
+  plancheDir: string = DEFAULT_PLANCHE_DIR,
+): Promise<string> {
   const file = await lisLaSession(options);
-  await mkdir(DEFAULT_PLANCHE_DIR, { recursive: true });
+  await mkdir(plancheDir, { recursive: true });
 
-  const chemin = join(DEFAULT_PLANCHE_DIR, `${basename(options.path, ".json")}.html`);
+  const chemin = join(plancheDir, `${basename(options.path, ".json")}.html`);
   await writeFile(chemin, construisLaPlanche(file), "utf8");
   return chemin;
 }

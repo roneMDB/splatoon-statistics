@@ -212,8 +212,10 @@ async function ouvreLaFiche(session) {
     elements.ficheType.value = summary.type ?? "";
     elements.ficheObjectif.value = summary.objectif ?? "";
     elements.ficheRessenti.value = summary.ressenti ?? "";
-    // Un compte rendu affiche appartient a la session precedente : on le vide.
+    // Un compte rendu et une planche affiches appartiennent a la session
+    // precedente : on les vide.
     cacheLeCompteRendu();
+    cacheLaPlanche();
     elements.ficheResume.textContent =
       `${formateLaDate(summary.window.from)} → ${formateLaDate(summary.window.to)}\n` +
       `${summary.battleCount} match(s) — ${summary.results.win}V - ${summary.results.lose}D`;
@@ -615,8 +617,16 @@ function cacheLeCompteRendu() {
   elements.compteRenduApercu.hidden = true;
   elements.compteRenduOnglets.hidden = true;
   elements.boutonCopier.disabled = true;
-  // La planche affichee appartient a la session precedente, comme le compte
-  // rendu : on la vide en meme temps.
+}
+
+/**
+ * Remet la planche a zero. Distincte de `cacheLeCompteRendu` : la planche
+ * appartient a la session precedente seulement au changement de fiche, pas a
+ * un echec de generation du compte rendu, qui ne change pas la session
+ * affichee. Les deux etaient videes ensemble ; un echec de generation
+ * effacait alors la seule trace du chemin du PNG deja ecrit.
+ */
+function cacheLaPlanche() {
   elements.plancheResultat.hidden = true;
   elements.plancheResultat.textContent = "";
 }
@@ -672,15 +682,21 @@ elements.boutonPlanche.addEventListener("click", async () => {
   cacheLesBandeaux();
 
   elements.boutonPlanche.disabled = true;
-  elements.plancheResultat.hidden = true;
+  cacheLaPlanche();
   try {
     const planche = await api.buildPlanche({ path: ficheCourante.path });
     const ko = Math.round(planche.octets / 1024);
-    elements.plancheResultat.textContent =
-      `${planche.chemin} · ${planche.largeur} × ${planche.hauteur} px · ${ko} Ko\n` +
-      (planche.pressePapier === "copie"
-        ? "Aussi dans le presse-papier — prête à coller dans Discord."
-        : "Presse-papier indisponible : glissez le fichier dans Discord.");
+    const lignes = [`${planche.chemin} · ${planche.largeur} × ${planche.hauteur} px · ${ko} Ko`];
+    // "Copier" met le Markdown dans le presse-papier ; la planche l'y
+    // remplace par l'image. Le dire evite de perdre un compte rendu qu'on
+    // vient de copier sans s'en apercevoir.
+    lignes.push(
+      planche.pressePapier === "copie"
+        ? "A remplacé le presse-papier par l'image — prête à coller dans Discord."
+        : "Presse-papier indisponible : glissez le fichier dans Discord.",
+    );
+    if (planche.avertissement !== undefined) lignes.push(planche.avertissement);
+    elements.plancheResultat.textContent = lignes.join("\n");
     elements.plancheResultat.hidden = false;
   } catch (erreur) {
     bandeau(elements.erreur, String(erreur?.message ?? erreur));

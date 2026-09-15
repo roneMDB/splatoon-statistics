@@ -182,7 +182,7 @@ ipcMain.handle(IPC.openExternal, async (_event, url: unknown) => {
     BROWSER: process.env["BROWSER"],
   };
   if (!saitOuvrirUnLien(process.platform, environnement, existsSync)) {
-    clipboard.writeText(url);
+    await clipboard.writeText(url);
     return "copie" as const;
   }
 
@@ -190,11 +190,11 @@ ipcMain.handle(IPC.openExternal, async (_event, url: unknown) => {
   return "ouvert" as const;
 });
 
-ipcMain.handle(IPC.copyToClipboard, (_event, texte: unknown) => {
+ipcMain.handle(IPC.copyToClipboard, async (_event, texte: unknown) => {
   if (typeof texte !== "string" || texte.length > TAILLE_MAXIMALE_PRESSE_PAPIER) {
     throw new Error("Texte a copier invalide.");
   }
-  clipboard.writeText(texte);
+  await clipboard.writeText(texte);
 });
 
 void app.whenReady().then(() => {

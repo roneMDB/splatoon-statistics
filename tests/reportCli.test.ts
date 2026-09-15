@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseReportArgs, rendCompteRendu } from "../src/reportCli.ts";
+import { ecrisLaPlanche, parseReportArgs, rendCompteRendu } from "../src/reportCli.ts";
 import { SECTIONS } from "../src/report/index.ts";
 
 const dirs: string[] = [];
@@ -141,5 +141,23 @@ describe("rendCompteRendu", () => {
     await expect(
       rendCompteRendu(parseReportArgs(["/introuvable/session.json"])),
     ).rejects.toThrow();
+  });
+});
+
+describe("ecrisLaPlanche", () => {
+  // Aucun test ne doit ecrire dans le vrai data/planches/ : on fournit
+  // toujours un dossier de planches temporaire, distinct du dossier de
+  // sessions temporaire.
+  test("ecrit la planche en HTML dans le dossier fourni, sous le nom de la session", async () => {
+    const { dir, path } = await sessionSurDisque();
+    const dossierPlanches = await mkdtemp(join(tmpdir(), "splat-planches-"));
+    dirs.push(dossierPlanches);
+
+    const chemin = await ecrisLaPlanche(parseReportArgs([path, "--out", dir]), dossierPlanches);
+
+    expect(chemin).toBe(join(dossierPlanches, "Gloup_20260911-2000_20260911-2301.html"));
+    const contenu = await readFile(chemin, "utf8");
+    expect(contenu.startsWith("<!doctype html>")).toBe(true);
+    expect(contenu).toContain("Équipe A vs Équipe O");
   });
 });

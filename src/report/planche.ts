@@ -253,6 +253,11 @@ export function construisLaPlanche(file: SessionFile): string {
     '<html lang="fr">',
     "<head>",
     '<meta charset="utf-8">',
+    // Porte la garantie « aucune ressource externe » sur le document
+    // lui-meme, pas seulement sur le generateur qui l'a rendu : la CLI ecrit
+    // ce fichier pour que l'utilisateur l'ouvre dans son propre navigateur,
+    // qui ne connait pas cette regle sans la CSP.
+    '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'">',
     `<title>${echappe(titre)}</title>`,
     `<style>\n${STYLE}\n</style>`,
     "</head>",
