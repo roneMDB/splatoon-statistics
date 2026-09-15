@@ -179,7 +179,9 @@ npm run report -- data/sessions/<fichier>.json --planche
 
 Écrit **`data/planches/<nom-de-session>.html`**, pas le PNG : la CLI n'a pas
 Electron, et ne doit pas l'acquérir pour ça. Le fichier s'ouvre dans un
-navigateur, où l'on voit exactement ce que la capture photographiera. Elle sert ici ce qu'elle sert déjà pour le compte rendu —
+navigateur, où l'on voit exactement ce que la capture photographiera.
+
+La ligne de commande sert ici ce qu'elle sert déjà pour le compte rendu :
 travailler le gabarit sans relancer l'application.
 
 ## F. Polices, et l'absence d'emoji
