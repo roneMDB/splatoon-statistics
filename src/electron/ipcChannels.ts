@@ -25,6 +25,8 @@ export const IPC = {
   readBattle: "battle:read",
   /** Redige le compte rendu d'une session ecrite. */
   buildReport: "report:build",
+  /** Fabrique la planche de manches d'une session et l'ecrit en PNG. */
+  buildPlanche: "planche:build",
   /** Ouvre un lien stat.ink dans le navigateur du systeme. */
   openExternal: "app:open-external",
   /** Met un texte dans le presse-papier du systeme. */
@@ -69,6 +71,11 @@ export type BuildReportInput = {
   ressenti?: string;
 };
 
+/** Ce que la fenetre envoie pour obtenir une planche. */
+export type BuildPlancheInput = {
+  path: string;
+};
+
 /** Type du pont expose a la fenetre par le preload. */
 export type SplatoonApi = {
   listSessions: () => Promise<import("../sessionList.ts").ListSessionsResult>;
@@ -96,6 +103,14 @@ export type SplatoonApi = {
   ) => Promise<import("../battleDetail.ts").BattleDetail>;
   /** Rend le compte rendu en Markdown, pret a etre colle. */
   buildReport: (input: BuildReportInput) => Promise<string>;
+  /**
+   * Fabrique la planche de la session et rend ou elle a ete ecrite.
+   * `pressePapier` vaut `"indisponible"` quand le systeme n'a pas accepte
+   * l'image - le cas sous WSLg : le fichier, lui, est toujours ecrit.
+   */
+  buildPlanche: (
+    input: BuildPlancheInput,
+  ) => Promise<import("./plancheHandler.ts").ResultatPlanche>;
   /**
    * Ouvre une URL stat.ink dans le navigateur. Refuse toute autre origine.
    * Rend `"copie"` quand la machine ne sait pas ouvrir de lien : l'adresse est

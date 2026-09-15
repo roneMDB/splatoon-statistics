@@ -48,8 +48,16 @@ export type OutilsDePlanche = {
   capture: (hauteur: number) => Promise<Uint8Array>;
   /** Libere la fenetre hors ecran et ses fichiers temporaires. Appelee quoi qu'il arrive. */
   ferme: () => Promise<void>;
-  /** Tente le presse-papier et dit s'il a reellement recu l'image. */
-  copie: (png: Uint8Array, largeur: number, hauteur: number) => boolean;
+  /**
+   * Tente le presse-papier et dit s'il a reellement recu l'image.
+   *
+   * Asynchrone : l'API presse-papier d'Electron ne connait plus de version
+   * synchrone pour les images (`writeImage`/`readImage` ont disparu du
+   * `Clipboard` installe ici, remplaces par `write`/`read` bases sur
+   * `ClipboardItem` et `Blob`, tous deux asynchrones). Voir
+   * `planchePhotographe.ts`.
+   */
+  copie: (png: Uint8Array, largeur: number, hauteur: number) => Promise<boolean>;
 };
 
 /** `…/Gloup_20260804-2100_20260804-2359.json` -> `Gloup_20260804-2100_20260804-2359.png`. */
@@ -103,6 +111,8 @@ export async function fabriqueLaPlanche(
     largeur: LARGEUR_PLANCHE,
     hauteur,
     octets: png.byteLength,
-    pressePapier: outils.copie(png, LARGEUR_PLANCHE, hauteur) ? "copie" : "indisponible",
+    pressePapier: (await outils.copie(png, LARGEUR_PLANCHE, hauteur))
+      ? "copie"
+      : "indisponible",
   };
 }

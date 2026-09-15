@@ -26,6 +26,7 @@ import { parseSessionType, SESSION_TYPES } from "../sessionMeta.ts";
 import { KNOWN_LOBBIES } from "../statink/url.ts";
 import {
   IPC,
+  type BuildPlancheInput,
   type BuildReportInput,
   type FetchSessionFormInput,
   type ReadBattleInput,
@@ -36,6 +37,8 @@ import {
   LIBELLES_SECTIONS,
   SECTIONS,
 } from "../report/index.ts";
+import { fabriqueLaPlanche } from "./plancheHandler.ts";
+import { outilsDePlanche } from "./planchePhotographe.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -142,6 +145,12 @@ ipcMain.handle(IPC.buildReport, async (_event, input: BuildReportInput) => {
     ...(input.ressenti !== undefined ? { ressenti: input.ressenti } : {}),
   });
 });
+
+ipcMain.handle(IPC.buildPlanche, (_event, input: BuildPlancheInput) =>
+  // `readSession`, appele par les outils, refuse tout chemin hors du dossier
+  // des sessions : la garde est la meme que pour `readBattle`.
+  fabriqueLaPlanche(input.path, outilsDePlanche()),
+);
 
 /**
  * Copie un texte fourni par la fenetre.

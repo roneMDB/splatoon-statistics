@@ -45,7 +45,7 @@ function outils(
     ferme: async () => {
       journal.push("ferme");
     },
-    copie: () => {
+    copie: async () => {
       journal.push("copie");
       return reglages.copieReussie ?? true;
     },
