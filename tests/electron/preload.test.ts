@@ -36,6 +36,7 @@ const FONCTIONS = [
   ["deleteSession", "deleteSession"],
   ["readBattle", "readBattle"],
   ["buildReport", "buildReport"],
+  ["buildPlanche", "buildPlanche"],
   ["openExternal", "openExternal"],
   ["copyToClipboard", "copyToClipboard"],
   ["choices", "choices"],

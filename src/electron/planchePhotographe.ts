@@ -97,29 +97,45 @@ export function outilsDePlanche(): OutilsDePlanche {
     },
 
     async copie(png, largeur, hauteur) {
-      const octetsPng = Buffer.from(png);
-      await clipboard.write([
-        new ClipboardItem({
-          "image/png": new Blob([octetsPng], { type: "image/png" }),
-        }),
-      ]);
+      // Meme raisonnement que `saitOuvrirUnLien` dans `lienExterne.ts` : un
+      // appel systeme qui reussit ne prouve rien en soi, seul le constat
+      // compte. Ici, le constat peut lui-meme echouer - `write()` ou `read()`
+      // rejetes faute de gestionnaire de presse-papier actif (WSLg degrade,
+      // session sans serveur X, CI). L'ancienne API `writeImage`/`readImage`
+      // echouait en silence ; rien ne garantit que `write`/`read`, promesses
+      // web-standard, en fassent autant. Sans ce filet, un rejet remonterait
+      // hors de `fabriqueLaPlanche` **apres** que le PNG a ete ecrit sur
+      // disque : la fabrication entiere echouerait pour un raccourci qui n'a
+      // jamais ete la partie fiable. Toute sortie anormale - rejet, entree
+      // "image/png" absente, dimensions qui ne correspondent pas - vaut donc
+      // "indisponible", jamais une exception.
+      try {
+        const octetsPng = Buffer.from(png);
+        await clipboard.write([
+          new ClipboardItem({
+            "image/png": new Blob([octetsPng], { type: "image/png" }),
+          }),
+        ]);
 
-      // On compare les dimensions plutot que de se contenter d'une simple
-      // presence : une image deja presente dans le presse-papier ferait
-      // passer un echec pour une reussite.
-      const items = await clipboard.read();
-      const item = items.find((candidat) => candidat.types.includes("image/png"));
-      if (item === undefined) return false;
+        // On compare les dimensions plutot que de se contenter d'une simple
+        // presence : une image deja presente dans le presse-papier ferait
+        // passer un echec pour une reussite.
+        const items = await clipboard.read();
+        const item = items.find((candidat) => candidat.types.includes("image/png"));
+        if (item === undefined) return false;
 
-      const relu = await item.getType("image/png");
-      // `getType` rend un `ClipboardBookmark` pour le seul type
-      // "electron application/bookmark" : ici, c'est forcement un `Blob`,
-      // mais son type declare reste l'union des deux.
-      if (!(relu instanceof Blob)) return false;
-      const image = nativeImage.createFromBuffer(Buffer.from(await relu.arrayBuffer()));
-      if (image.isEmpty()) return false;
-      const taille = image.getSize();
-      return taille.width === largeur && taille.height === hauteur;
+        const relu = await item.getType("image/png");
+        // `getType` rend un `ClipboardBookmark` pour le seul type
+        // "electron application/bookmark" : ici, c'est forcement un `Blob`,
+        // mais son type declare reste l'union des deux.
+        if (!(relu instanceof Blob)) return false;
+        const image = nativeImage.createFromBuffer(Buffer.from(await relu.arrayBuffer()));
+        if (image.isEmpty()) return false;
+        const taille = image.getSize();
+        return taille.width === largeur && taille.height === hauteur;
+      } catch {
+        return false;
+      }
     },
   };
 }
