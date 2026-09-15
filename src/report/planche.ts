@@ -46,13 +46,20 @@ export const LARGEUR_PLANCHE = 1080;
  *
  * Seul endroit du fichier ou du texte exterieur touche le HTML : tout ce qui
  * vient de stat.ink - pseudo, arme, carte, medaille - passe par ici.
+ *
+ * Cinq caracteres, pas quatre : le gabarit n'ouvre ses attributs qu'avec des
+ * guillemets doubles, donc l'apostrophe droite ne casserait rien aujourd'hui
+ * - mais c'est une fonction d'echappement generale, pas une specialisee pour
+ * ce seul gabarit, et elle doit rester correcte si un attribut change un
+ * jour de guillemet.
  */
 function echappe(texte: string): string {
   return texte
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 /**
@@ -66,11 +73,8 @@ function echappe(texte: string): string {
  * ce qui n'est pas acquis. Victoire et defaite passent par la couleur du
  * bandeau et par le mot.
  *
- * La ligne "moi" est ciblee par un selecteur d'attribut (`[class$="--moi"]`)
- * plutot que par la classe ecrite en toutes lettres : cette derniere ferait
- * apparaitre deux fois le marqueur dans le document rendu - une fois dans
- * cette feuille de style, une fois sur la ligne du joueur - alors qu'il ne
- * doit reperer qu'une seule ligne.
+ * La ligne "moi" est ciblee par la classe `joueur--moi`, comme `manche--win`
+ * et `manche--lose` juste en dessous.
  */
 const STYLE = `
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -125,7 +129,7 @@ body {
   border-radius: 6px;
 }
 .joueur + .joueur { margin-top: 2px; }
-.joueur[class$="--moi"] { background: #39405f; }
+.joueur--moi { background: #39405f; }
 .joueur__nom { font-weight: 600; }
 .joueur__chiffres { color: #cfd3e6; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .joueur__arme { grid-column: 1 / -1; color: #8f95b0; font-size: 12px; }

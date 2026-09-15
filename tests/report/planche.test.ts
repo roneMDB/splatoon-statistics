@@ -85,7 +85,7 @@ describe("construisLaPlanche", () => {
 
   test("marque ma ligne, et elle seule", () => {
     const html = construisLaPlanche(session([battle("a", "win")]));
-    expect(html.match(/joueur--moi/g)).toHaveLength(1);
+    expect(html.match(/class="joueur joueur--moi"/g)).toHaveLength(1);
   });
 
   test("montre les chiffres de chacun et son arme dans les deux langues", () => {
@@ -112,6 +112,11 @@ describe("construisLaPlanche", () => {
   test("porte les medailles de la manche", () => {
     const html = construisLaPlanche(session([battle("a", "win")]));
     expect(html).toContain("№ 1 en progression");
+  });
+
+  test("ne rend aucun bloc de medailles quand la manche n'en a pas", () => {
+    const html = construisLaPlanche(session([battle("a", "win", { medals: [] })]));
+    expect(html).not.toContain('<p class="manche__medailles"');
   });
 
   test("echappe ce qui vient de stat.ink", () => {
