@@ -96,28 +96,38 @@ describe("fabriqueLaPlanche", () => {
   });
 
   test("refuse une planche plus haute que ce que Chromium sait capturer", async () => {
-    const doublure = outils({ hauteur: HAUTEUR_MAXIMALE_PLANCHE + 1 });
+    const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+    try {
+      const doublure = outils({ hauteur: HAUTEUR_MAXIMALE_PLANCHE + 1 });
 
-    await expect(fabriqueLaPlanche("a/b.json", doublure)).rejects.toThrow(
-      /trop haute/i,
-    );
-    // Rien n'a ete capture : une image noire vaut moins qu'un refus.
-    expect(doublure.journal).not.toContain(`capture:${HAUTEUR_MAXIMALE_PLANCHE + 1}`);
+      await expect(
+        fabriqueLaPlanche("a/b.json", doublure, dossier),
+      ).rejects.toThrow(/trop haute/i);
+      // Rien n'a ete capture : une image noire vaut moins qu'un refus.
+      expect(doublure.journal).not.toContain(`capture:${HAUTEUR_MAXIMALE_PLANCHE + 1}`);
+    } finally {
+      await rm(dossier, { recursive: true, force: true });
+    }
   });
 
   test("ferme la fenetre meme quand la mesure echoue", async () => {
-    const doublure = outils();
-    doublure.mesure = async () => {
-      throw new Error("Chromium n'a pas repondu.");
-    };
+    const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+    try {
+      const doublure = outils();
+      doublure.mesure = async () => {
+        throw new Error("Chromium n'a pas repondu.");
+      };
 
-    await expect(fabriqueLaPlanche("a/b.json", doublure)).rejects.toThrow(
-      "Chromium n'a pas repondu.",
-    );
-    expect(doublure.journal).toContain("ferme");
+      await expect(
+        fabriqueLaPlanche("a/b.json", doublure, dossier),
+      ).rejects.toThrow("Chromium n'a pas repondu.");
+      expect(doublure.journal).toContain("ferme");
+    } finally {
+      await rm(dossier, { recursive: true, force: true });
+    }
   });
 
-  test("ferme la fenetre avant d'ecrire, une fois la capture faite", async () => {
+  test("appelle les outils injectes dans l'ordre : lis, mesure, capture, ferme, copie", async () => {
     const dossier = await mkdtemp(join(tmpdir(), "planches-"));
     try {
       const doublure = outils();

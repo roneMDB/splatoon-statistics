@@ -60,10 +60,12 @@ export function nomDePlanche(cheminDeSession: string): string {
 /**
  * Fabrique la planche d'une session et l'ecrit sur disque.
  *
- * L'ordre importe : on mesure avant de capturer pour pouvoir refuser une
- * planche trop haute, et on ferme la fenetre avant d'ecrire - une fenetre
- * ouverte pendant une ecriture disque ne sert a rien, et le `finally` garantit
- * qu'elle se ferme meme si la mesure ou la capture echoue.
+ * L'ordre voulu : on mesure avant de capturer pour pouvoir refuser une planche
+ * trop haute, et on ferme la fenetre avant d'ecrire - une fenetre ouverte
+ * pendant une ecriture disque ne sert a rien. Le `finally` garantit que la
+ * fenetre se ferme meme si la mesure ou la capture echoue ; en revanche,
+ * `writeFile` n'etant pas injecte, rien ne verifie par test qu'il s'execute
+ * bien apres `ferme()` - c'est l'ordre du code ci-dessous qui en decide.
  *
  * Le PNG est toujours ecrit, meme quand le presse-papier a fonctionne : c'est
  * le chemin fiable, le presse-papier n'est que le raccourci.
