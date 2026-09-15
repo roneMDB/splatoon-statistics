@@ -97,7 +97,7 @@ describe("construisLaPlanche", () => {
 
   test("porte le resultat, le score, la carte et le mode", () => {
     const html = construisLaPlanche(session([battle("a", "win")]));
-    expect(html).toContain("manche--win");
+    expect(html).toContain('class="manche manche--win"');
     expect(html).toContain("Victoire");
     expect(html).toContain("66-49");
     expect(html).toContain("Expédition Risquée");
