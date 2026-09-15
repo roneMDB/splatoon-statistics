@@ -17,6 +17,14 @@ export const DEFAULT_USER = "Gloup";
 export const DEFAULT_OUT_DIR = "data/sessions";
 
 /**
+ * Dossier ou sont ecrites les planches de manches.
+ *
+ * A cote des sessions et non dedans : `listSessions` ne lit que des `.json` du
+ * dossier des sessions, et un PNG voisin n'a rien a y faire.
+ */
+export const DEFAULT_PLANCHE_DIR = "data/planches";
+
+/**
  * Plafond de securite : `page=N` trop grand renvoie la derniere page au lieu
  * d'une liste vide, donc une boucle sans garde-fou ne se terminerait jamais.
  */
