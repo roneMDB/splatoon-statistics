@@ -7,7 +7,7 @@
  */
 
 import { app, BrowserWindow, clipboard, ipcMain, shell } from "electron";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { DEFAULT_USER } from "../config.ts";
@@ -22,7 +22,6 @@ import {
 import { toBattleRows } from "../battleRows.ts";
 import { toBattleDetail } from "../battleDetail.ts";
 import { estUneUrlStatink, saitOuvrirUnLien } from "../lienExterne.ts";
-import { tourneSousWsl } from "../wsl.ts";
 import { parseSessionType, SESSION_TYPES } from "../sessionMeta.ts";
 import { KNOWN_LOBBIES } from "../statink/url.ts";
 import {
@@ -58,25 +57,21 @@ const here = dirname(fileURLToPath(import.meta.url));
  * dans une session WSLg deja degradee ou plus rien ne passait.
  *
  * Le raisonnement est celui de `lienExterne.ts` : sous WSL, ce qui devrait
- * marcher echoue en silence, et mieux vaut le prevoir que le decouvrir. Ici on
- * ne peut pas le rattraper apres coup - le drapeau doit etre pose avant
- * l'initialisation d'Electron - donc on le pose d'emblee.
+ * marcher echoue en silence, et mieux vaut le prevoir que le decouvrir.
+ *
+ * **Le drapeau n'est pas pose ici**, et c est delibere : Chromium lit
+ * `--use-angle` avant que le code applicatif s'execute. Un `appendSwitch`
+ * depuis ce fichier n'est donc pris en compte qu'a moitie, et le poser *en
+ * plus* de la ligne de commande fait baisser le taux de reussite au lieu de
+ * l'assurer - 5 captures sur 6 en cumulant, 6 sur 6 avec la seule ligne de
+ * commande. C'est `src/lanceApp.ts`, le lanceur, qui le pose, et lui seul.
+ *
+ * Ce commentaire reste ici parce que c'est ici qu'on ira le chercher.
  *
  * Reserve a WSL : c'est la seule plateforme ou le defaut a ete constate et le
  * remede mesure. Le cout est une interface rendue par le processeur, ce qui ne
  * se voit pas sur un formulaire et un tableau.
  */
-const lisLaVersionDuNoyau = (): string | undefined => {
-  try {
-    return readFileSync("/proc/version", "utf8");
-  } catch {
-    return undefined;
-  }
-};
-
-if (tourneSousWsl(process.platform, process.env, lisLaVersionDuNoyau)) {
-  app.commandLine.appendSwitch("use-angle", "swiftshader");
-}
 
 // Sans cela, Chromium affiche les champs de date au format de sa propre locale,
 // soit du JJ/MM inverse pour un utilisateur francais.
