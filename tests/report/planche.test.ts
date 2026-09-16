@@ -140,6 +140,10 @@ describe("construisLaPlanche", () => {
 
     // Deux colonnes, declarees sur le conteneur et non sur le corps.
     expect(html).toMatch(/\.planche__grille\s*\{[^}]*grid-template-columns:\s*1fr 1fr/);
+    // Sans `display: grid`, les proprietes ci-dessus sont inertes : le
+    // conteneur redevient un bloc ordinaire et les cartes s'empilent en une
+    // seule colonne, a 1600 px cette fois.
+    expect(html).toMatch(/\.planche__grille\s*\{[^}]*display:\s*grid/);
   });
 
   test("nomme les huit joueurs, adversaires compris", () => {
