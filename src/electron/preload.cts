@@ -30,6 +30,7 @@ const CANAUX = {
   revealPlanche: "planche:reveal",
   openExternal: "app:open-external",
   copyToClipboard: "app:clipboard",
+  quitApp: "app:quit",
   fetchProgress: "session:fetch-progress",
   choices: "app:choices",
 } as const;
@@ -66,6 +67,9 @@ contextBridge.exposeInMainWorld("splatoonApi", {
     ipcRenderer.invoke(CANAUX.copyToClipboard, texte),
 
   choices: () => ipcRenderer.invoke(CANAUX.choices),
+
+  /** Ferme l'application : la fenetre ne peut pas quitter le processus seule. */
+  quitApp: () => ipcRenderer.invoke(CANAUX.quitApp),
 
   /** Renvoie de quoi se desabonner : la fenetre le fait apres chaque recuperation. */
   onFetchProgress: (listener: (progress: unknown) => void) => {

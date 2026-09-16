@@ -33,6 +33,7 @@ const elements = {
   apercuMatchs: document.getElementById("apercu-matchs"),
   boutonEnregistrer: document.getElementById("bouton-enregistrer"),
   boutonAnnuler: document.getElementById("bouton-annuler"),
+  boutonQuitter: document.getElementById("bouton-quitter"),
   ficheNom: document.getElementById("fiche-nom"),
   ficheType: document.getElementById("fiche-type"),
   ficheObjectif: document.getElementById("fiche-objectif"),
@@ -667,6 +668,16 @@ elements.boutonGenerer.addEventListener("click", async () => {
   } finally {
     elements.boutonGenerer.disabled = false;
   }
+});
+
+/*
+ * Fermer revient au processus principal : `window.close()` fermerait la
+ * fenetre sans quitter l'application. Aucune confirmation — rien n'est perdu,
+ * les sessions sont deja sur disque et la fiche en cours se reouvre telle
+ * quelle.
+ */
+elements.boutonQuitter.addEventListener("click", async () => {
+  await api.quitApp();
 });
 
 elements.boutonCopier.addEventListener("click", async () => {

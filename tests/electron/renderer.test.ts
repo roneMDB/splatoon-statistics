@@ -107,6 +107,16 @@ describe("cablage du rendu", () => {
     }
   });
 
+  test("un bouton ferme l'application, et il passe par le pont", () => {
+    // Sous WSLg la decoration de fenetre manque assez souvent pour que ce
+    // bouton soit la seule sortie fiable. La fenetre n'a pas le droit de se
+    // fermer elle-meme (`window.close()` ne quitte pas l'application) : elle
+    // le demande au processus principal.
+    expect(idsDuDocument.has("bouton-quitter")).toBe(true);
+    expect(idsDemandes).toContain("bouton-quitter");
+    expect(script).toContain("quitApp()");
+  });
+
   test("le compte rendu ne peut pas etre copie avant d'avoir ete genere", () => {
     expect(html).toMatch(/id="bouton-copier"[\s\S]{0,80}disabled/);
   });

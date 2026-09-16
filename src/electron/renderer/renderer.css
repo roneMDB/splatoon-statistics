@@ -49,6 +49,21 @@ h2 {
   margin: 0 0 16px;
 }
 
+/*
+ * Colonne en flux vertical pour que le pied puisse tomber en bas (`margin-top:
+ * auto`) quand la liste est courte, sans quitter le flux quand elle deborde :
+ * un bouton colle a la fenetre masquerait la derniere session.
+ */
+.sessions {
+  display: flex;
+  flex-direction: column;
+}
+
+.sessions__pied {
+  margin-top: auto;
+  padding-top: 18px;
+}
+
 .sessions__entete {
   display: flex;
   align-items: baseline;

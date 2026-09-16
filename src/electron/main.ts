@@ -305,6 +305,15 @@ ipcMain.handle(IPC.copyToClipboard, async (_event, texte: unknown) => {
   await clipboard.writeText(texte);
 });
 
+/**
+ * `app.quit()` et non `window.close()` : fermer la seule fenetre laisserait le
+ * processus principal en vie sous macOS, ou `window-all-closed` ne quitte pas.
+ * Le bouton promet de fermer l'application, il la ferme.
+ */
+ipcMain.handle(IPC.quitApp, () => {
+  app.quit();
+});
+
 void app.whenReady().then(() => {
   createWindow();
 

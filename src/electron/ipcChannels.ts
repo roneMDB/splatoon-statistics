@@ -33,6 +33,12 @@ export const IPC = {
   openExternal: "app:open-external",
   /** Met un texte dans le presse-papier du systeme. */
   copyToClipboard: "app:clipboard",
+  /**
+   * Ferme l'application depuis la fenetre. Sous WSLg, la decoration de
+   * fenetre du systeme manque a l'appel assez souvent pour qu'un bouton dans
+   * la page soit la seule sortie fiable.
+   */
+  quitApp: "app:quit",
   /** Avancement d'une recuperation en cours, page par page. */
   fetchProgress: "session:fetch-progress",
   /**

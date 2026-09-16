@@ -41,6 +41,7 @@ const FONCTIONS = [
   ["openExternal", "openExternal"],
   ["copyToClipboard", "copyToClipboard"],
   ["choices", "choices"],
+  ["quitApp", "quitApp"],
   ["onFetchProgress", "fetchProgress"],
 ] as const satisfies ReadonlyArray<readonly [string, keyof typeof IPC]>;
 
