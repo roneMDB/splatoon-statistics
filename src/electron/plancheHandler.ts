@@ -22,9 +22,10 @@ import type { SessionFile } from "../store.ts";
  * celle d'un bitmap reel, en pixels de l'ecran, pas celle du document en
  * pixels CSS : c'est pourquoi le garde-fou ci-dessous la compare a la hauteur
  * **projetee a l'echelle de l'ecran**, pas a la seule hauteur mesuree. A
- * ~320 px la carte, 16 000 px de bitmap fait une cinquantaine de manches a
- * l'echelle 1 : hors d'atteinte pour une soiree, mais un refus explicite vaut
- * mieux qu'un PNG noir de 400 Ko.
+ * ~320 px la carte (plus 14 px d'ecart entre les lignes) et deux manches par
+ * ligne depuis le passage a deux colonnes, 16 000 px de bitmap fait
+ * environ 95 manches a l'echelle 1 : hors d'atteinte pour une soiree, mais un
+ * refus explicite vaut mieux qu'un PNG noir de 400 Ko.
  */
 export const HAUTEUR_MAXIMALE_PLANCHE = 16_000;
 

@@ -55,9 +55,12 @@ const here = dirname(fileURLToPath(import.meta.url));
  * par ne plus demarrer du tout - le preload n'est plus charge, et la fenetre
  * s'ouvre sur « Demarrage impossible ».
  *
- * Mesure sur la machine de developpement, planche de 21 manches
- * (1080 x 6947 px) : 0 capture sur 3 sans ce drapeau, 5 sur 5 avec, y compris
- * dans une session WSLg deja degradee ou plus rien ne passait.
+ * Releve fait sur la machine de developpement, avant le passage aux deux
+ * colonnes : une planche de 21 manches, alors rendue en une seule colonne
+ * (1080 x 6947 px), donnait 0 capture sur 3 sans ce drapeau, 5 sur 5 avec, y
+ * compris dans une session WSLg deja degradee ou plus rien ne passait. Les
+ * dimensions d'une planche ont change depuis (voir `LARGEUR_PLANCHE` dans
+ * `src/report/planche.ts`) ; le taux de reussite mesure, lui, tient toujours.
  *
  * Le raisonnement est celui de `lienExterne.ts` : sous WSL, ce qui devrait
  * marcher echoue en silence, et mieux vaut le prevoir que le decouvrir.
