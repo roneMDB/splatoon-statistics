@@ -124,6 +124,24 @@ body {
 }
 .manche--win .manche__bandeau { background: linear-gradient(100deg, #19d719 0%, #12a512 100%); }
 .manche--lose .manche__bandeau { background: linear-gradient(100deg, #f02d7d 0%, #c01e63 100%); }
+/*
+ * Le texte quasi-noir du bandeau (#0e0f18) tient sur les degrades vert et
+ * rose, mais pas sur le fond neutre #4a4d63 : un match nul (manche--draw)
+ * ou un resultat absent (manche--inconnu, quand stat.ink ne le fournit pas)
+ * y tombe a 2,30:1, sous tout seuil de lisibilite. On y repasse donc le
+ * texte en clair - 7,49:1 pour le numero et le resultat, 5,68:1 pour le
+ * contexte malgre son opacite - plutot que d'assombrir le fond, ce qui
+ * rapprocherait sa luminance de celle du texte sombre et ferait chuter le
+ * contraste au lieu de le remonter.
+ */
+.manche--draw .manche__numero,
+.manche--draw .manche__resultat,
+.manche--draw .manche__contexte,
+.manche--inconnu .manche__numero,
+.manche--inconnu .manche__resultat,
+.manche--inconnu .manche__contexte {
+  color: #f2f3fa;
+}
 .manche__numero {
   font-family: "Lato Black", "Lato", "DejaVu Sans", sans-serif;
   font-weight: 900;
