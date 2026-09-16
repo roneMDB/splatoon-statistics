@@ -71,7 +71,7 @@ describe("construisLeCompteRendu — champs libres", () => {
       sections: [],
     });
 
-    expect(rendu).toContain("🎯 **Objectif de la session : Tenir le support**");
+    expect(rendu).toContain("**Objectif de la session : Tenir le support**");
   });
 
   test("laisse l'appelant primer sur ce qui est enregistre", () => {
@@ -171,5 +171,53 @@ describe("estUneSection", () => {
 
   test("donne un intitule a chaque section, pour la fenetre et l'aide", () => {
     for (const section of SECTIONS) expect(LIBELLES_SECTIONS[section]).toBeTruthy();
+  });
+});
+
+describe("construisLeCompteRendu — emoji", () => {
+  /**
+   * Un compte rendu qui traverse toutes les sections : chacune n'ecrit ses
+   * faits que si les chiffres les declenchent, donc un document trop maigre
+   * ne prouverait rien.
+   */
+  const rendu = () =>
+    construisLeCompteRendu(
+      session({ objectif: "Tenir le support", type: "intra" }, [
+        battle("win"),
+        battle("lose"),
+        battle("lose"),
+        battle("draw"),
+      ]),
+      { sections: [...SECTIONS] },
+    );
+
+  test("n'ouvre aucune phrase par un emoji", () => {
+    // Une phrase, c'est une ligne qui porte des lettres : la frise de la
+    // courbe (« ✅ ❌ ❌ ➖ ») n'en a aucune et reste donc hors du lot, ses
+    // symboles etant la donnee elle-meme et non un ornement.
+    const phrases = rendu()
+      .split("\n")
+      .filter((ligne) => !ligne.startsWith("#") && /\p{Letter}/u.test(ligne));
+
+    for (const phrase of phrases) {
+      expect(phrase, `« ${phrase} » s'ouvre par un emoji`).not.toMatch(
+        /^\p{Extended_Pictographic}/u,
+      );
+    }
+  });
+
+  test("garde l'emoji des titres de section", () => {
+    const titres = rendu()
+      .split("\n")
+      .filter((ligne) => ligne.startsWith("### "));
+
+    expect(titres.length).toBeGreaterThan(0);
+    for (const titre of titres) {
+      expect(titre).toMatch(/^### \p{Extended_Pictographic}/u);
+    }
+  });
+
+  test("garde les symboles de resultat de la frise", () => {
+    expect(rendu()).toContain("✅ ❌ ❌ ➖");
   });
 });

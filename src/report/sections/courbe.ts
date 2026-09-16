@@ -50,7 +50,7 @@ export function sectionCourbe(analyse: AnalyseSession): string[] {
 
   if (analyse.serieInitialeVictoires >= SERIE_INITIALE_MINIMALE) {
     faits.push(
-      `🚀 **Entrée en matière : ${analyse.serieInitialeVictoires} victoires d'affilée** ` +
+      `**Entrée en matière : ${analyse.serieInitialeVictoires} victoires d'affilée** ` +
         `pour commencer.`,
     );
   }
@@ -58,7 +58,7 @@ export function sectionCourbe(analyse: AnalyseSession): string[] {
   if (analyse.serieFinaleDefaites >= SERIE_FINALE_MINIMALE) {
     const decrochage = manches[manches.length - analyse.serieFinaleDefaites];
     faits.push(
-      `📉 **La session décroche à ${decrochage?.heure ?? "la fin"} : ` +
+      `**La session décroche à ${decrochage?.heure ?? "la fin"} : ` +
         `${analyse.serieFinaleDefaites} défaites d'affilée pour terminer**, ` +
         `sans plus aucune manche gagnée.`,
     );
@@ -66,7 +66,7 @@ export function sectionCourbe(analyse: AnalyseSession): string[] {
 
   if (analyse.koSubis > 0 || analyse.koInfliges > 0) {
     faits.push(
-      `⏱️ **${analyse.koSubis} KO ${pluriel(analyse.koSubis, "subi")} pour ` +
+      `**${analyse.koSubis} KO ${pluriel(analyse.koSubis, "subi")} pour ` +
         `${analyse.koInfliges} ${pluriel(analyse.koInfliges, "infligé")}.**`,
     );
   }
@@ -82,7 +82,7 @@ export function sectionCourbe(analyse: AnalyseSession): string[] {
       .map((manche) => `${manche.mode} à ${manche.heure} (${manche.dureeSecondes} s)`)
       .join(", ");
     faits.push(
-      `💥 ${ecrasements.length} ${pluriel(ecrasements.length, "manche perdue", "manches perdues")} ` +
+      `${ecrasements.length} ${pluriel(ecrasements.length, "manche perdue", "manches perdues")} ` +
         `en moins de ${MANCHE_COURTE_SECONDES / 60} minutes : ${detail}. ` +
         `À cette durée, ce n'est pas le duel qui a manqué, c'est la mise en place.`,
     );
@@ -99,7 +99,7 @@ export function sectionCourbe(analyse: AnalyseSession): string[] {
       .map((manche) => `${manche.mode} ${manche.score?.nous}-${manche.score?.eux}`)
       .join(", ");
     faits.push(
-      `🔥 ${serrees.length} ${pluriel(serrees.length, "défaite serrée", "défaites serrées")} ` +
+      `${serrees.length} ${pluriel(serrees.length, "défaite serrée", "défaites serrées")} ` +
         `à ${DEFAITE_SERREE_ECART} points ou moins : ${detail}.`,
     );
   }
@@ -114,7 +114,7 @@ export function sectionCourbe(analyse: AnalyseSession): string[] {
     (debut - fin) / debut >= BAISSE_DE_REGIME_RELATIVE
   ) {
     faits.push(
-      `🪫 Mes éliminations par manche passent de ${debut.toFixed(1).replace(".", ",")} ` +
+      `Mes éliminations par manche passent de ${debut.toFixed(1).replace(".", ",")} ` +
         `sur la première moitié à ${fin.toFixed(1).replace(".", ",")} sur la seconde.`,
     );
   }

@@ -9,7 +9,7 @@
 
 import { reguliers } from "../analyse.ts";
 import type { AnalyseSession, StatsJoueur } from "../analyse.ts";
-import { moyenne, pluriel, pourcent, ratio, tableau } from "../format.ts";
+import { moyenne, ordinal, pluriel, pourcent, ratio, tableau } from "../format.ts";
 import { MEDAILLES_CITEES } from "../seuils.ts";
 
 /** Total d'un compteur sur toute l'equipe. */
@@ -60,9 +60,9 @@ export function sectionRole(analyse: AnalyseSession): string[] {
     // Des qu'une composition bouge, il se deplace : on le calcule.
     const manchesDeLEquipe = equipe.reduce((total, joueur) => total + joueur.manches, 0);
     faits.push(
-      `🤝 **${pourcent(moi.assist, partAssists)} des assistances de l'équipe pour ` +
-        `${pourcent(moi.kill, partKills)} de ses éliminations.** ` +
-        `À contribution égale, ma part serait de ${pourcent(moi.manches, manchesDeLEquipe)}.`,
+      `**${pourcent(moi.assist, partAssists)} des assistances de l'équipe, ` +
+        `${pourcent(moi.kill, partKills)} de ses éliminations** — pour une part ` +
+        `attendue de ${pourcent(moi.manches, manchesDeLEquipe)}.`,
     );
   }
 
@@ -75,16 +75,17 @@ export function sectionRole(analyse: AnalyseSession): string[] {
     const rangMorts = rang(comparables, moi, (joueur) => joueur.death);
 
     faits.push(
-      `⚖️ Mon rendement (élim. + assist. par mort) est de ` +
-        `**${ratio(moi.kill + moi.assist, moi.death)}**, ` +
-        `${rangRendement}ᵉ sur ${comparables.length} parmi ceux qui ont fait la session.`,
+      `Mon rendement (élim. + assist. par mort) est de ` +
+        `**${ratio(moi.kill + moi.assist, moi.death)}** — ` +
+        `${ordinal(rangRendement)} des ${comparables.length} joueurs présents ` +
+        `sur toute la session.`,
     );
 
     // Contredit souvent le ressenti : on meurt beaucoup sans mourir le plus.
     if (rangMorts > 1) {
       const devant = comparables.filter((joueur) => joueur.death > moi.death).length;
       faits.push(
-        `💀 Je meurs ${moi.death} fois — ${devant} ${pluriel(devant, "coéquipier")} ` +
+        `Je meurs ${moi.death} fois — ${devant} ${pluriel(devant, "coéquipier")} ` +
           `${pluriel(devant, "meurt", "meurent")} davantage. ` +
           `Le volume de morts n'est donc pas l'anomalie ; c'est ce qu'elles rapportent qui l'est.`,
       );
@@ -94,7 +95,7 @@ export function sectionRole(analyse: AnalyseSession): string[] {
   const citees = analyse.medailles.slice(0, MEDAILLES_CITEES);
   if (citees.length > 0) {
     faits.push(
-      `🏅 Médailles : ` +
+      `Médailles : ` +
         citees.map((medaille) => `${medaille.libelle} ×${medaille.nombre}`).join(" · "),
     );
   }

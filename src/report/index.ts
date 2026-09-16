@@ -76,7 +76,7 @@ export function construisLeCompteRendu(
 
   const lignes = entete(file, analyse);
 
-  if (objectif) lignes.push(`🎯 **Objectif de la session : ${objectif}**`, "");
+  if (objectif) lignes.push(`**Objectif de la session : ${objectif}**`, "");
   if (ressenti) lignes.push(...ressenti.split("\n").map((ligne) => `> ${ligne}`), "");
 
   for (const section of options.sections) {

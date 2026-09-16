@@ -24,6 +24,14 @@ export function pourcent(partie: number, total: number): string {
   return `${Math.round((partie / total) * 100)} %`;
 }
 
+/**
+ * Rang abrege. Le masculin de « premier » s'abrege « 1ᵉʳ » et non « 1ᵉ », qui
+ * n'existe pas ; les rangs suivants prennent le simple « ᵉ ».
+ */
+export function ordinal(rang: number): string {
+  return rang === 1 ? "1ᵉʳ" : `${rang}ᵉ`;
+}
+
 /** Accorde un mot au pluriel selon le compte. */
 export function pluriel(nombre: number, singulier: string, plurielMot = `${singulier}s`): string {
   return nombre > 1 ? plurielMot : singulier;

@@ -46,7 +46,7 @@ export function sectionScouting(analyse: AnalyseSession): string[] {
   const menace = adverse[0];
   if (menace !== undefined && menace.kill > 0) {
     faits.push(
-      `⚠️ **Menace principale : ${noms[0]}**, ${menace.kill} éliminations ` +
+      `**Menace principale : ${noms[0]}**, ${menace.kill} éliminations ` +
         `pour ${menace.death} morts.`,
     );
   }
@@ -59,7 +59,7 @@ export function sectionScouting(analyse: AnalyseSession): string[] {
   if (monoArme.length > 0 && analyse.manches.length > 1) {
     const cites = monoArme.map((joueur) => noms[adverse.indexOf(joueur)]).join(", ");
     faits.push(
-      `🎯 ${cites} : une seule arme sur toute la session. ` +
+      `${cites} : une seule arme sur toute la session. ` +
         `Un pick qui ne bouge pas se prépare à l'avance.`,
     );
   }
@@ -69,7 +69,7 @@ export function sectionScouting(analyse: AnalyseSession): string[] {
     // Nom francais seul en tete : la forme bilingue, suivie d'une enumeration
     // de sept armes, donne une phrase que personne ne lit jusqu'au bout.
     faits.push(
-      `🔄 ${versatile.armes[0]?.nom} a tourné sur ${versatile.armes.length} armes : ` +
+      `${versatile.armes[0]?.nom} a tourné sur ${versatile.armes.length} armes : ` +
         versatile.armes.map((arme) => `${arme.nom} ×${arme.manches}`).join(", ") +
         `. Le tableau retient la plus jouée.`,
     );
@@ -77,7 +77,7 @@ export function sectionScouting(analyse: AnalyseSession): string[] {
 
   if (passages > 0) {
     faits.push(
-      `👥 ${passages} autre${passages > 1 ? "s" : ""} ` +
+      `${passages} autre${passages > 1 ? "s" : ""} ` +
         `${pluriel(passages, "joueur")} ${pluriel(passages, "est passé", "sont passés")} ` +
         `en face sur moins de la moitié des manches, non ${pluriel(passages, "retenu")} ici.`,
     );

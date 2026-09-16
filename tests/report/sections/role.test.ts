@@ -24,7 +24,7 @@ describe("sectionRole", () => {
 
   test("calcule le repere de contribution egale au lieu de le supposer a 25 %", () => {
     // Quatre joueurs a treize manches chacun : ma part neutre vaut bien 25 %.
-    expect(texte(sectionRole(session))).toContain("ma part serait de 25 %");
+    expect(texte(sectionRole(session))).toContain("part attendue de 25 %");
   });
 
   test("deplace ce repere quand la composition a tourne", () => {
@@ -36,11 +36,20 @@ describe("sectionRole", () => {
     );
 
     // 13 manches sur 55 jouees par l'equipe : 24 %, plus 25 %.
-    expect(rendu).toContain("ma part serait de 24 %");
+    expect(rendu).toContain("part attendue de 24 %");
+  });
+
+  test("annonce l'ecart a la part attendue avant les chiffres qu'il explique", () => {
+    // 73 assistances sur 178 et 36 eliminations sur 327, pour une part
+    // attendue de 25 % : le repere doit suivre les deux chiffres, sinon ils
+    // ne veulent rien dire.
+    expect(texte(sectionRole(session))).toContain(
+      "**41 % des assistances de l'équipe, 11 % de ses éliminations** — pour une part attendue de 25 %.",
+    );
   });
 
   test("situe mon rendement dans l'equipe", () => {
-    expect(texte(sectionRole(session))).toContain("**1,40**, 4ᵉ sur 4");
+    expect(texte(sectionRole(session))).toContain("**1,40** — 4ᵉ des 4 joueurs");
   });
 
   test("ne me classe que parmi ceux qui ont fait la session", () => {
@@ -59,7 +68,7 @@ describe("sectionRole", () => {
       ),
     );
 
-    expect(rendu).toContain("4ᵉ sur 4 parmi ceux qui ont fait la session");
+    expect(rendu).toContain("4ᵉ des 4 joueurs présents sur toute la session");
   });
 
   test("dit combien de coequipiers meurent davantage, contre le ressenti", () => {

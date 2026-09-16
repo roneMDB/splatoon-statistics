@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { tableau } from "../../src/report/format.ts";
+import { ordinal, tableau } from "../../src/report/format.ts";
 import type { SessionFile } from "../../src/store.ts";
 import { bilanDeSession, jourEtMois, titreDeSession } from "../../src/report/format.ts";
 import { analyse } from "./sections/analyseFactice.ts";
@@ -140,5 +140,15 @@ describe("bilanDeSession", () => {
       }),
     );
     expect(parts).toEqual(["1V - 0D", "2 nuls", "3 manches"]);
+  });
+});
+
+describe("ordinal", () => {
+  test("ecrit le premier « 1ᵉʳ » et les suivants « ᵉ »", () => {
+    // « 1ᵉ » n'existe pas en francais : le masculin de « premier » abrege
+    // « 1ᵉʳ ». Les autres rangs prennent bien le simple « ᵉ ».
+    expect(ordinal(1)).toBe("1ᵉʳ");
+    expect(ordinal(2)).toBe("2ᵉ");
+    expect(ordinal(4)).toBe("4ᵉ");
   });
 });

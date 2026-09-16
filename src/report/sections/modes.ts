@@ -47,7 +47,7 @@ export function sectionModes(analyse: AnalyseSession): string[] {
       mode.stages.length >= MODE_EN_ECHEC_STAGES
     ) {
       faits.push(
-        `🔴 **${mode.libelle} : ${mode.defaites} défaites, aucune victoire, ` +
+        `**${mode.libelle} : ${mode.defaites} défaites, aucune victoire, ` +
           `sur ${mode.stages.length} cartes différentes.** ` +
           `Ce n'est donc pas la carte, c'est le mode.`,
       );
@@ -59,7 +59,7 @@ export function sectionModes(analyse: AnalyseSession): string[] {
   const meilleur = parBilan.find((mode) => mode.manches >= MEILLEUR_MODE_MANCHES);
   if (meilleur !== undefined && meilleur.victoires > meilleur.defaites) {
     faits.push(
-      `🟢 **${meilleur.libelle}** est le mode qui nous a tenus : ` +
+      `**${meilleur.libelle}** est le mode qui nous a tenus : ` +
         `${meilleur.victoires}V-${meilleur.defaites}D sur ` +
         `${meilleur.stages.length} ${pluriel(meilleur.stages.length, "carte")}.`,
     );
