@@ -69,6 +69,62 @@ const session = (battles: StatinkBattle[]): SessionFile =>
     battles,
   }) as SessionFile;
 
+/**
+ * Luminance relative d'un `#rrggbb`, formule de WCAG 2.1.
+ *
+ * Recopiee ici et nulle part ailleurs : la planche n'a aucun besoin de ce
+ * calcul a l'execution, c'est le test seul qui verifie que les couleurs
+ * choisies dans la feuille de style tiennent.
+ */
+const luminance = (couleur: string): number => {
+  const canaux = [1, 3, 5].map((i) => Number.parseInt(couleur.slice(i, i + 2), 16) / 255);
+  const [r, v, b] = canaux.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r! + 0.7152 * v! + 0.0722 * b!;
+};
+
+/** Rapport de contraste WCAG entre deux couleurs opaques, de 1:1 a 21:1. */
+const contraste = (avant: string, arriere: string): number => {
+  const [clair, sombre] = [luminance(avant), luminance(arriere)].sort((x, y) => y - x);
+  return (clair! + 0.05) / (sombre! + 0.05);
+};
+
+/**
+ * Compose une couleur semi-transparente sur son fond : un texte a `opacity`
+ * ne contraste pas comme sa couleur nominale, et c'est le resultat du melange
+ * que l'oeil compare au fond.
+ */
+const melange = (avant: string, arriere: string, opacite: number): string => {
+  const octet = (couleur: string, i: number) => Number.parseInt(couleur.slice(i, i + 2), 16);
+  const canal = (i: number) =>
+    Math.round(octet(avant, i) * opacite + octet(arriere, i) * (1 - opacite))
+      .toString(16)
+      .padStart(2, "0");
+  return `#${canal(1)}${canal(3)}${canal(5)}`;
+};
+
+/**
+ * La derniere valeur de `propriete` declaree par le bloc qui ouvre sur
+ * `selecteur`. Le selecteur est ancre en debut de ligne : sans cela,
+ * `.manche__contexte {` trouverait d'abord `.manche--inconnu .manche__contexte {`,
+ * qui se termine par la meme chaine et ne declare pas les memes proprietes.
+ */
+const declaration = (html: string, selecteur: string, propriete: string): string => {
+  const bloc = html.split(`\n${selecteur}`)[1]?.split("}")[0] ?? "";
+  const valeurs = [...bloc.matchAll(new RegExp(`${propriete}:\\s*([^;]+);`, "g"))];
+  return valeurs.at(-1)?.[1]?.trim() ?? "";
+};
+
+/**
+ * La couleur qui s'applique reellement a `.manche__<element>` dans un bandeau
+ * neutre : la regle `.manche--draw` si elle est la, sinon celle que l'element
+ * tient de sa propre classe, moins specifique. Sans cette retombee, retirer la
+ * regle ferait echouer le test sur une couleur introuvable au lieu du
+ * contraste insuffisant qu'elle est censee mesurer.
+ */
+const couleurNeutre = (html: string, element: string): string =>
+  declaration(html, `.manche--draw .manche__${element},`, "color") ||
+  declaration(html, `.manche__${element} {`, "color");
+
 describe("construisLaPlanche", () => {
   test("rend un document HTML complet", () => {
     const html = construisLaPlanche(session([battle("a", "win")]));
@@ -173,6 +229,38 @@ describe("construisLaPlanche", () => {
     expect(html).toContain("66-49");
     expect(html).toContain("Expédition Risquée");
     expect(html).toContain("Marché Grefin");
+  });
+
+  test("donne sa classe a un match nul comme a un resultat absent", () => {
+    // Sans ces classes, aucune regle ne distingue le bandeau neutre des
+    // bandeaux colores, et le texte du test suivant n'a rien qui le vise.
+    const html = construisLaPlanche(
+      session([battle("a", "draw"), battle("b", "draw", { result: undefined })]),
+    );
+    expect(html).toContain('class="manche manche--draw"');
+    expect(html).toContain('class="manche manche--inconnu"');
+  });
+
+  test("garde le texte lisible sur le bandeau neutre", () => {
+    const html = construisLaPlanche(session([battle("a", "draw")]));
+
+    const fond = declaration(html, ".manche__bandeau {", "background");
+    expect(fond).toMatch(/^#[0-9a-f]{6}$/);
+
+    // Le texte quasi-noir des bandeaux colores ne tient pas sur ce fond : la
+    // retombee, si la regle neutre disparait, est bien un echec de lisibilite.
+    expect(contraste(declaration(html, ".manche__numero {", "color"), fond)).toBeLessThan(4.5);
+
+    for (const element of ["numero", "resultat"]) {
+      expect(contraste(couleurNeutre(html, element), fond)).toBeGreaterThanOrEqual(4.5);
+    }
+
+    // Le contexte porte une opacite : c'est la couleur melangee au fond qui
+    // compte, pas la couleur nominale.
+    const opacite = Number(declaration(html, ".manche__contexte {", "opacity"));
+    expect(opacite).toBeGreaterThan(0);
+    const contexte = melange(couleurNeutre(html, "contexte"), fond, opacite);
+    expect(contraste(contexte, fond)).toBeGreaterThanOrEqual(4.5);
   });
 
   test("signale un KO", () => {
