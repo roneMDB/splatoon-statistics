@@ -70,11 +70,30 @@ function echappe(texte: string): string {
 /**
  * Feuille de style, en ligne.
  *
- * Pile de polices choisie pour couvrir le cyrillique, le grec, le japonais et
- * les symboles que les pseudos Splatoon contiennent regulierement (`к? Reby`,
- * `Sひ freebox`, `☆Gloup☆`) : sans cela, ce sont des tofus. Aucune n'est
- * telechargee. Lato ouvre la pile pour ses graisses Black et Heavy, qui
- * portent les titres ; DejaVu Sans assure la couverture derriere elle.
+ * Pile de polices choisie pour couvrir le cyrillique, le grec et les symboles
+ * que les pseudos Splatoon contiennent regulierement (`к? Reby`, `Ayσmαl`,
+ * `☆Gloup☆`) : sans cela, ce sont des tofus. Verifie via `fc-list` : DejaVu
+ * Sans porte ces trois-la. Aucune police n'est telechargee. Lato ouvre la
+ * pile pour ses graisses Black et Heavy, qui portent les titres ; DejaVu Sans
+ * assure la couverture derriere elle.
+ *
+ * Le japonais (`アヤノコジ`) n'est pas couvert par cette pile : ni Lato, ni
+ * DejaVu Sans, ni Liberation Sans ne portent les hiragana ou katakana, et
+ * "Noto Sans" en graisse normale - pourtant declaree ci-dessous - n'est meme
+ * pas installee sur la machine de developpement (seule "Noto Sans Mono" l'est,
+ * verifie via `fc-list`). Quand le japonais s'affiche, c'est le repli
+ * generique de fontconfig derriere `sans-serif` qui trouve une police CJK du
+ * systeme (IPAGothic, Droid Sans Fallback...). Sur un poste qui n'en a
+ * aucune, ces pseudos tombent en tofu, et le depot ne peut rien y garantir
+ * sans charger une police - ce qui lui est interdit.
+ *
+ * Lato, en tete de pile, ne porte pas non plus `★`, `☆` ni `◇` : verifie via
+ * `fc-list`, ces trois caracteres sont dans DejaVu Sans mais pas dans Lato.
+ * Un pseudo qui les melange a des lettres latines (`☆Gloųp☆`, `ØtS◇Ann`,
+ * `S★ Urαηus`) se rend donc a cheval sur deux fontes sur une meme ligne, la
+ * ou DejaVu seule les aurait rendus d'un bloc. Ce n'est pas un tofu et ca ne
+ * casse rien ; ce n'est pas non plus un bug a corriger en reordonnant la
+ * pile - Lato reste en tete parce qu'elle porte les titres.
  *
  * Les polices officielles du jeu sont hors d'atteinte : la planche ne charge
  * aucune ressource externe, et cette regle ne se negocie pas pour un effet de

@@ -276,6 +276,26 @@ describe("fabriqueLaPlanche", () => {
         await rm(dossier, { recursive: true, force: true });
       }
     });
+
+    test("avertit quand la largeur capturee ne correspond pas a ce qui etait demande", async () => {
+      const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+      try {
+        // Meme principe que ci-dessus, mais sur la largeur : la fenetre hors
+        // ecran a rendu un bitmap moins large que LARGEUR_PLANCHE. Le PNG est
+        // ecrit quand meme, mais l'avertissement doit le dire.
+        const resultat = await fabriqueLaPlanche(
+          "a/b.json",
+          outils({ hauteur: 3120, captureLargeur: 1400 }),
+          dossier,
+        );
+        expect(resultat.largeur).toBe(1400);
+        expect(resultat.avertissement).toBeDefined();
+        expect(resultat.avertissement).toMatch(/1400/);
+        expect(resultat.avertissement).toMatch(String(LARGEUR_PLANCHE));
+      } finally {
+        await rm(dossier, { recursive: true, force: true });
+      }
+    });
   });
 });
 

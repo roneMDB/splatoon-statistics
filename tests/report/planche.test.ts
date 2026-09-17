@@ -126,10 +126,13 @@ const couleurNeutre = (html: string, element: string): string =>
   declaration(html, `.manche__${element} {`, "color");
 
 describe("construisLaPlanche", () => {
-  test("rend un document HTML complet", () => {
+  test("rend un document HTML complet dont la largeur suit LARGEUR_PLANCHE", () => {
     const html = construisLaPlanche(session([battle("a", "win")]));
     expect(html.startsWith("<!doctype html>")).toBe(true);
     expect(html).toContain("</html>");
+    // Verifie seulement que la constante atteint la feuille de style, pas sa
+    // valeur : figer 1600 ici doublerait LARGEUR_PLANCHE sans rien prouver de
+    // plus, et casserait ce test des le prochain changement de largeur.
     expect(html).toContain(`width: ${LARGEUR_PLANCHE}px`);
   });
 
@@ -208,6 +211,28 @@ describe("construisLaPlanche", () => {
     expect(html).toContain("☆Bloup☆");
     expect(html).toContain("Sauvxge");
     expect(html).toContain("к? Reby");
+  });
+
+  test("place toujours Nous avant Eux, meme quand on perd", () => {
+    // La regle est ecrite en tete de `mancheEnHtml` : « Nous » passe toujours
+    // en premier, meme en defaite. On verifie ici que rien ne l'a laissee
+    // s'evaporer - permuter les deux appels a `equipeEnHtml` doit faire
+    // echouer ce test.
+    const html = construisLaPlanche(session([battle("a", "lose")]));
+    const corps = html.split("</style>")[1] ?? "";
+
+    const indexNous = corps.indexOf('class="equipe__titre">Nous —');
+    const indexEux = corps.indexOf('class="equipe__titre">Eux —');
+    expect(indexNous).toBeGreaterThanOrEqual(0);
+    expect(indexEux).toBeGreaterThanOrEqual(0);
+    expect(indexNous).toBeLessThan(indexEux);
+
+    const sectionNous = corps.slice(indexNous, indexEux);
+    const sectionEux = corps.slice(indexEux);
+    expect(sectionNous).toContain("☆Gloup☆");
+    expect(sectionNous).toContain("☆Bloup☆");
+    expect(sectionEux).toContain("Sauvxge");
+    expect(sectionEux).toContain("к? Reby");
   });
 
   test("marque ma ligne, et elle seule", () => {

@@ -14,9 +14,13 @@
  * developpement : 0 capture sur 3 sans correctif.
  *
  * Le remede est de ne pas dependre du GPU de l'hote. SwiftShader est une
- * implementation purement logicielle d'OpenGL ; avec elle, la meme planche de
- * 21 manches (1080 x 6947 px) passe 5 fois sur 5, y compris dans une session
- * WSLg deja degradee ou rien d'autre ne passait.
+ * implementation purement logicielle d'OpenGL ; releve fait sur la machine de
+ * developpement, avant le passage aux deux colonnes : avec elle, la meme
+ * planche de 21 manches, alors rendue en une seule colonne (1080 x 6947 px),
+ * passait 5 fois sur 5, y compris dans une session WSLg deja degradee ou rien
+ * d'autre ne passait. Les dimensions d'une planche ont change depuis (voir
+ * `LARGEUR_PLANCHE` dans `src/report/planche.ts`) ; le taux de reussite
+ * mesure, lui, tient toujours.
  *
  * Le cout est une interface rendue par le processeur plutot que par le GPU.
  * Pour un formulaire et un tableau, cela ne se voit pas ; une capture qui

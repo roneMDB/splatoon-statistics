@@ -38,7 +38,7 @@ Trois directions ont été rendues en PNG avec les vraies données, puis compar�
 
 ### Les contraintes qui tiennent toujours
 
-**Aucune police n'est téléchargée.** Lato est présente sur la machine, en graisses Black et Heavy ; la pile retombe sur DejaVu Sans, puis Noto Sans, puis `sans-serif`. Les polices officielles du jeu sont hors d'atteinte — la planche ne charge aucune ressource externe, et cette règle ne se négocie pas pour un effet de style.
+**Aucune police n'est téléchargée.** Lato est présente sur la machine, en graisses Black et Heavy ; la pile déclarée retombe sur DejaVu Sans (qui porte le cyrillique, le grec et les symboles), puis « Noto Sans », puis `sans-serif`. « Noto Sans » n'est en réalité pas installée sur la machine de développement (vérifié via `fc-list` : seule « Noto Sans Mono » l'est), et aucune police de la pile ne porte les hiragana ou katakana. Le japonais des pseudos ne s'affiche donc que si une police CJK du système répond au repli générique `sans-serif` de fontconfig — sur un poste qui n'en a aucune, ces pseudos tombent en tofu, et le dépôt ne peut rien y garantir sans charger une ressource externe. Les polices officielles du jeu sont hors d'atteinte — la planche ne charge aucune ressource externe, et cette règle ne se négocie pas pour un effet de style.
 
 **Aucun emoji.** Même raison qu'à l'origine : leur rendu hors écran dépend d'une police d'emoji installée. Victoire et défaite passent par la couleur et par le mot.
 
