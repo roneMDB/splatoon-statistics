@@ -103,6 +103,18 @@ const melange = (avant: string, arriere: string, opacite: number): string => {
 };
 
 /**
+ * Decoupe un `rgba(r, g, b, a)` en la couleur opaque et l'alpha que `melange`
+ * attend. Le voile du panneau des equipes est semi-transparent : c'est sa
+ * composition sur la couleur de regle que l'oeil compare au texte.
+ */
+const voileDe = (valeur: string): { teinte: string; alpha: number } => {
+  const nombres = /^rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)$/.exec(valeur);
+  if (nombres === null) return { teinte: "", alpha: 0 };
+  const octet = (i: number) => Number(nombres[i]).toString(16).padStart(2, "0");
+  return { teinte: `#${octet(1)}${octet(2)}${octet(3)}`, alpha: Number(nombres[4]) };
+};
+
+/**
  * La derniere valeur de `propriete` declaree par le bloc qui ouvre sur
  * `selecteur`. Le selecteur est ancre en debut de ligne : sans cela,
  * `.manche__contexte {` trouverait d'abord `.manche--inconnu .manche__contexte {`,
@@ -249,7 +261,7 @@ describe("construisLaPlanche", () => {
 
   test("porte le resultat, le score, la carte et le mode", () => {
     const html = construisLaPlanche(session([battle("a", "win")]));
-    expect(html).toContain('class="manche manche--win"');
+    expect(html).toMatch(/class="manche manche--win[ "]/);
     expect(html).toContain("Victoire");
     expect(html).toContain("66-49");
     expect(html).toContain("Expédition Risquée");
@@ -262,30 +274,156 @@ describe("construisLaPlanche", () => {
     const html = construisLaPlanche(
       session([battle("a", "draw"), battle("b", "draw", { result: undefined })]),
     );
-    expect(html).toContain('class="manche manche--draw"');
-    expect(html).toContain('class="manche manche--inconnu"');
+    expect(html).toMatch(/class="manche manche--draw[ "]/);
+    expect(html).toMatch(/class="manche manche--inconnu[ "]/);
   });
 
-  test("garde le texte lisible sur le bandeau neutre", () => {
-    const html = construisLaPlanche(session([battle("a", "draw")]));
+  test("colore la carte selon la regle de la manche", () => {
+    const html = construisLaPlanche(
+      session([battle("a", "win"), battle("b", "lose", { rule: { key: "asari" } } as never)]),
+    );
 
-    const fond = declaration(html, ".manche__bandeau {", "background");
-    expect(fond).toMatch(/^#[0-9a-f]{6}$/);
+    // Le modificateur de resultat reste en tete : deux tests comptent les
+    // cartes avec `class="manche manche--`.
+    expect(html).toContain('class="manche manche--win manche--regle-yagura"');
+    expect(html).toContain('class="manche manche--lose manche--regle-asari manche--mat"');
+  });
 
-    // Le texte quasi-noir des bandeaux colores ne tient pas sur ce fond : la
-    // retombee, si la regle neutre disparait, est bien un echec de lisibilite.
-    expect(contraste(declaration(html, ".manche__numero {", "color"), fond)).toBeLessThan(4.5);
+  test("retombe sur la regle inconnue quand stat.ink ne la donne pas", () => {
+    const html = construisLaPlanche(session([battle("a", "win", { rule: null } as never)]));
 
-    for (const element of ["numero", "resultat"]) {
-      expect(contraste(couleurNeutre(html, element), fond)).toBeGreaterThanOrEqual(4.5);
-    }
+    expect(html).toContain("manche--regle-inconnue");
+  });
 
-    // Le contexte porte une opacite : c'est la couleur melangee au fond qui
-    // compte, pas la couleur nominale.
-    const opacite = Number(declaration(html, ".manche__contexte {", "opacity"));
+  test("marque comme mat tout ce qui n'est pas une victoire", () => {
+    const html = construisLaPlanche(
+      session([
+        battle("a", "win"),
+        battle("b", "lose"),
+        battle("c", "draw"),
+        battle("d", "win", { result: undefined }),
+      ]),
+    );
+
+    // Apres `</style>` : la feuille declare huit fois `manche--mat` dans ses
+    // selecteurs, et les compter reviendrait a mesurer la table de couleurs.
+    const corps = html.slice(html.indexOf("</style>"));
+    expect([...corps.matchAll(/manche--mat/g)]).toHaveLength(3);
+  });
+
+  /**
+   * Le test de lisibilite, dans sa forme forte.
+   *
+   * Il remplace celui qui ne mesurait qu'un seul fond, le bandeau neutre. Une
+   * carte empile desormais trois couches sous son texte — la couleur de regle,
+   * le voile du panneau, la texture — et chacune deplace le fond. Ce qui se
+   * mesure, c'est donc la pile complete, pour chaque regle et chaque etat.
+   *
+   * Les couleurs ne sont pas recopiees ici : le test les lit dans la feuille
+   * rendue. Une couleur ajoutee a la table est donc verifiee sans que le test
+   * soit touche, et une couleur affaiblie le fait echouer.
+   */
+  const pilesDeCouleur = (html: string) => {
+    const voile = voileDe(declaration(html, ".manche__equipes::before {", "background"));
+    const moi = declaration(html, ".joueur--moi {", "background");
+    const texture = (selecteur: string) => ({
+      teinte: declaration(html, selecteur, "background"),
+      alpha: Number(declaration(html, selecteur, "opacity")),
+    });
+
+    const etats = [
+      {
+        suffixe: " {",
+        texte: declaration(html, ".manche__bandeau {", "color"),
+        scotch: texture(".manche::after {"),
+      },
+      {
+        suffixe: ".manche--mat {",
+        texte: declaration(html, ".manche--mat .manche__bandeau {", "color"),
+        scotch: texture(".manche--mat::after {"),
+      },
+    ];
+
+    const cles = [...html.matchAll(/^\.manche--regle-([a-z]+) \{/gm)].map((m) => m[1]!);
+
+    return cles.flatMap((cle) =>
+      etats.map(({ suffixe, texte, scotch }) => {
+        const regle = declaration(html, `.manche--regle-${cle}${suffixe}`, "background");
+        // La texture est au-dessus du voile, sous le texte : elle s'applique
+        // donc en dernier, sur chacune des trois assises.
+        const scotche = (fond: string) => melange(scotch.teinte, fond, scotch.alpha);
+        return {
+          cle,
+          texte,
+          bandeau: scotche(regle),
+          panneau: scotche(melange(voile.teinte, regle, voile.alpha)),
+          maLigne: scotche(moi),
+        };
+      }),
+    );
+  };
+
+  test("garde le texte du bandeau lisible sur les quatorze piles de regle", () => {
+    const html = construisLaPlanche(session([battle("a", "win")]));
+    const piles = pilesDeCouleur(html);
+
+    // Sept regles, deux intensites. Sans ce compte, une table amputee
+    // passerait le test en ne mesurant rien.
+    expect(piles).toHaveLength(14);
+
+    const opacite = Number(declaration(html, ".manche__contexte {", "opacity") || "1");
     expect(opacite).toBeGreaterThan(0);
-    const contexte = melange(couleurNeutre(html, "contexte"), fond, opacite);
-    expect(contraste(contexte, fond)).toBeGreaterThanOrEqual(4.5);
+
+    for (const { bandeau, texte } of piles) {
+      expect(bandeau).toMatch(/^#[0-9a-f]{6}$/);
+      expect(texte).toMatch(/^#[0-9a-f]{6}$/);
+      expect(contraste(texte, bandeau)).toBeGreaterThanOrEqual(4.5);
+      // Le contexte porte une opacite : c'est la couleur melangee au fond qui
+      // compte, pas la couleur nominale.
+      expect(contraste(melange(texte, bandeau, opacite), bandeau)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  test("garde le corps de la manche lisible sous le voile et la texture", () => {
+    const html = construisLaPlanche(session([battle("a", "win")]));
+
+    // Les medailles vivent sous le meme voile : posees sur la couleur de
+    // regle a nu, leur jaune tomberait a 1,6:1 sur le turquoise.
+    expect(declaration(html, ".manche__medailles::before {", "background")).toBe(
+      declaration(html, ".manche__equipes::before {", "background"),
+    );
+
+    const textes = [
+      declaration(html, ".manche__equipes {", "color"),
+      declaration(html, ".equipe__titre {", "color"),
+      declaration(html, ".joueur__chiffres {", "color"),
+      declaration(html, ".joueur__arme {", "color"),
+      declaration(html, ".manche__medailles {", "color"),
+    ];
+
+    for (const { panneau, maLigne } of pilesDeCouleur(html)) {
+      for (const assise of [panneau, maLigne]) {
+        expect(assise).toMatch(/^#[0-9a-f]{6}$/);
+        for (const texte of textes) {
+          expect(texte).toMatch(/^#[0-9a-f]{6}$/);
+          expect(contraste(texte, assise)).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    }
+  });
+
+  test("pose la texture de scotch une seule fois, en pseudo-element", () => {
+    const html = construisLaPlanche(session([battle("a", "win"), battle("b", "lose")]));
+
+    // Le motif pese 36 ko : il est declare une fois dans la feuille et repris
+    // par selecteur, jamais recopie dans le corps du document.
+    expect([...html.matchAll(/data:image\/png;base64,/g)]).toHaveLength(1);
+    expect(html.slice(html.indexOf("</style>"))).not.toContain("data:image");
+
+    // Les cartes et le fond de page le portent en pseudo-element : aucune
+    // balise a poser, donc rien a oublier sur une carte.
+    expect(declaration(html, ".manche::after {", "opacity")).toMatch(/^[\d.]+$/);
+    expect(declaration(html, "body::before {", "opacity")).toMatch(/^[\d.]+$/);
   });
 
   test("signale un KO", () => {
@@ -322,13 +460,26 @@ describe("construisLaPlanche", () => {
     expect(html).not.toMatch(/https?:/i);
     expect(html).not.toMatch(/<link/i);
     expect(html).not.toMatch(/<img/i);
-    expect(html).not.toMatch(/@import|url\(/i);
+    expect(html).not.toMatch(/@import/i);
+
+    /*
+     * La regle a change de forme, pas de fond. Elle interdisait tout `url(`
+     * parce que jusqu'ici tout `url(` designait un fichier a aller chercher.
+     * La texture est embarquee en `data:` : rien n'est charge, le document
+     * reste autonome et rend la meme chose hors ligne. Ce qui reste interdit,
+     * c'est tout le reste — un chemin relatif, une URL, un `url(#fragment)`.
+     */
+    const references = [...html.matchAll(/url\(\s*["']?([^"')]*)/gi)].map((m) => m[1]!);
+    expect(references.length).toBeGreaterThan(0);
+    for (const reference of references) {
+      expect(reference).toMatch(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/);
+    }
   });
 
   test("porte une CSP qui interdit tout sauf le style en ligne", () => {
     const html = construisLaPlanche(session([battle("a", "win")]));
     expect(html).toContain(
-      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'">',
+      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:">',
     );
   });
 
