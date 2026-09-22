@@ -55,6 +55,12 @@ export type BattleDetail = {
   startedAt: string;
   dureeSecondes?: number;
   rule: string;
+  /**
+   * Cle brute de la regle (`yagura`, `asari`...), a cote de son libelle
+   * traduit. La planche colore ses cartes par regle : un nom de classe CSS ne
+   * peut pas se fonder sur un libelle francais accentue.
+   */
+  ruleKey?: string;
   stage: string;
   /** Resultat brut, cle de mise en forme. */
   result?: string;
@@ -63,6 +69,13 @@ export type BattleDetail = {
   ko: boolean;
   score?: ScoreDeManche;
   medailles: string[];
+  /**
+   * Couleurs d'encre reelles des deux equipes, en RGBA hexadecimal tel que
+   * stat.ink les donne (`a0c937ff`). Non validees ici, comme les pseudos :
+   * c'est au rendu de s'en mefier. Voir `couleurSure` dans `report/planche.ts`.
+   */
+  couleurNous?: string;
+  couleurEux?: string;
   nous: JoueurDeManche[];
   eux: JoueurDeManche[];
 };
@@ -168,6 +181,7 @@ export function toBattleDetail(battle: StatinkBattle): BattleDetail {
     startedAt: battle.start_at?.iso8601 ?? "",
     ...(dureeSecondes !== undefined ? { dureeSecondes } : {}),
     rule: libelleDuMode(battle.rule?.key, battle.rule?.name?.en_US),
+    ...(battle.rule?.key !== undefined ? { ruleKey: battle.rule.key } : {}),
     stage: libelleDuStage(battle.stage?.key, battle.stage?.name?.en_US),
     ...(battle.result != null
       ? { result: battle.result, resultLabel: libelleDuResultat(battle.result) }
@@ -175,6 +189,12 @@ export function toBattleDetail(battle: StatinkBattle): BattleDetail {
     ko: battle.knockout === true,
     ...(lisLeScore(battle) !== undefined ? { score: lisLeScore(battle) } : {}),
     medailles,
+    ...(typeof battle["our_team_color"] === "string"
+      ? { couleurNous: battle["our_team_color"] }
+      : {}),
+    ...(typeof battle["their_team_color"] === "string"
+      ? { couleurEux: battle["their_team_color"] }
+      : {}),
     nous: (battle.our_team_members ?? []).map(joueurDe),
     eux: (battle.their_team_members ?? []).map(joueurDe),
   };

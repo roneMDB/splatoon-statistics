@@ -151,3 +151,31 @@ describe("toBattleDetail — joueurs", () => {
     expect(detail.eux).toEqual([]);
   });
 });
+
+describe("toBattleDetail — ce qui sert au style de la planche", () => {
+  test("expose la cle brute de la regle, a cote de son libelle", () => {
+    const detail = toBattleDetail(manche());
+
+    // Le libelle est traduit, donc impropre a nommer une classe CSS : la
+    // planche colore ses cartes par regle et a besoin de la cle d'origine.
+    expect(detail.ruleKey).toBe("yagura");
+    expect(detail.rule).toBe("Expédition Risquée");
+  });
+
+  test("reprend les couleurs d'encre des deux equipes, telles quelles", () => {
+    const detail = toBattleDetail(
+      manche({ our_team_color: "a0c937ff", their_team_color: "ba30b0ff" } as never),
+    );
+
+    expect(detail.couleurNous).toBe("a0c937ff");
+    expect(detail.couleurEux).toBe("ba30b0ff");
+  });
+
+  test("omet la cle et les couleurs quand stat.ink ne les donne pas", () => {
+    const detail = toBattleDetail(manche({ rule: null } as never));
+
+    expect(detail.ruleKey).toBeUndefined();
+    expect(detail.couleurNous).toBeUndefined();
+    expect(detail.couleurEux).toBeUndefined();
+  });
+});
