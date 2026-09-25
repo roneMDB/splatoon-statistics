@@ -64,14 +64,38 @@ const elements = {
   boutonFicheEnregistrer: document.getElementById("bouton-fiche-enregistrer"),
   boutonSupprimer: document.getElementById("bouton-supprimer"),
   boutonRetour: document.getElementById("bouton-retour"),
+  titreRecuperation: document.getElementById("titre-recuperation"),
+  vueReglages: document.getElementById("vue-reglages"),
+  boutonReglages: document.getElementById("bouton-reglages"),
+  reglagesChemin: document.getElementById("reglages-chemin"),
+  reglagesAttente: document.getElementById("reglages-attente"),
+  formulaireReglages: document.getElementById("formulaire-reglages"),
+  reglageUtilisateur: document.getElementById("reglage-utilisateur"),
+  reglageTypes: document.getElementById("reglage-types"),
+  reglagesSections: document.getElementById("reglages-sections"),
+  reglageEntete: document.getElementById("reglage-entete"),
+  reglageDossierSessions: document.getElementById("reglage-dossier-sessions"),
+  reglageDossierPlanches: document.getElementById("reglage-dossier-planches"),
+  reglageDossierPictos: document.getElementById("reglage-dossier-pictos"),
+  reglagesSeuils: document.getElementById("reglages-seuils"),
+  boutonReglagesDefauts: document.getElementById("bouton-reglages-defauts"),
+  boutonReglagesRetour: document.getElementById("bouton-reglages-retour"),
+  boutonReglagesRedemarrer: document.getElementById("bouton-reglages-redemarrer"),
 };
+
+/** Vue affichee, pour que « Retour » des reglages y ramene. */
+let vueCourante = "formulaire";
+const TITRE_RECUPERATION = elements.titreRecuperation.textContent;
 
 /** Une seule vue visible a la fois dans la colonne de droite. */
 function montreLaVue(nom) {
+  vueCourante = nom;
   elements.vueFormulaire.hidden = nom !== "formulaire";
   elements.vueApercu.hidden = nom !== "apercu";
   elements.vueFiche.hidden = nom !== "fiche";
   elements.vueManche.hidden = nom !== "manche";
+  elements.vueReglages.hidden = nom !== "reglages";
+  elements.titreRecuperation.textContent = nom === "reglages" ? "Réglages" : TITRE_RECUPERATION;
 }
 
 /**
@@ -775,3 +799,195 @@ chargeLesChoix()
   .catch((erreur) => {
     bandeau(elements.erreur, `Démarrage impossible : ${String(erreur?.message ?? erreur)}`);
   });
+
+/* --- Reglages --- */
+
+/** Ce que l'ecran a recu a l'ouverture : descriptions, valeurs par defaut. */
+let ecranDesReglages;
+/** Vue a retrouver en quittant les reglages. */
+let vueAvantReglages = "formulaire";
+
+/** Une part (0,5) s'affiche en pourcentage (50) ; le reste tel quel. */
+const versLEcran = (valeur, unite) => (unite === "%" ? Math.round(valeur * 100) : valeur);
+const depuisLEcran = (valeur, unite) => (unite === "%" ? valeur / 100 : valeur);
+
+/**
+ * Construit les cases de sections et les lignes de seuils, une fois : leur
+ * liste vient du processus principal, qui est seul a la connaitre.
+ */
+function construisLEcranDesReglages(ecran) {
+  elements.reglagesSections.replaceChildren(
+    ...ecran.sections.map((section) => {
+      const etiquette = document.createElement("label");
+      etiquette.className = "section";
+      const case_ = document.createElement("input");
+      case_.type = "checkbox";
+      case_.value = section.cle;
+      etiquette.append(case_, document.createTextNode(` ${section.libelle}`));
+      return etiquette;
+    }),
+  );
+
+  elements.reglagesSeuils.replaceChildren(
+    ...Object.entries(ecran.descriptions).map(([cle, description]) => {
+      const ligne = document.createElement("div");
+      ligne.className = "seuil";
+
+      const titre = document.createElement("label");
+      titre.className = "seuil__titre";
+      titre.htmlFor = `seuil-${cle}`;
+      titre.textContent = description.libelle;
+      const section = document.createElement("span");
+      section.className = "seuil__section";
+      section.textContent = description.section;
+      titre.append(section);
+
+      const valeur = document.createElement("span");
+      valeur.className = "seuil__valeur";
+      const champ = document.createElement("input");
+      champ.type = "number";
+      champ.id = `seuil-${cle}`;
+      champ.dataset.cle = cle;
+      champ.dataset.unite = description.unite;
+      champ.min = "1";
+      champ.step = description.unite === "%" ? "5" : "1";
+      if (description.unite === "%") champ.max = "100";
+      const unite = document.createElement("span");
+      unite.className = "seuil__unite";
+      unite.textContent = description.unite;
+      valeur.append(champ, unite);
+
+      const explication = document.createElement("p");
+      explication.className = "reglages__aide";
+      const defaut = versLEcran(ecran.defauts.seuils[cle], description.unite);
+      explication.textContent = `${description.explication} Par défaut : ${defaut} ${description.unite}.`;
+
+      ligne.append(titre, valeur, explication);
+      return ligne;
+    }),
+  );
+}
+
+/** Remplit le formulaire avec des reglages complets. */
+function remplisLesReglages(reglages) {
+  elements.reglageUtilisateur.value = reglages.utilisateur;
+  elements.reglageTypes.value = reglages.typesDeSession.join(", ");
+  for (const case_ of elements.reglagesSections.querySelectorAll("input")) {
+    case_.checked = reglages.sectionsParDefaut.includes(case_.value);
+  }
+  elements.reglageEntete.checked = reglages.enteteParDefaut;
+  elements.reglageDossierSessions.value = reglages.dossiers.sessions;
+  elements.reglageDossierPlanches.value = reglages.dossiers.planches;
+  elements.reglageDossierPictos.value = reglages.dossiers.pictos;
+  for (const champ of elements.reglagesSeuils.querySelectorAll("input")) {
+    champ.value = String(versLEcran(reglages.seuils[champ.dataset.cle], champ.dataset.unite));
+  }
+}
+
+/**
+ * Relit le formulaire. Aucune validation ici : le processus principal valide,
+ * et son message nomme le champ fautif. Un champ numerique vide part tel quel
+ * (`NaN` devient `null` en JSON) et se fait refuser la-bas.
+ */
+function lisLesReglages() {
+  const seuils = {};
+  for (const champ of elements.reglagesSeuils.querySelectorAll("input")) {
+    seuils[champ.dataset.cle] = depuisLEcran(champ.valueAsNumber, champ.dataset.unite);
+  }
+  return {
+    utilisateur: elements.reglageUtilisateur.value,
+    typesDeSession: elements.reglageTypes.value
+      .split(",")
+      .map((type) => type.trim())
+      .filter((type) => type !== ""),
+    sectionsParDefaut: [...elements.reglagesSections.querySelectorAll("input:checked")].map(
+      (case_) => case_.value,
+    ),
+    enteteParDefaut: elements.reglageEntete.checked,
+    dossiers: {
+      sessions: elements.reglageDossierSessions.value,
+      planches: elements.reglageDossierPlanches.value,
+      pictos: elements.reglageDossierPictos.value,
+    },
+    seuils,
+  };
+}
+
+/**
+ * Le message de validation, dit dans les mots de l'ecran. Le processus
+ * principal nomme la cle du fichier (`"seuils".medaillesCitees`), ce qui sert
+ * en ligne de commande ; ici on remplace chemin et cle par le libelle affiche.
+ */
+function messageDeReglage(erreur) {
+  const brut = String(erreur?.message ?? erreur).replace(
+    /^Error invoking remote method '[^']+': (Error: )?/,
+    "",
+  );
+  const seuil = /"seuils"\.(\w+) : (.*)$/.exec(brut);
+  const description = seuil && ecranDesReglages?.descriptions[seuil[1]];
+  if (description) return `« ${description.libelle} » : ${seuil[2]}`;
+  // Les autres messages commencent par le chemin du fichier : inutile a l'ecran.
+  return brut.replace(/^[^"]*?, (?=")/, "");
+}
+
+function signaleLAttente(enAttente) {
+  elements.reglagesAttente.hidden = !enAttente;
+  elements.boutonReglagesRedemarrer.hidden = !enAttente;
+}
+
+elements.boutonReglages.addEventListener("click", async () => {
+  cacheLesBandeaux();
+  try {
+    const ecran = await api.readSettings();
+    if (ecranDesReglages === undefined) construisLEcranDesReglages(ecran);
+    ecranDesReglages = ecran;
+    elements.reglagesChemin.textContent = ecran.chemin;
+    remplisLesReglages(ecran.reglages);
+    signaleLAttente(ecran.enAttente);
+    if (vueCourante !== "reglages") vueAvantReglages = vueCourante;
+    montreLaVue("reglages");
+    if (ecran.erreur !== undefined) {
+      bandeau(
+        elements.avertissement,
+        `Le fichier de réglages est invalide : ${ecran.erreur} ` +
+          "Le formulaire montre les réglages en cours ; enregistrer remplacera le fichier.",
+      );
+    }
+  } catch (erreur) {
+    bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  }
+});
+
+elements.formulaireReglages.addEventListener("submit", async (evenement) => {
+  evenement.preventDefault();
+  cacheLesBandeaux();
+  try {
+    const { reglages, enAttente } = await api.saveSettings(lisLesReglages());
+    remplisLesReglages(reglages);
+    signaleLAttente(enAttente);
+    bandeau(
+      elements.succes,
+      enAttente
+        ? "Réglages enregistrés. Redémarrez l'application pour les appliquer."
+        : "Réglages enregistrés : ce sont déjà ceux en cours.",
+    );
+  } catch (erreur) {
+    bandeau(elements.erreur, `Réglages non enregistrés. ${messageDeReglage(erreur)}`);
+  }
+});
+
+elements.boutonReglagesDefauts.addEventListener("click", () => {
+  if (ecranDesReglages === undefined) return;
+  cacheLesBandeaux();
+  remplisLesReglages(ecranDesReglages.defauts);
+  bandeau(elements.avertissement, "Valeurs par défaut affichées : rien n'est écrit tant que vous n'enregistrez pas.");
+});
+
+elements.boutonReglagesRetour.addEventListener("click", () => {
+  cacheLesBandeaux();
+  montreLaVue(vueAvantReglages);
+});
+
+elements.boutonReglagesRedemarrer.addEventListener("click", async () => {
+  await api.relaunchApp();
+});

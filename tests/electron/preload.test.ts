@@ -42,6 +42,9 @@ const FONCTIONS = [
   ["copyToClipboard", "copyToClipboard"],
   ["choices", "choices"],
   ["quitApp", "quitApp"],
+  ["readSettings", "readSettings"],
+  ["saveSettings", "saveSettings"],
+  ["relaunchApp", "relaunchApp"],
   ["onFetchProgress", "fetchProgress"],
 ] as const satisfies ReadonlyArray<readonly [string, keyof typeof IPC]>;
 

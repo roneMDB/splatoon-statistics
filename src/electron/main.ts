@@ -12,7 +12,14 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { DEFAULT_PLANCHE_DIR, DEFAULT_USER } from "../config.ts";
-import { REGLAGES } from "../reglages.ts";
+import {
+  chargeLesReglages,
+  cheminDesReglages,
+  DESCRIPTION_DES_SEUILS,
+  enregistreLesReglages,
+  REGLAGES,
+  REGLAGES_PAR_DEFAUT,
+} from "../reglages.ts";
 import { previewSession, saveSession } from "./sessionFetchHandler.ts";
 import {
   deleteSession,
@@ -32,6 +39,7 @@ import {
   IPC,
   type BuildPlancheInput,
   type BuildReportInput,
+  type EcranDesReglages,
   type FetchSessionFormInput,
   type ReadBattleInput,
 } from "./ipcChannels.ts";
@@ -340,6 +348,50 @@ ipcMain.handle(IPC.copyToClipboard, async (_event, texte: unknown) => {
  */
 ipcMain.handle(IPC.quitApp, () => {
   app.quit();
+});
+
+/*
+ * Reglages. Les constantes du noyau (types, seuils, dossiers) sont lues une
+ * fois, au chargement des modules : un reglage enregistre ne s'applique qu'au
+ * prochain demarrage. L'ecran le dit, et propose de redemarrer.
+ */
+const memesReglages = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+ipcMain.handle(IPC.readSettings, (): EcranDesReglages => {
+  const commun = {
+    chemin: cheminDesReglages(),
+    actifs: REGLAGES,
+    defauts: REGLAGES_PAR_DEFAUT,
+    descriptions: DESCRIPTION_DES_SEUILS,
+    sections: SECTIONS.map((cle) => ({ cle, libelle: LIBELLES_SECTIONS[cle] })),
+  };
+  try {
+    const reglages = chargeLesReglages();
+    return { ...commun, reglages, enAttente: !memesReglages(reglages, REGLAGES) };
+  } catch (erreur) {
+    // Un fichier casse apres le demarrage : l'ecran s'ouvre quand meme, sur
+    // ce qui tourne, et enregistrer le remplacera par un fichier valide.
+    return {
+      ...commun,
+      reglages: REGLAGES,
+      enAttente: false,
+      erreur: erreur instanceof Error ? erreur.message : String(erreur),
+    };
+  }
+});
+
+ipcMain.handle(IPC.saveSettings, async (_event, brut: unknown) => {
+  const reglages = await enregistreLesReglages(brut);
+  return { reglages, enAttente: !memesReglages(reglages, REGLAGES) };
+});
+
+/**
+ * `relaunch` puis `exit` : le nouveau processus reprend les memes arguments,
+ * donc le drapeau `--use-angle` que `lanceApp.ts` pose sous WSL.
+ */
+ipcMain.handle(IPC.relaunchApp, () => {
+  app.relaunch();
+  app.exit(0);
 });
 
 void app.whenReady().then(() => {

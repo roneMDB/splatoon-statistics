@@ -23,6 +23,7 @@
         <p class="bandeau bandeau--avertissement" id="sessions-erreurs" hidden></p>
 
         <div class="sessions__pied">
+          <button type="button" class="bouton--discret" id="bouton-reglages">Réglages</button>
           <button type="button" class="bouton--discret" id="bouton-quitter">
             Quitter l'application
           </button>
@@ -31,6 +32,100 @@
 
       <section class="recuperation" aria-labelledby="titre-recuperation">
         <h2 id="titre-recuperation">Nouvelle récupération</h2>
+
+        <div id="vue-reglages" hidden>
+          <p class="reglages__intro">
+            Enregistrés dans <code id="reglages-chemin"></code>. Seules les valeurs qui
+            diffèrent des valeurs par défaut y sont écrites. Les réglages ne s'appliquent
+            qu'au <strong>prochain démarrage</strong> de l'application.
+          </p>
+          <p class="bandeau bandeau--avertissement" id="reglages-attente" hidden>
+            Des réglages enregistrés ne sont pas encore appliqués : redémarrez l'application.
+          </p>
+
+          <form class="formulaire" id="formulaire-reglages" novalidate>
+            <fieldset class="reglages__groupe">
+              <legend>Général</legend>
+              <div class="champ">
+                <label for="reglage-utilisateur">Compte stat.ink par défaut</label>
+                <input type="text" id="reglage-utilisateur" autocomplete="off" />
+                <p class="reglages__aide">
+                  Pseudo stat.ink proposé dans le champ « Compte » d'une nouvelle récupération.
+                </p>
+              </div>
+              <div class="champ">
+                <label for="reglage-types">Types de session</label>
+                <input type="text" id="reglage-types" autocomplete="off" />
+                <p class="reglages__aide">
+                  Séparés par des virgules, dans l'ordre des menus. Minuscules, chiffres et
+                  tirets uniquement. Le type apparaît dans le titre du compte rendu
+                  (« Open du 13/09 »). Retirer un type n'empêche pas de relire les sessions
+                  déjà enregistrées sous ce type.
+                </p>
+              </div>
+            </fieldset>
+
+            <fieldset class="reglages__groupe">
+              <legend>Compte rendu et planche</legend>
+              <p class="reglages__aide">
+                Sections cochées d'office à l'ouverture d'une fiche, et utilisées par défaut
+                par <code>npm run report</code>.
+              </p>
+              <div class="reglages__sections" id="reglages-sections"></div>
+              <label class="section">
+                <input type="checkbox" id="reglage-entete" />
+                Cocher d'office « Poser le compte rendu en tête de la planche »
+              </label>
+            </fieldset>
+
+            <fieldset class="reglages__groupe">
+              <legend>Dossiers</legend>
+              <p class="reglages__aide">
+                Chemins relatifs au dossier du dépôt, ou absolus.
+              </p>
+              <div class="champ">
+                <label for="reglage-dossier-sessions">Sessions</label>
+                <input type="text" id="reglage-dossier-sessions" autocomplete="off" />
+                <p class="reglages__aide">Où sont écrites et lues les sessions récupérées.</p>
+              </div>
+              <div class="champ">
+                <label for="reglage-dossier-planches">Planches</label>
+                <input type="text" id="reglage-dossier-planches" autocomplete="off" />
+                <p class="reglages__aide">Où sont écrits les PNG des planches.</p>
+              </div>
+              <div class="champ">
+                <label for="reglage-dossier-pictos">Pictos</label>
+                <input type="text" id="reglage-dossier-pictos" autocomplete="off" />
+                <p class="reglages__aide">
+                  Pictos et polices du jeu, remplis par <code>npm run pictos</code>.
+                </p>
+              </div>
+            </fieldset>
+
+            <fieldset class="reglages__groupe">
+              <legend>Seuils du compte rendu</legend>
+              <p class="reglages__aide">
+                Le compte rendu n'écrit une phrase que si le fait qu'elle énonce est constaté.
+                Ces seuils fixent où passe la frontière. Les baisser rend le compte rendu plus
+                bavard, les monter le rend plus sélectif.
+              </p>
+              <div id="reglages-seuils"></div>
+            </fieldset>
+
+            <div class="actions">
+              <button type="submit" id="bouton-reglages-enregistrer">Enregistrer</button>
+              <button type="button" class="bouton--discret" id="bouton-reglages-defauts">
+                Valeurs par défaut
+              </button>
+              <button type="button" class="bouton--discret" id="bouton-reglages-retour">
+                Retour
+              </button>
+              <button type="button" class="bouton--discret" id="bouton-reglages-redemarrer" hidden>
+                Redémarrer maintenant
+              </button>
+            </div>
+          </form>
+        </div>
 
         <div id="vue-formulaire">
           <form class="formulaire" id="formulaire" novalidate>

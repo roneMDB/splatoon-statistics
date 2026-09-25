@@ -276,6 +276,8 @@ Valeurs de `--lobby` : `private`, `!private`, `regular`, `@bankara`,
 
 ## Réglages
 
+Le bouton **Réglages**, à côté de « Quitter l'application », ouvre un écran qui les modifie et explique chaque seuil. On peut aussi éditer le fichier à la main. Dans les deux cas, les réglages ne s'appliquent qu'au prochain démarrage ; après un enregistrement, l'écran propose de redémarrer.
+
 Les valeurs par défaut se règlent dans un fichier `settings.json`, à la racine du dépôt. Ce fichier est facultatif et ignoré par git, puisqu'il porte votre compte. `settings.exemple.json` en montre toutes les clés avec leur valeur par défaut. On ne recopie que ce qu'on veut changer :
 
 ```json

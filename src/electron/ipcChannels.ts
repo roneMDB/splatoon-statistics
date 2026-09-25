@@ -46,7 +46,30 @@ export const IPC = {
    * lobbies et les types en dur, et les deux listes finiraient par diverger.
    */
   choices: "app:choices",
+  /** Reglages en vigueur, ceux du fichier, les valeurs par defaut et leurs descriptions. */
+  readSettings: "settings:read",
+  /** Valide et ecrit `settings.json`. Pris en compte au prochain demarrage. */
+  saveSettings: "settings:save",
+  /** Redemarre l'application, pour appliquer des reglages enregistres. */
+  relaunchApp: "app:relaunch",
 } as const;
+
+/** Ce que l'ecran des reglages recoit a l'ouverture. */
+export type EcranDesReglages = {
+  /** Fichier lu et ecrit, pour que l'ecran dise ou vont les modifications. */
+  chemin: string;
+  /** Contenu du fichier, complete par les valeurs par defaut. */
+  reglages: import("../reglages.ts").Reglages;
+  /** Ce que l'application utilise en ce moment, lu au demarrage. */
+  actifs: import("../reglages.ts").Reglages;
+  defauts: import("../reglages.ts").Reglages;
+  descriptions: typeof import("../reglages.ts").DESCRIPTION_DES_SEUILS;
+  sections: readonly { cle: string; libelle: string }[];
+  /** Vrai quand le fichier differe de ce qui tourne : un redemarrage est attendu. */
+  enAttente: boolean;
+  /** Le fichier est illisible ou invalide ; `reglages` vaut alors `actifs`. */
+  erreur?: string;
+};
 
 /** Ce que le formulaire de la fenetre envoie pour lancer une recuperation. */
 export type FetchSessionFormInput = {
@@ -143,6 +166,12 @@ export type SplatoonApi = {
    */
   openExternal: (url: string) => Promise<"ouvert" | "copie">;
   copyToClipboard: (texte: string) => Promise<void>;
+  readSettings: () => Promise<EcranDesReglages>;
+  /** Rend les reglages tels qu'ils seront lus, et si un redemarrage est attendu. */
+  saveSettings: (
+    brut: unknown,
+  ) => Promise<{ reglages: import("../reglages.ts").Reglages; enAttente: boolean }>;
+  relaunchApp: () => Promise<void>;
   /** Renvoie la fonction de desabonnement. */
   onFetchProgress: (
     listener: (progress: import("../fetchSession.ts").FetchPageProgress) => void,

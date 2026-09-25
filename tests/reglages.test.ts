@@ -1,10 +1,13 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
   chargeLesReglages,
+  DESCRIPTION_DES_SEUILS,
+  ecartAuxDefauts,
+  enregistreLesReglages,
   REGLAGES,
   REGLAGES_PAR_DEFAUT,
   valideLesReglages,
@@ -104,3 +107,65 @@ test("le fichier d'exemple est valide et montre toutes les valeurs par defaut", 
   expect(exemple).toEqual(REGLAGES_PAR_DEFAUT);
 });
 
+describe("ecartAuxDefauts", () => {
+  test("des reglages par defaut ne donnent rien a ecrire", () => {
+    expect(ecartAuxDefauts(structuredClone(REGLAGES_PAR_DEFAUT))).toEqual({});
+  });
+
+  test("ne garde que ce qui differe, y compris dans les objets imbriques", () => {
+    const reglages = valideLesReglages({
+      utilisateur: "Bloup",
+      enteteParDefaut: true,
+      dossiers: { pictos: "ailleurs" },
+      seuils: { medaillesCitees: 6, serieFinaleMinimale: 3 },
+    });
+    expect(ecartAuxDefauts(reglages)).toEqual({
+      utilisateur: "Bloup",
+      enteteParDefaut: true,
+      dossiers: { pictos: "ailleurs" },
+      seuils: { medaillesCitees: 6 },
+    });
+  });
+});
+
+describe("enregistreLesReglages", () => {
+  let dossier: string;
+  beforeEach(async () => {
+    dossier = await mkdtemp(join(tmpdir(), "reglages-"));
+  });
+  afterEach(async () => {
+    await rm(dossier, { recursive: true, force: true });
+  });
+
+  test("ecrit l'ecart aux defauts, relisible tel quel", async () => {
+    const chemin = join(dossier, "settings.json");
+    const complets = await enregistreLesReglages(
+      { ...REGLAGES_PAR_DEFAUT, typesDeSession: ["intra", "tournoi"] },
+      chemin,
+    );
+
+    expect(JSON.parse(await readFile(chemin, "utf8"))).toEqual({ typesDeSession: ["intra", "tournoi"] });
+    expect(chargeLesReglages(chemin)).toEqual(complets);
+  });
+
+  test("n'ecrit rien quand la validation echoue", async () => {
+    const chemin = join(dossier, "settings.json");
+    await writeFile(chemin, '{ "utilisateur": "Avant" }');
+    await expect(enregistreLesReglages({ seuils: { medaillesCitees: 0 } }, chemin)).rejects.toThrow(
+      /medaillesCitees/,
+    );
+    expect(await readFile(chemin, "utf8")).toBe('{ "utilisateur": "Avant" }');
+  });
+
+  test("refuse d'ecrire quand la lecture est desactivee", async () => {
+    await expect(enregistreLesReglages({}, "")).rejects.toThrow(/désactivée/);
+  });
+});
+
+test("chaque seuil a sa description a l'ecran", () => {
+  expect(Object.keys(DESCRIPTION_DES_SEUILS).sort()).toEqual(Object.keys(REGLAGES_PAR_DEFAUT.seuils).sort());
+  for (const description of Object.values(DESCRIPTION_DES_SEUILS)) {
+    expect(description.libelle.length).toBeGreaterThan(0);
+    expect(description.explication.length).toBeGreaterThan(40);
+  }
+});

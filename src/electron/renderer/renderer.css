@@ -60,6 +60,9 @@ h2 {
 }
 
 .sessions__pied {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   margin-top: auto;
   padding-top: 18px;
 }
@@ -599,4 +602,99 @@ h3.apercu__titre {
   font-size: 0.85rem;
   line-height: 1.5;
   color: var(--texte-doux);
+}
+
+/* --- Reglages --- */
+
+.reglages__intro {
+  margin: 0 0 14px;
+  color: var(--texte-doux);
+}
+
+.reglages__intro code,
+.reglages__aide code {
+  color: var(--texte);
+}
+
+.reglages__groupe {
+  border: 1px solid var(--trait);
+  border-radius: 6px;
+  margin: 0 0 16px;
+  padding: 10px 14px 14px;
+}
+
+.reglages__groupe legend {
+  color: var(--texte);
+  font-weight: 600;
+  padding: 0 4px;
+}
+
+.reglages__aide {
+  margin: 2px 0 0;
+  color: var(--texte-doux);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.reglages__sections {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+  margin: 10px 0 12px;
+}
+
+/* Un seuil : libelle et section a gauche, valeur a droite, explication dessous. */
+.seuil {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 14px;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid var(--trait);
+}
+
+.seuil:first-child {
+  border-top: none;
+}
+
+.seuil__titre {
+  color: var(--texte);
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.seuil__section {
+  display: block;
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.seuil__valeur {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.seuil__valeur input {
+  width: 84px;
+  text-align: right;
+}
+
+/* Largeur fixe : sans elle, la colonne des valeurs se decale avec l'unite. */
+.seuil__unite {
+  min-width: 68px;
+  color: var(--texte-doux);
+  font-size: 12.5px;
+}
+
+.reglages__groupe .champ + .champ {
+  margin-top: 12px;
+}
+
+.seuil .reglages__aide {
+  grid-column: 1 / -1;
 }

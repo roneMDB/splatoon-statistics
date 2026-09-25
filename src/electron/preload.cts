@@ -33,6 +33,9 @@ const CANAUX = {
   quitApp: "app:quit",
   fetchProgress: "session:fetch-progress",
   choices: "app:choices",
+  readSettings: "settings:read",
+  saveSettings: "settings:save",
+  relaunchApp: "app:relaunch",
 } as const;
 
 contextBridge.exposeInMainWorld("splatoonApi", {
@@ -67,6 +70,12 @@ contextBridge.exposeInMainWorld("splatoonApi", {
     ipcRenderer.invoke(CANAUX.copyToClipboard, texte),
 
   choices: () => ipcRenderer.invoke(CANAUX.choices),
+
+  readSettings: () => ipcRenderer.invoke(CANAUX.readSettings),
+
+  saveSettings: (brut: unknown) => ipcRenderer.invoke(CANAUX.saveSettings, brut),
+
+  relaunchApp: () => ipcRenderer.invoke(CANAUX.relaunchApp),
 
   /** Ferme l'application : la fenetre ne peut pas quitter le processus seule. */
   quitApp: () => ipcRenderer.invoke(CANAUX.quitApp),
