@@ -22,7 +22,7 @@ const scriptedAsk = (answers: string[]) => {
 
 describe("isSessionType", () => {
   test("accepte les quatre valeurs de la liste fermee", () => {
-    expect(SESSION_TYPES).toEqual(["intra", "scrim", "compet", "autre"]);
+    expect(SESSION_TYPES).toEqual(["intra", "scrim", "compet", "open", "autre"]);
     for (const value of SESSION_TYPES) {
       expect(isSessionType(value)).toBe(true);
     }
@@ -48,10 +48,10 @@ describe("parseSessionType", () => {
 
   test("refuse une valeur hors liste, avec le mot du contexte de l'appelant dans le message", () => {
     expect(() => parseSessionType("tournoi", "--type")).toThrow(
-      /Valeur de --type inconnue : "tournoi"\. Valeurs acceptees : intra, scrim, compet, autre/,
+      /Valeur de --type inconnue : "tournoi"\. Valeurs acceptees : intra, scrim, compet, open, autre/,
     );
     expect(() => parseSessionType("tournoi", "type")).toThrow(
-      /Valeur de type inconnue : "tournoi"\. Valeurs acceptees : intra, scrim, compet, autre/,
+      /Valeur de type inconnue : "tournoi"\. Valeurs acceptees : intra, scrim, compet, open, autre/,
     );
   });
 
@@ -105,4 +105,8 @@ describe("promptSessionMeta", () => {
     });
     expect(asked).toHaveLength(1);
   });
+});
+
+test("accepte le type open, pour les sessions en lobby ouvert", () => {
+  expect(parseSessionType("open")).toBe("open");
 });

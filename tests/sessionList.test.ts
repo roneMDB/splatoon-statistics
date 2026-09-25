@@ -41,7 +41,7 @@ async function ecrisSession(
   options: {
     user?: string;
     name?: string;
-    type?: "intra" | "scrim" | "compet" | "autre";
+    type?: "intra" | "scrim" | "compet" | "open" | "autre";
     objectif?: string;
     ressenti?: string;
     from: string;

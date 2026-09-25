@@ -262,7 +262,7 @@ Ecrit dans data/sessions/Gloup_20260804-2100_20260804-2359.json
 | `--to <datetime>` | maintenant | Fin de la session |
 | `--user <pseudo>` | `Gloup` | Compte stat.ink interrogé |
 | `--name <texte>` | *demandé à l'écran* | Nom de la session, ex. `Scrim contre Les Corsaires` |
-| `--type <valeur>` | aucun | `intra`, `scrim`, `compet` ou `autre` |
+| `--type <valeur>` | aucun | `intra`, `scrim`, `compet`, `open` ou `autre` |
 | `--lobby <valeur>` | aucun filtre | `private` = intras / scrims / compétitions |
 | `--out <dossier>` | `data/sessions` | Dossier de sortie |
 | `--max-pages <n>` | `20` | Plafond de pages parcourues |

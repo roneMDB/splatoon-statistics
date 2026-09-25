@@ -2,7 +2,7 @@
  * scrim, stat.ink les rangeant tous deux sous le lobby `private`. */
 
 /** Valeurs acceptees par `--type`, liste fermee. */
-export const SESSION_TYPES = ["intra", "scrim", "compet", "autre"] as const;
+export const SESSION_TYPES = ["intra", "scrim", "compet", "open", "autre"] as const;
 
 /** Type union des natures de session acceptees. */
 export type SessionType = (typeof SESSION_TYPES)[number];
