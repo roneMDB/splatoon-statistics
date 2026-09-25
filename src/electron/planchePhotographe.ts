@@ -55,6 +55,20 @@ import type { CapturePlanche, MesurePlanche, OutilsDePlanche } from "./plancheHa
 const ATTENDS_DEUX_IMAGES =
   "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))";
 
+/**
+ * Pause apres les deux images, avant `capturePage()`.
+ *
+ * Les deux `requestAnimationFrame` disent que le **rendu** a vu la nouvelle
+ * taille, pas que le **compositeur** a deja reconstruit la surface hors ecran
+ * a cette taille. Capturer dans cet intervalle echoue en moins de 100 ms sur
+ * `UnknownVizError` - la panne qu'on attribuait au seul GPU de WSLg. Mesure
+ * sur la machine de developpement (WSLg, SwiftShader, planche de 3745 px) :
+ * sans pause, 4 captures sur 8 ; avec 250 ms, 8 sur 8, comme avec 500 ms.
+ * Une reprise qui recree la fenetre refait la meme course : c'est pourquoi
+ * cinq tentatives pouvaient toutes echouer.
+ */
+const PAUSE_APRES_REDIMENSIONNEMENT_MS = 250;
+
 /** Delai de garde sur un aller-retour Chromium qui peut ne jamais rendre la main. */
 const DELAI_LONG_MS = 30_000;
 
@@ -139,6 +153,7 @@ export function outilsDePlanche(): OutilsDePlanche {
         DELAI_LONG_MS,
         "L'attente du rendu de la planche",
       );
+      await new Promise((donneLaMain) => setTimeout(donneLaMain, PAUSE_APRES_REDIMENSIONNEMENT_MS));
       const image = await avecDelaiDeGarde(
         fenetre.webContents.capturePage(),
         DELAI_LONG_MS,
