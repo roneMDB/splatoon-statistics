@@ -43,7 +43,7 @@ const battle = (uuid: string, resultat: string, options: Partial<StatinkBattle> 
     medals: ["#1 Score Booster"],
     our_team_members: [
       { me: true, name: "☆Gloup☆", kill: 14, assist: 9, death: 7, special: 7, inked: 1463,
-        weapon: { key: "splatroller", name: { en_US: "Splat Roller" } } },
+        weapon: { key: "splatroller", name: { en_US: "Splat Roller" }, special: { key: "greatbarrier" } } },
       { me: false, name: "☆Bloup☆", kill: 16, assist: 5, death: 10, special: 3, inked: 742,
         weapon: { key: "sshooter", name: { en_US: "Splattershot" } } },
     ],
@@ -177,8 +177,8 @@ describe("construisLaPlanche", () => {
     const html = construisLaPlanche(session([battle("a", "lose")]));
     const corps = html.split("</style>")[1] ?? "";
 
-    const indexNous = corps.indexOf('class="equipe__titre">Nous —');
-    const indexEux = corps.indexOf('class="equipe__titre">Eux —');
+    const indexNous = corps.indexOf('class="equipe__titre">Nous<');
+    const indexEux = corps.indexOf('class="equipe__titre">Eux<');
     expect(indexNous).toBeGreaterThanOrEqual(0);
     expect(indexEux).toBeGreaterThanOrEqual(0);
     expect(indexNous).toBeLessThan(indexEux);
@@ -198,9 +198,45 @@ describe("construisLaPlanche", () => {
 
   test("montre les chiffres de chacun et son arme dans les deux langues", () => {
     const html = construisLaPlanche(session([battle("a", "win")]));
-    expect(html).toContain("14/9/7/7");
-    expect(html).toContain("1463 p.");
+    // Sans pictos, l'abreviation tient la place de chacun : é 14 +9, m 7, sp 7.
+    const debut = html.indexOf('class="joueur__chiffres"', html.indexOf("☆Gloup☆</span>"));
+    const chiffres = html.slice(debut, html.indexOf('<span class="joueur__arme"', debut));
+    const mots = chiffres.replace(/^[^>]*>/, "").replace(/<[^>]*>/g, " ").split(/\s+/).filter(Boolean);
+    expect(mots).toEqual(["é", "14", "+9", "m", "7", "sp", "7", "1463", "p."]);
     expect(html).toContain("(Splat Roller)");
+  });
+
+  test("sans pictos, une legende traduit les abreviations des chiffres", () => {
+    const html = construisLaPlanche(session([battle("a", "win")]));
+    const legende = html.slice(html.indexOf('class="planche__legende"'), html.indexOf("</p>", html.indexOf('class="planche__legende"')));
+    expect(legende).toContain("éliminations, + assistances");
+    expect(legende).toContain("morts");
+    expect(legende).toContain("spéciales déclenchées");
+    expect(legende).toContain("points d&#39;encrage");
+    // Une fois pour toute la planche, avant les cartes.
+    expect(html.match(/class="planche__legende"/g)).toHaveLength(1);
+    expect(html.indexOf('class="planche__legende"')).toBeLessThan(html.indexOf('class="planche__grille"'));
+  });
+
+  test("avec les pictos du jeu, chaque chiffre porte le sien, et la speciale est celle du joueur", () => {
+    const pictos = (categorie: string, cle: string) => `data:image/png;base64,${categorie}-${cle}`;
+    const html = construisLaPlanche(session([battle("a", "win")]), { pictos });
+
+    const ligne = html.slice(html.indexOf("☆Gloup☆</span>"), html.indexOf("(Splat Roller)"));
+    expect(ligne).toContain("picto--stats-elimination");
+    expect(ligne).toContain("picto--stats-mort");
+    expect(ligne).toContain("picto--speciales-greatbarrier");
+    expect(ligne).not.toContain("picto-repli");
+
+    // Un joueur dont stat.ink ne donne pas la speciale garde l'abreviation.
+    const autre = html.slice(html.indexOf("☆Bloup☆</span>"), html.indexOf("(Splattershot)"));
+    expect(autre).toContain('<span class="picto-repli picto-repli--xs">sp</span>');
+
+    // Chaque picto n'est declare qu'une fois dans la feuille, meme repris.
+    expect(html.match(/\.picto--stats-elimination \{/g)).toHaveLength(1);
+    // La legende montre ma speciale.
+    const legende = html.slice(html.indexOf('class="planche__legende"'));
+    expect(legende.slice(0, legende.indexOf("</p>"))).toContain("picto--speciales-greatbarrier");
   });
 
   test("porte le resultat, le score, la carte et le mode", () => {

@@ -39,6 +39,11 @@ export function sectionScouting(analyse: AnalyseSession): string[] {
       ]),
     ),
     "",
+    // Le tableau abrege pour tenir sur un telephone ; la legende rend ce qu'il
+    // abrege. « K/D » surtout, qui ne compte pas les assistances.
+    "Élim. : éliminations · Spé : spéciales déclenchées · " +
+      "K/D : éliminations par mort, sans les assistances · Armes : nombre d'armes jouées",
+    "",
   );
 
   const faits: string[] = [];

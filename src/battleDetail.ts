@@ -38,6 +38,12 @@ export type JoueurDeManche = {
   assist: number;
   death: number;
   special: number;
+  /**
+   * Cle stat.ink de la speciale du joueur (`ultrashot`...), telle quelle : la
+   * planche en tire le picto qui accompagne son nombre de speciaux, comme en
+   * jeu. Absente quand stat.ink ne la donne pas.
+   */
+  speciale?: string;
   inked: number;
   deconnecte: boolean;
   /** Vide quand stat.ink ne donne pas l'equipement. */
@@ -137,6 +143,7 @@ function joueurDe(membre: StatinkTeamMember): JoueurDeManche {
     assist: nombre(membre.assist),
     death: nombre(membre.death),
     special: nombre(membre.special),
+    ...(weapon?.special?.key == null ? {} : { speciale: weapon.special.key }),
     inked: nombre(membre.inked),
     deconnecte: membre.disconnected === true,
     equipement: equipementDe(membre),

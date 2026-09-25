@@ -476,7 +476,7 @@ describe("fabriqueLaPlanche — en-tete", () => {
     return { doublure, vus };
   }
 
-  test("sans option, la planche mesuree n'a pas d'en-tete et aucun picto n'est lu", async () => {
+  test("sans option, la planche mesuree n'a pas d'en-tete, mais lit les pictos de ses chiffres", async () => {
     const dossier = await mkdtemp(join(tmpdir(), "planches-"));
     try {
       let lus = 0;
@@ -486,7 +486,7 @@ describe("fabriqueLaPlanche — en-tete", () => {
       });
       await fabriqueLaPlanche("a/b.json", doublure, dossier);
       expect(vus[0]).not.toContain('<section class="entete">');
-      expect(lus).toBe(0);
+      expect(lus).toBe(1);
     } finally {
       await rm(dossier, { recursive: true, force: true });
     }

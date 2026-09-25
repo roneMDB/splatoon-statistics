@@ -29,6 +29,14 @@ describe("sectionScouting", () => {
     expect(sectionScouting(analyse({ manches: [manche()] }))).toEqual([]);
   });
 
+  test("traduit les abreviations du tableau juste sous lui", () => {
+    const lignes = sectionScouting(analyse({ manches: treizeManches, adverse: [octobrush] }));
+    const legende = lignes.findIndex((ligne) => ligne.startsWith("Élim. : éliminations"));
+    expect(legende).toBeGreaterThan(0);
+    expect(lignes[legende - 2]).toBe("```");
+    expect(lignes[legende]).toContain("K/D : éliminations par mort, sans les assistances");
+  });
+
   test("ne nomme jamais un adversaire par son pseudo", () => {
     const rendu = texte(
       sectionScouting(analyse({ manches: treizeManches, adverse: [octobrush, versatile] })),

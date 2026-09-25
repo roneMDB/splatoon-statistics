@@ -18,6 +18,8 @@ import { dirname, join } from "node:path";
 import { STATINK_ORIGIN, USER_AGENT } from "../src/config.ts";
 import {
   LEANNY,
+  nettoieLeSvgSplatNet,
+  PICTOS_DE_SCORE,
   planDeTelechargement,
   type ArmeMush,
   type ArmeStatink,
@@ -87,10 +89,18 @@ async function main(): Promise<void> {
     octets += contenu.length;
   }
 
+  for (const { source, cible, couleur } of PICTOS_DE_SCORE) {
+    const svg = nettoieLeSvgSplatNet((await telecharge(source)).toString("utf8"), couleur);
+    const chemin = join(DOSSIER, cible);
+    await mkdir(dirname(chemin), { recursive: true });
+    await writeFile(chemin, svg, "utf8");
+    octets += Buffer.byteLength(svg);
+  }
+
   await writeFile(join(DOSSIER, "SOURCE.md"), texteDeProvenance(version), "utf8");
 
   console.log(
-    `${plan.telechargements.length} fichiers, ${Math.round(octets / 1024)} Ko, tables du jeu v${version}.`,
+    `${plan.telechargements.length + PICTOS_DE_SCORE.length} fichiers, ${Math.round(octets / 1024)} Ko, tables du jeu v${version}.`,
   );
   if (plan.manquants.length > 0) {
     console.log(`Sans picto (${plan.manquants.length}) :\n  ${plan.manquants.join("\n  ")}`);
@@ -112,6 +122,7 @@ d'un club. Ils ne sont couverts par aucune licence de ce depot.
 |---|---|
 | \`armes/\`, \`sous/\`, \`speciales/\`, \`stages/\`, \`medailles/\` | [Leanny/splat3](https://github.com/Leanny/splat3), donnees extraites du jeu, tables v${version} |
 | \`regles/\` (sauf \`tricolor.png\`), \`lobbies/\`, \`polices/\` | [misenhower/splatoon3.ink](https://github.com/misenhower/splatoon3.ink), depot sous licence MIT |
+| \`stats/\` | [splashcat-ink/splashcat](https://github.com/splashcat-ink/splashcat), pictos de SplatNet 3, couleur fixee au telechargement |
 | \`regles/tricolor.png\` | [Inkipedia](https://splatoonwiki.org/wiki/File:S3_icon_Tricolor_Turf_War.png) |
 
 Chaque fichier porte la cle stat.ink correspondante (\`armes/nzap89.png\`).

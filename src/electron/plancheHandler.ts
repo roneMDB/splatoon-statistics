@@ -110,8 +110,9 @@ export type OutilsDePlanche = {
    */
   copie: (png: Uint8Array) => Promise<boolean>;
   /**
-   * Lit les pictos du jeu pour l'en-tete. Facultatif : sans lui, un en-tete
-   * demande est dessine sans pictos, avec les libelles a leur place.
+   * Lit les pictos du jeu, pour l'en-tete et les chiffres des joueurs.
+   * Facultatif : sans lui, la planche est dessinee avec les libelles a leur
+   * place.
    */
   chargeLesPictos?: (file: SessionFile) => Promise<Pictos>;
 };
@@ -210,13 +211,11 @@ export async function fabriqueLaPlanche(
   options: OptionsDeFabrication = {},
 ): Promise<ResultatPlanche> {
   const file = await outils.lisLaSession(path);
+  const pictos = (await outils.chargeLesPictos?.(file)) ?? aucunPicto;
   const html =
     options.entete === undefined
-      ? construisLaPlanche(file)
-      : construisLaPlanche(file, {
-          entete: options.entete,
-          pictos: (await outils.chargeLesPictos?.(file)) ?? aucunPicto,
-        });
+      ? construisLaPlanche(file, { pictos })
+      : construisLaPlanche(file, { entete: options.entete, pictos });
 
   let capture: CapturePlanche;
   let hauteurDemandee: number;

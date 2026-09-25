@@ -40,7 +40,7 @@ import { toBattleDetail } from "../battleDetail.ts";
 import type { BattleDetail, JoueurDeManche } from "../battleDetail.ts";
 import type { SessionFile } from "../store.ts";
 import { analyseSession } from "./analyse.ts";
-import { enteteEnHtml, type OptionsEntete } from "./entete.ts";
+import { enteteEnHtml, Registre, type OptionsEntete } from "./entete.ts";
 import { bilanDeSession, titreDeSession } from "./format.ts";
 import { echappe } from "./html.ts";
 import { aucunPicto, type Pictos } from "./pictos.ts";
@@ -318,6 +318,33 @@ ${COULEURS_DE_REGLE}
 .joueur--moi { background: #232741; box-shadow: inset 3px 0 0 #eaff3d; }
 .joueur__nom { font-weight: 700; }
 .joueur__chiffres { color: #e6e8f4; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/*
+ * Les chiffres d'un joueur, chacun sous son picto. La base des pictos est
+ * repetee ici plutot que prise a l'en-tete : une planche sans en-tete a aussi
+ * ses pictos. Les tailles sont posees par le contexte, qui l'emporte sur
+ * celles de l'en-tete (« .picto--xs »).
+ */
+.stat { display: inline-flex; align-items: center; gap: 3px; margin-left: 9px; }
+/* Pas de raccourci « background » : plus specifique que la classe du picto, il
+   en effacerait l'image. */
+.stat .picto { display: inline-block; flex: none; background-position: center; background-size: contain; background-repeat: no-repeat; }
+.stat--elim .picto, .stat--mort .picto { width: 31px; height: 16px; }
+.stat--spe .picto { width: 20px; height: 20px; }
+.stat .picto-repli { font-size: 10px; font-weight: 700; color: #b9bdd6; }
+.stat__assist { font-size: 10px; color: #b9bdd6; align-self: flex-start; }
+.stat--encre { color: #b9bdd6; font-size: 12px; }
+.planche__legende {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 22px;
+  margin: 0 0 18px;
+  font-size: 13px;
+  color: #c9cde0;
+}
+.legende__entree { display: inline-flex; align-items: center; gap: 7px; }
+.legende__entree .stat { margin-left: 0; color: #f2f3fa; font-weight: 700; font-variant-numeric: tabular-nums; }
 .joueur__arme { grid-column: 1 / -1; font-size: 11px; color: #e6e8f4; }
 /*
  * Les medailles partagent le voile des equipes : posees sur une couleur de
@@ -354,41 +381,66 @@ function scoreDe(detail: BattleDetail): string | undefined {
 }
 
 /**
+ * Les chiffres d'un joueur, a la maniere du tableau de fin de manche de
+ * SplatNet 3 : un picto devant chaque nombre plutot qu'un « é/a/m/sp » a
+ * dechiffrer. Eliminations (assistances en exposant), morts, puis speciaux
+ * sous le picto de la speciale du joueur. Sans picto, l'abreviation revient a
+ * sa place, et la legende de la planche la traduit.
+ */
+function chiffresEnHtml(joueur: JoueurDeManche, registre: Registre): string {
+  const stat = (modificateur: string, picto: string, valeur: string) =>
+    `<span class="stat stat--${modificateur}">${picto}${valeur}</span>`;
+
+  return [
+    stat(
+      "elim",
+      registre.picto("stats", "elimination", "é", "xs"),
+      `${joueur.kill}<span class="stat__assist">+${joueur.assist}</span>`,
+    ),
+    stat("mort", registre.picto("stats", "mort", "m", "xs"), String(joueur.death)),
+    stat("spe", registre.picto("speciales", joueur.speciale, "sp", "xs"), String(joueur.special)),
+    stat("encre", "", `${joueur.inked} p.`),
+    ...(joueur.deconnecte ? [`<span class="stat">déconnecté</span>`] : []),
+  ].join("");
+}
+
+/**
  * Une ligne de joueur : pseudo et chiffres sur la premiere ligne, arme sur la
  * seconde. Les chiffres sont a chasse tabulaire pour que les colonnes
  * s'alignent d'une ligne a l'autre sans tableau.
  */
-function joueurEnHtml(joueur: JoueurDeManche): string {
-  const chiffres = [`${joueur.inked} p.`, `${joueur.kill}/${joueur.assist}/${joueur.death}/${joueur.special}`];
-  if (joueur.deconnecte) chiffres.push("déconnecté");
-
+function joueurEnHtml(joueur: JoueurDeManche, registre: Registre): string {
   return (
     `<div class="${joueur.moi ? "joueur joueur--moi" : "joueur"}">` +
     `<span class="joueur__nom">${echappe(joueur.nom)}</span>` +
-    `<span class="joueur__chiffres">${echappe(chiffres.join(" · "))}</span>` +
+    `<span class="joueur__chiffres">${chiffresEnHtml(joueur, registre)}</span>` +
     `<span class="joueur__arme">${echappe(joueur.arme)}</span>` +
     `</div>`
   );
 }
 
 /**
- * Une equipe. Le rappel « é/a/m/sp » est dans le titre plutot que sur chaque
- * ligne : sans lui, quatre nombres colles ne veulent rien dire ; sur chaque
- * ligne, il noierait les chiffres.
+ * Une equipe. Ce que disent ses chiffres est dans la legende de la planche,
+ * une fois pour toutes, plutot que repete sous chaque titre.
  *
  * Sous le titre, un lisere a la couleur d'encre reelle de l'equipe dans cette
  * manche. Quand stat.ink ne la donne pas — ou la donne mal —, le lisere
  * disparait plutot que de se rabattre sur une couleur inventee.
  */
-function equipeEnHtml(titre: string, joueurs: JoueurDeManche[], encre?: string): string {
+function equipeEnHtml(
+  titre: string,
+  joueurs: JoueurDeManche[],
+  registre: Registre,
+  encre?: string,
+): string {
   const couleur = couleurSure(encre);
   const lisere = couleur === undefined ? "" : `<span class="equipe__encre" style="background:${couleur}"></span>`;
 
   return (
     `<div class="equipe">` +
-    `<p class="equipe__titre">${echappe(titre)} — é/a/m/sp</p>` +
+    `<p class="equipe__titre">${echappe(titre)}</p>` +
     lisere +
-    joueurs.map(joueurEnHtml).join("") +
+    joueurs.map((joueur) => joueurEnHtml(joueur, registre)).join("") +
     `</div>`
   );
 }
@@ -404,7 +456,7 @@ function equipeEnHtml(titre: string, joueurs: JoueurDeManche[], encre?: string):
  * lui qui donne le rythme a la grille et permet de retrouver une manche sans
  * compter les cartes.
  */
-function mancheEnHtml(detail: BattleDetail, numero: number): string {
+function mancheEnHtml(detail: BattleDetail, numero: number, registre: Registre): string {
   const contexte = [
     heureDe(detail.startedAt),
     detail.rule,
@@ -439,12 +491,44 @@ function mancheEnHtml(detail: BattleDetail, numero: number): string {
     `<span class="manche__contexte">${echappe(contexte.join(" · "))}</span>` +
     `</div>` +
     `<div class="manche__equipes">` +
-    equipeEnHtml("Nous", detail.nous, detail.couleurNous) +
-    equipeEnHtml("Eux", detail.eux, detail.couleurEux) +
+    equipeEnHtml("Nous", detail.nous, registre, detail.couleurNous) +
+    equipeEnHtml("Eux", detail.eux, registre, detail.couleurEux) +
     `</div>` +
     medailles +
     `</article>` +
     `</div>`
+  );
+}
+
+/**
+ * La legende des chiffres de joueur, posee une fois entre l'en-tete et les
+ * cartes. Le picto de speciale qu'elle montre est le mien quand je suis dans
+ * la session : c'est celui que le lecteur du club connait le mieux sur la
+ * planche.
+ */
+function legendeEnHtml(details: BattleDetail[], registre: Registre): string {
+  const joueurs = details.flatMap((detail) => [...detail.nous, ...detail.eux]);
+  const avecSpeciale = joueurs.filter((joueur) => joueur.speciale !== undefined);
+  const speciale = (avecSpeciale.find((joueur) => joueur.moi) ?? avecSpeciale[0])?.speciale;
+
+  const entree = (modificateur: string, exemple: string, texte: string) =>
+    `<span class="legende__entree"><span class="stat stat--${modificateur}">${exemple}</span>${echappe(texte)}</span>`;
+
+  return (
+    `<p class="planche__legende">` +
+    entree(
+      "elim",
+      `${registre.picto("stats", "elimination", "é", "xs")}5<span class="stat__assist">+2</span>`,
+      "éliminations, + assistances",
+    ) +
+    entree("mort", `${registre.picto("stats", "mort", "m", "xs")}3`, "morts") +
+    entree(
+      "spe",
+      `${registre.picto("speciales", speciale, "sp", "xs")}4`,
+      "spéciales déclenchées (picto de la spéciale du joueur)",
+    ) +
+    entree("encre", "1200 p.", "points d'encrage") +
+    `</p>`
   );
 }
 
@@ -464,21 +548,27 @@ export type OptionsPlanche = {
    * lui, la planche est exactement celle d'avant l'option.
    */
   entete?: OptionsEntete;
-  /** Pictos du jeu, pour l'en-tete. Sans eux, l'en-tete retombe sur le texte. */
+  /**
+   * Pictos du jeu, pour l'en-tete et les chiffres des joueurs. Sans eux, l'un
+   * et les autres retombent sur le texte.
+   */
   pictos?: Pictos;
 };
 
 export function construisLaPlanche(file: SessionFile, options: OptionsPlanche = {}): string {
   const analyse = analyseSession(file);
   const titre = titreDeSession(file, analyse);
-  const entete =
-    options.entete === undefined
-      ? undefined
-      : enteteEnHtml(file, analyse, options.entete, options.pictos ?? aucunPicto);
+  const pictos = options.pictos ?? aucunPicto;
+  const registre = new Registre(pictos);
 
-  const manches = file.battles
-    .map((battle, index) => mancheEnHtml(toBattleDetail(battle), index + 1))
-    .join("\n");
+  // Cartes et legende d'abord : l'en-tete rend la feuille du registre, qui doit
+  // deja connaitre tous les pictos des cartes.
+  const details = file.battles.map((battle) => toBattleDetail(battle));
+  const manches = details.map((detail, index) => mancheEnHtml(detail, index + 1, registre)).join("\n");
+  const legende = legendeEnHtml(details, registre);
+  const entete =
+    options.entete === undefined ? undefined : enteteEnHtml(file, analyse, options.entete, pictos, registre);
+  const stylePictos = entete === undefined ? registre.style() : "";
 
   return [
     "<!doctype html>",
@@ -497,6 +587,7 @@ export function construisLaPlanche(file: SessionFile, options: OptionsPlanche = 
     `<title>${echappe(titre)}</title>`,
     `<style>\n${STYLE}\n</style>`,
     ...(entete === undefined ? [] : [`<style>\n${entete.style}\n</style>`]),
+    ...(stylePictos === "" ? [] : [`<style>\n${stylePictos}\n</style>`]),
     "</head>",
     "<body>",
     // Le bandeau de score de l'en-tete porte deja titre et bilan : les deux
@@ -509,6 +600,7 @@ export function construisLaPlanche(file: SessionFile, options: OptionsPlanche = 
           "</header>",
         ]
       : [entete.html]),
+    legende,
     '<main class="planche__grille">',
     manches,
     "</main>",

@@ -42,7 +42,7 @@ export type OptionsEntete = {
 export type Entete = { html: string; style: string };
 
 /** Tailles de picto : une classe chacune, jamais une valeur en attribut. */
-type Taille = "xs" | "s" | "m" | "l" | "xl";
+export type Taille = "xs" | "s" | "m" | "l" | "xl";
 
 /**
  * Registre des pictos utilises par un en-tete.
@@ -50,8 +50,11 @@ type Taille = "xs" | "s" | "m" | "l" | "xl";
  * Rend l'element d'un picto et retient son URI, pour ne la declarer qu'une
  * fois dans la feuille. Une cle refusee par `cleSure`, ou un picto introuvable,
  * rend le libelle a la place - ou rien si le libelle est vide.
+ *
+ * La planche partage le sien avec l'en-tete : la speciale d'un joueur, dessinee
+ * sur sa carte et dans l'en-tete, n'est declaree qu'une fois.
  */
-class Registre {
+export class Registre {
   private readonly declares = new Map<string, string>();
 
   constructor(private readonly pictos: Pictos) {}
@@ -529,8 +532,8 @@ export function enteteEnHtml(
   analyse: AnalyseSession,
   options: OptionsEntete,
   pictos: Pictos,
+  registre: Registre = new Registre(pictos),
 ): Entete {
-  const registre = new Registre(pictos);
   const objectif = (options.objectif ?? analyse.objectif)?.trim();
   const ressenti = (options.ressenti ?? analyse.ressenti)?.trim();
   const avec = (section: SectionCompteRendu) => options.sections.includes(section);

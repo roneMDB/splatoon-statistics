@@ -24,6 +24,7 @@ export type CategoriePicto =
   | "lobbies"
   | "stages"
   | "medailles"
+  | "stats"
   | "polices";
 
 /** Rend l'URI `data:` d'un picto, ou `undefined` s'il n'existe pas. */
@@ -56,6 +57,8 @@ const EXTENSIONS: Readonly<Record<CategoriePicto, readonly string[]>> = {
   lobbies: [".svg"],
   stages: [".png"],
   medailles: [".png"],
+  // Les pictos de SplatNet 3 qui disent « elimination » et « mort ».
+  stats: [".svg"],
   polices: [".woff2"],
 };
 
@@ -80,6 +83,8 @@ export function clesDeLaSession(file: SessionFile): Map<CategoriePicto, Set<stri
   }
   ajoute("medailles", "or");
   ajoute("medailles", "argent");
+  ajoute("stats", "elimination");
+  ajoute("stats", "mort");
   ajoute("polices", "titre");
   ajoute("polices", "texte");
 

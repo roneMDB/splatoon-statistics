@@ -11,6 +11,8 @@
  *   `aliases` (`"61"`) et que les tables `WeaponInfoMain` / `VersusSceneInfo`
  *   portent en `Id`.
  * - `misenhower/splatoon3.ink` (MIT) : regles et lobbies en SVG, et les polices.
+ * - `splashcat-ink/splashcat` : les deux pictos de SplatNet 3 qui disent
+ *   « elimination » et « mort », que ni l'une ni l'autre ne publie.
  *
  * Tout picto reste propriete de Nintendo ; voir `assets/splatoon/SOURCE.md`.
  */
@@ -48,6 +50,7 @@ export type Plan = {
 
 export const LEANNY = "https://raw.githubusercontent.com/Leanny/splat3/main";
 export const SPLATOON3INK = "https://raw.githubusercontent.com/misenhower/splatoon3.ink/main";
+export const SPLASHCAT = "https://raw.githubusercontent.com/splashcat-ink/splashcat/main";
 
 /**
  * Regles stat.ink -> SVG de splatoon3.ink. La guerre tricolore n'y figure pas :
@@ -91,6 +94,47 @@ export const PICTOS_FIXES: readonly Telechargement[] = [
     cible: "polices/texte.woff2",
   },
 ];
+
+/**
+ * Les pictos de SplatNet 3 qui accompagnent les chiffres d'un joueur : un
+ * calmar qui en ecrase un autre (elimination), un calmar ecrase (mort).
+ * Splashcat les garde en gabarits Django, la couleur d'equipe laissee a
+ * remplir : on la fixe au telechargement (voir `nettoieLeSvgSplatNet`). Vif
+ * pour les eliminations, eteint pour les morts : la difference se lit avant le
+ * dessin.
+ */
+export const PICTOS_DE_SCORE: readonly (Telechargement & { couleur: string })[] = [
+  {
+    source: `${SPLASHCAT}/static/images/splatnet-svgs/inkling-splat.svg`,
+    cible: "stats/elimination.svg",
+    couleur: "#eaff3d",
+  },
+  {
+    source: `${SPLASHCAT}/static/images/splatnet-svgs/inkling-splatted.svg`,
+    cible: "stats/mort.svg",
+    couleur: "#9aa0bb",
+  },
+];
+
+/**
+ * Rend autonome un SVG de splashcat : la balise de gabarit prend `couleur`, et
+ * les attributs propres a sa page (`class`, `role`, `aria-label`, `width`)
+ * tombent — la planche pose les siens. Un gabarit qu'on ne sait pas remplir
+ * est refuse plutot qu'ecrit a moitie.
+ */
+export function nettoieLeSvgSplatNet(svg: string, couleur: string): string {
+  if (!/^#[0-9a-f]{6}$/i.test(couleur)) throw new Error(`Couleur refusee : ${couleur}`);
+  const propre = svg
+    .replace(/\{%\s*splatNetCssColor\s+\w+\s*%\}/g, couleur)
+    .replace(/\s(?:class|role|aria-label|width)="[^"]*"/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/ >/g, ">")
+    .trim();
+  if (propre.includes("{%") || propre.includes("{{") || !propre.startsWith("<svg")) {
+    throw new Error("SVG de splashcat inattendu : gabarit non rempli.");
+  }
+  return propre;
+}
 
 /** L'identifiant numerique Nintendo que stat.ink range parmi les alias. */
 export function numeroNintendo(aliases: readonly string[]): number | undefined {

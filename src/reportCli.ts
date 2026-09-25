@@ -39,7 +39,8 @@ ${SECTIONS.map((section) => `                      ${section.padEnd(10)} ${LIBEL
   --objectif <texte>  Objectif de la session. Prend le pas sur celui du fichier.
   --ressenti <texte>  Ressenti sur la session. Prend le pas sur celui du fichier.
   --planche           Ecrit la planche de manches en HTML au lieu d'imprimer
-                      le compte rendu. Dans ${DEFAULT_PLANCHE_DIR}.
+                      le compte rendu. Dans ${DEFAULT_PLANCHE_DIR}. Les
+                      chiffres des joueurs portent les pictos du jeu.
   --entete            Avec --planche : pose le compte rendu en tete, dessine
                       avec les pictos du jeu (${DEFAULT_PICTOS_DIR}). Reprend
                       --sections, --objectif et --ressenti.
@@ -160,6 +161,7 @@ export async function ecrisLaPlanche(
   const file = await lisLaSession(options);
   await mkdir(plancheDir, { recursive: true });
 
+  const pictos = await chargeLesPictos(file, pictosDir);
   const html = options.entete
     ? construisLaPlanche(file, {
         entete: {
@@ -167,9 +169,9 @@ export async function ecrisLaPlanche(
           ...(options.objectif !== undefined ? { objectif: options.objectif } : {}),
           ...(options.ressenti !== undefined ? { ressenti: options.ressenti } : {}),
         },
-        pictos: await chargeLesPictos(file, pictosDir),
+        pictos,
       })
-    : construisLaPlanche(file);
+    : construisLaPlanche(file, { pictos });
 
   const chemin = join(plancheDir, `${basename(options.path, ".json")}.html`);
   await writeFile(chemin, html, "utf8");

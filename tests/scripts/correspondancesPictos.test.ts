@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   LEANNY,
+  nettoieLeSvgSplatNet,
   nomDeGyml,
   nomDImageDeStage,
   numeroNintendo,
@@ -123,5 +124,25 @@ describe("planDeTelechargement", () => {
 
     expect(plan.manquants).toEqual(["arme nouvelle", "stage masaba"]);
     expect(plan.telechargements.some((t) => t.cible.startsWith("stages/"))).toBe(false);
+  });
+});
+
+describe("nettoieLeSvgSplatNet", () => {
+  const gabarit =
+    '<svg width="24" viewBox="0 0 35 18" fill="none" xmlns="http://www.w3.org/2000/svg"\n' +
+    '\trole="img" aria-label="Splatted by You" class="relative top-0">\n' +
+    '\t<path d="M1 2z" fill="#fff"></path>\n' +
+    '\t<path d="M3 4z" fill="{% splatNetCssColor color %}"></path>\n</svg>';
+
+  test("remplit la couleur et retire les attributs de la page d'origine", () => {
+    expect(nettoieLeSvgSplatNet(gabarit, "#eaff3d")).toBe(
+      '<svg viewBox="0 0 35 18" fill="none" xmlns="http://www.w3.org/2000/svg"> ' +
+        '<path d="M1 2z" fill="#fff"></path> <path d="M3 4z" fill="#eaff3d"></path> </svg>',
+    );
+  });
+
+  test("refuse un gabarit qu'il ne sait pas remplir", () => {
+    expect(() => nettoieLeSvgSplatNet(gabarit.replace("splatNetCssColor color", "autre"), "#eaff3d")).toThrow();
+    expect(() => nettoieLeSvgSplatNet(gabarit, "red;}")).toThrow();
   });
 });
