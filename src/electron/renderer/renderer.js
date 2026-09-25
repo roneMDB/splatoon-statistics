@@ -44,6 +44,7 @@ const elements = {
   boutonCopier: document.getElementById("bouton-copier"),
   boutonPlanche: document.getElementById("bouton-planche"),
   boutonPlancheOuvrir: document.getElementById("bouton-planche-ouvrir"),
+  plancheEntete: document.getElementById("planche-entete"),
   plancheResultat: document.getElementById("planche-resultat"),
   compteRenduOnglets: document.getElementById("compte-rendu-onglets"),
   compteRenduApercu: document.getElementById("compte-rendu-apercu"),
@@ -700,7 +701,20 @@ elements.boutonPlanche.addEventListener("click", async () => {
   elements.boutonPlanche.disabled = true;
   cacheLaPlanche();
   try {
-    const planche = await api.buildPlanche({ path: ficheCourante.path });
+    // Memes reglages que « Generer » : les sections cochees, et la saisie en
+    // cours de l'objectif et du ressenti plutot que ce qui est enregistre.
+    const planche = await api.buildPlanche({
+      path: ficheCourante.path,
+      ...(elements.plancheEntete.checked
+        ? {
+            entete: {
+              sections: sectionsChoisies(),
+              objectif: elements.ficheObjectif.value.trim(),
+              ressenti: elements.ficheRessenti.value.trim(),
+            },
+          }
+        : {}),
+    });
     const ko = Math.round(planche.octets / 1024);
     // Sous WSL, le chemin Linux ne se colle pas dans l'explorateur Windows :
     // on affiche l'equivalent Windows quand l'application l'a fourni, le

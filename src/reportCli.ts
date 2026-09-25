@@ -13,7 +13,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { DEFAULT_OUT_DIR, DEFAULT_PLANCHE_DIR } from "./config.ts";
+import { DEFAULT_OUT_DIR, DEFAULT_PICTOS_DIR, DEFAULT_PLANCHE_DIR } from "./config.ts";
+import { chargeLesPictos } from "./report/pictos.ts";
 import { construisLaPlanche } from "./report/planche.ts";
 import { readSession } from "./sessionList.ts";
 import {
@@ -38,6 +39,9 @@ ${SECTIONS.map((section) => `                      ${section.padEnd(10)} ${LIBEL
   --ressenti <texte>  Ressenti sur la session. Prend le pas sur celui du fichier.
   --planche           Ecrit la planche de manches en HTML au lieu d'imprimer
                       le compte rendu. Dans ${DEFAULT_PLANCHE_DIR}.
+  --entete            Avec --planche : pose le compte rendu en tete, dessine
+                      avec les pictos du jeu (${DEFAULT_PICTOS_DIR}). Reprend
+                      --sections, --objectif et --ressenti.
   --out <dossier>     Dossier des sessions. Par defaut : ${DEFAULT_OUT_DIR}.
   --help              Affiche cette aide.
 
@@ -53,6 +57,8 @@ export type ReportCliOptions = {
   outDir: string;
   /** Ecrit la planche en HTML au lieu d'imprimer le compte rendu. */
   planche: boolean;
+  /** Avec `planche` : pose le compte rendu dessine en tete de planche. */
+  entete: boolean;
 };
 
 /** Analyse les arguments. Le chemin de session est positionnel. */
@@ -66,6 +72,7 @@ export function parseReportArgs(argv: string[]): ReportCliOptions {
       objectif: { type: "string" },
       ressenti: { type: "string" },
       planche: { type: "boolean" },
+      entete: { type: "boolean" },
       out: { type: "string" },
       help: { type: "boolean" },
     },
@@ -99,6 +106,7 @@ export function parseReportArgs(argv: string[]): ReportCliOptions {
     ...(values.ressenti !== undefined ? { ressenti: values.ressenti } : {}),
     outDir: values.out ?? DEFAULT_OUT_DIR,
     planche: values.planche === true,
+    entete: values.entete === true,
   };
 }
 
@@ -146,12 +154,24 @@ export async function rendCompteRendu(options: ReportCliOptions): Promise<string
 export async function ecrisLaPlanche(
   options: ReportCliOptions,
   plancheDir: string = DEFAULT_PLANCHE_DIR,
+  pictosDir: string = DEFAULT_PICTOS_DIR,
 ): Promise<string> {
   const file = await lisLaSession(options);
   await mkdir(plancheDir, { recursive: true });
 
+  const html = options.entete
+    ? construisLaPlanche(file, {
+        entete: {
+          sections: options.sections,
+          ...(options.objectif !== undefined ? { objectif: options.objectif } : {}),
+          ...(options.ressenti !== undefined ? { ressenti: options.ressenti } : {}),
+        },
+        pictos: await chargeLesPictos(file, pictosDir),
+      })
+    : construisLaPlanche(file);
+
   const chemin = join(plancheDir, `${basename(options.path, ".json")}.html`);
-  await writeFile(chemin, construisLaPlanche(file), "utf8");
+  await writeFile(chemin, html, "utf8");
   return chemin;
 }
 

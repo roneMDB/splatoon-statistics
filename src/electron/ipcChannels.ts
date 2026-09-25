@@ -82,6 +82,15 @@ export type BuildReportInput = {
 /** Ce que la fenetre envoie pour obtenir une planche. */
 export type BuildPlancheInput = {
   path: string;
+  /**
+   * Pose le compte rendu dessine en tete de planche. Memes champs que
+   * `BuildReportInput`, valides de la meme facon.
+   */
+  entete?: {
+    sections: string[];
+    objectif?: string;
+    ressenti?: string;
+  };
 };
 
 /** Type du pont expose a la fenetre par le preload. */

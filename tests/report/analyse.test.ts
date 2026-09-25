@@ -319,7 +319,7 @@ describe("analyseSession — agregats", () => {
       ["Moi", 5],
     ]);
     expect(analyse.adverse[0]).toMatchObject({ nom: "Adverse", kill: 16, manches: 2 });
-    expect(analyse.adverse[0]?.armes).toEqual([{ nom: "Octobrush", manches: 2 }]);
+    expect(analyse.adverse[0]?.armes).toEqual([{ nom: "Octobrush", manches: 2, cle: "test_octobrush" }]);
   });
 
   test("classe les armes d'un joueur de la plus jouee a la moins jouee", () => {
@@ -332,8 +332,8 @@ describe("analyseSession — agregats", () => {
     );
 
     expect(analyse.adverse[0]?.armes).toEqual([
-      { nom: "E-liter 4K", manches: 2 },
-      { nom: "Splattershot", manches: 1 },
+      { nom: "E-liter 4K", manches: 2, cle: "test_e_liter_4k" },
+      { nom: "Splattershot", manches: 1, cle: "test_splattershot" },
     ]);
   });
 
@@ -350,6 +350,7 @@ describe("analyseSession — agregats", () => {
       nom: "N-ZAP 85",
       anglais: "N-ZAP '85",
       manches: 1,
+      cle: "nzap85",
     });
   });
 
@@ -362,7 +363,7 @@ describe("analyseSession — agregats", () => {
       session([match({ debut: "2026-09-11T19:00:00Z", eux: [identique] })]),
     );
 
-    expect(analyse.adverse[0]?.armes[0]).toEqual({ nom: "Nautilus 47", manches: 1 });
+    expect(analyse.adverse[0]?.armes[0]).toEqual({ nom: "Nautilus 47", manches: 1, cle: "nautilus47" });
   });
 
   test("compte les medailles, traduites, de la plus frequente a la moins", () => {
@@ -374,8 +375,8 @@ describe("analyseSession — agregats", () => {
     );
 
     expect(analyse.medailles).toEqual([
-      { libelle: "№ 1 du coup de main", nombre: 2 },
-      { libelle: "№ 1 en encrage de territoire", nombre: 1 },
+      { libelle: "№ 1 du coup de main", nombre: 2, or: true },
+      { libelle: "№ 1 en encrage de territoire", nombre: 1, or: true },
     ]);
   });
 
@@ -392,5 +393,46 @@ describe("analyseSession — agregats", () => {
 
     expect(analyse.medailles).toEqual([]);
     expect(analyse.adverse).toEqual([]);
+  });
+});
+
+describe("analyseSession — cles stat.ink, pour les pictos", () => {
+  test("garde les cles de regle, de stage, de lobby, d'arme, de sous-arme et de speciale", () => {
+    const moi = {
+      ...joueur({ nom: "Moi", moi: true }),
+      weapon: {
+        key: "nzap89",
+        name: { en_US: "N-ZAP '89" },
+        sub: { key: "robotbomb" },
+        special: { key: "decoy" },
+      },
+    } as unknown as StatinkTeamMember;
+
+    const analyse = analyseSession(
+      session([
+        match({ debut: "2026-09-11T19:00:00Z", mode: "hoko", stage: "masaba", nous: [moi] }),
+      ]),
+    );
+
+    expect(analyse.lobby).toBe("private");
+    expect(analyse.manches[0]?.regle).toBe("hoko");
+    expect(analyse.parMode[0]?.cle).toBe("hoko");
+    expect(analyse.parStage[0]?.cle).toBe("masaba");
+    expect(analyse.moi?.armes[0]).toMatchObject({
+      cle: "nzap89",
+      sous: "robotbomb",
+      speciale: "decoy",
+    });
+  });
+
+  test("distingue les medailles d'or (« #1 ... ») des medailles d'argent", () => {
+    const analyse = analyseSession(
+      session([
+        match({ debut: "2026-09-11T19:00:00Z", medailles: ["#1 Splat Assister", "Turf Inked"] }),
+      ]),
+    );
+
+    const parOr = Object.fromEntries(analyse.medailles.map((m) => [m.or, m.nombre]));
+    expect(parOr).toEqual({ true: 1, false: 1 });
   });
 });

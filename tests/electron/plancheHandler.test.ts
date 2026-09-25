@@ -461,3 +461,93 @@ describe("cheminDePlanche", () => {
     }
   });
 });
+
+describe("fabriqueLaPlanche — en-tete", () => {
+  /** Une doublure qui garde le HTML mesure, pour y chercher l'en-tete. */
+  function outilsQuiGardentLeHtml(chargeLesPictos?: OutilsDePlanche["chargeLesPictos"]) {
+    const doublure = outils();
+    const vus: string[] = [];
+    const mesure = doublure.mesure;
+    doublure.mesure = async (html, largeur) => {
+      vus.push(html);
+      return mesure(html, largeur);
+    };
+    if (chargeLesPictos !== undefined) doublure.chargeLesPictos = chargeLesPictos;
+    return { doublure, vus };
+  }
+
+  test("sans option, la planche mesuree n'a pas d'en-tete et aucun picto n'est lu", async () => {
+    const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+    try {
+      let lus = 0;
+      const { doublure, vus } = outilsQuiGardentLeHtml(async () => {
+        lus += 1;
+        return () => undefined;
+      });
+      await fabriqueLaPlanche("a/b.json", doublure, dossier);
+      expect(vus[0]).not.toContain('<section class="entete">');
+      expect(lus).toBe(0);
+    } finally {
+      await rm(dossier, { recursive: true, force: true });
+    }
+  });
+
+  test("avec l'option, l'en-tete et ses pictos arrivent jusqu'au HTML mesure", async () => {
+    const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+    try {
+      const { doublure, vus } = outilsQuiGardentLeHtml(async () => (categorie, cle) =>
+        categorie === "lobbies" && cle === "private" ? "data:image/svg+xml;base64,QUJD" : undefined,
+      );
+      doublure.lisLaSession = async () => ({
+        ...sessionVide(),
+        battles: [{ lobby: { key: "private" }, result: "win" }] as unknown as SessionFile["battles"],
+      });
+
+      await fabriqueLaPlanche("a/b.json", doublure, dossier, {
+        entete: { sections: ["courbe"], objectif: "Tenir le support" },
+      });
+
+      expect(vus[0]).toContain('<section class="entete">');
+      expect(vus[0]).toContain("Tenir le support");
+      expect(vus[0]).toContain("data:image/svg+xml;base64,QUJD");
+    } finally {
+      await rm(dossier, { recursive: true, force: true });
+    }
+  });
+
+  test("sans chargeur de pictos, l'en-tete est dessine quand meme", async () => {
+    const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+    try {
+      const { doublure, vus } = outilsQuiGardentLeHtml();
+      await fabriqueLaPlanche("a/b.json", doublure, dossier, { entete: { sections: [] } });
+      expect(vus[0]).toContain('<section class="entete">');
+    } finally {
+      await rm(dossier, { recursive: true, force: true });
+    }
+  });
+
+  test("la reprise transmet l'option a chaque tentative", async () => {
+    const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+    try {
+      const vus: string[] = [];
+      let appels = 0;
+      const fabrique = (): OutilsDePlanche => {
+        appels += 1;
+        const doublure = outils();
+        doublure.mesure = async (html) => {
+          vus.push(html);
+          if (appels === 1) throw new Error("Chromium n'a pas repondu.");
+          return { hauteur: 2400, echelle: 1 };
+        };
+        return doublure;
+      };
+
+      await fabriqueLaPlancheAvecReprise("a/b.json", fabrique, dossier, { entete: { sections: [] } });
+
+      expect(vus).toHaveLength(2);
+      for (const html of vus) expect(html).toContain('<section class="entete">');
+    } finally {
+      await rm(dossier, { recursive: true, force: true });
+    }
+  });
+});

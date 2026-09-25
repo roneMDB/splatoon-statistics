@@ -586,6 +586,11 @@ h3.apercu__titre {
 
 /* --- Planche de manches --- */
 
+.planche__option {
+  margin-top: 0.6rem;
+  font-size: 13px;
+}
+
 /* Le resultat tient sur deux lignes : le fichier, puis le presse-papier.
    `pre-line` evite d'avoir a construire deux elements pour un message. */
 .planche__resultat {

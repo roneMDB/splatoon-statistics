@@ -42,6 +42,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BrowserWindow, clipboard, ClipboardItem, nativeImage } from "electron";
+import { chargeLesPictos } from "../report/pictos.ts";
 import { readSession } from "../sessionList.ts";
 import type { CapturePlanche, MesurePlanche, OutilsDePlanche } from "./plancheHandler.ts";
 
@@ -110,6 +111,7 @@ export function outilsDePlanche(): OutilsDePlanche {
 
   return {
     lisLaSession: (path) => readSession(path),
+    chargeLesPictos: (file) => chargeLesPictos(file),
 
     async mesure(html, largeur): Promise<MesurePlanche> {
       dossier = await mkdtemp(join(tmpdir(), "planche-"));
@@ -133,7 +135,12 @@ export function outilsDePlanche(): OutilsDePlanche {
 
       const [hauteur, echelle] = await avecDelaiDeGarde(
         Promise.all([
-          fenetre.webContents.executeJavaScript("document.documentElement.scrollHeight"),
+          // Apres les polices : l'en-tete embarque celles du jeu, et une
+          // mesure prise avant leur application donnerait la hauteur du texte
+          // en police de repli - une capture tronquee ou trop longue.
+          fenetre.webContents.executeJavaScript(
+            "document.fonts.ready.then(() => document.documentElement.scrollHeight)",
+          ),
           fenetre.webContents.executeJavaScript("window.devicePixelRatio"),
         ]),
         DELAI_LONG_MS,

@@ -228,6 +228,12 @@ juge pas : elle reproduit le tableau de fin de manche que les huit joueurs ont
 déjà vu à l'écran. La règle de l'arme continue de tenir dans les sections
 analytiques, où un chiffre porte un verdict.
 
+La case **Poser le compte rendu en tête de la planche** ajoute en haut le compte
+rendu dessiné avec les pictos du jeu : score, courbe, armes, modes et stages.
+Ces pictos et polices appartiennent à Nintendo et ne sont pas dans le dépôt.
+Lancez une fois `npm run pictos` pour les télécharger dans `assets/splatoon/`.
+Sans eux, l'en-tête s'affiche quand même, avec les noms à la place des pictos.
+
 ## La ligne de commande
 
 ```bash

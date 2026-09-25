@@ -93,7 +93,7 @@ describe("sectionRole", () => {
           manches: [manche()],
           moi,
           equipe: [moi],
-          medailles: [{ libelle: "№ 1 du coup de main", nombre: 5 }],
+          medailles: [{ libelle: "№ 1 du coup de main", nombre: 5, or: true }],
         }),
       ),
     );

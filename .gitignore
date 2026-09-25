@@ -5,3 +5,7 @@ data/*
 
 # Build de l application Electron
 dist-electron/
+
+# Pictos et polices du jeu : propriete de Nintendo, le depot est public.
+# Chacun les recupere sur sa machine avec `npm run pictos`.
+assets/splatoon/

@@ -25,6 +25,13 @@ export const DEFAULT_OUT_DIR = "data/sessions";
 export const DEFAULT_PLANCHE_DIR = "data/planches";
 
 /**
+ * Pictos et polices du jeu, remplis par `npm run pictos` sur chaque machine.
+ * Ignores par git, comme `data/` : ils appartiennent a Nintendo et le depot est
+ * public.
+ */
+export const DEFAULT_PICTOS_DIR = "assets/splatoon";
+
+/**
  * Plafond de securite : `page=N` trop grand renvoie la derniere page au lieu
  * d'une liste vide, donc une boucle sans garde-fou ne se terminerait jamais.
  */

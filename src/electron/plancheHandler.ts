@@ -14,6 +14,8 @@
 import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { basename, join, resolve, sep } from "node:path";
 import { DEFAULT_PLANCHE_DIR } from "../config.ts";
+import type { OptionsEntete } from "../report/entete.ts";
+import { aucunPicto, type Pictos } from "../report/pictos.ts";
 import { construisLaPlanche, LARGEUR_PLANCHE } from "../report/planche.ts";
 import type { SessionFile } from "../store.ts";
 
@@ -107,6 +109,17 @@ export type OutilsDePlanche = {
    * `ClipboardItem` et `Blob`, tous deux asynchrones).
    */
   copie: (png: Uint8Array) => Promise<boolean>;
+  /**
+   * Lit les pictos du jeu pour l'en-tete. Facultatif : sans lui, un en-tete
+   * demande est dessine sans pictos, avec les libelles a leur place.
+   */
+  chargeLesPictos?: (file: SessionFile) => Promise<Pictos>;
+};
+
+/** Ce que la fenetre peut demander en plus de la planche nue. */
+export type OptionsDeFabrication = {
+  /** Pose le compte rendu dessine en tete de planche. Voir `src/report/entete.ts`. */
+  entete?: OptionsEntete;
 };
 
 /** `…/Gloup_20260804-2100_20260804-2359.json` -> `Gloup_20260804-2100_20260804-2359.png`. */
@@ -194,9 +207,16 @@ export async function fabriqueLaPlanche(
   path: string,
   outils: OutilsDePlanche,
   plancheDir: string = DEFAULT_PLANCHE_DIR,
+  options: OptionsDeFabrication = {},
 ): Promise<ResultatPlanche> {
   const file = await outils.lisLaSession(path);
-  const html = construisLaPlanche(file);
+  const html =
+    options.entete === undefined
+      ? construisLaPlanche(file)
+      : construisLaPlanche(file, {
+          entete: options.entete,
+          pictos: (await outils.chargeLesPictos?.(file)) ?? aucunPicto,
+        });
 
   let capture: CapturePlanche;
   let hauteurDemandee: number;
@@ -307,12 +327,13 @@ export async function fabriqueLaPlancheAvecReprise(
   path: string,
   fabriqueOutils: () => OutilsDePlanche,
   plancheDir: string = DEFAULT_PLANCHE_DIR,
+  options: OptionsDeFabrication = {},
 ): Promise<ResultatPlanche> {
   let derniereErreur: unknown;
 
   for (let tentative = 1; tentative <= TENTATIVES_MAXIMALES_PLANCHE; tentative++) {
     try {
-      return await fabriqueLaPlanche(path, fabriqueOutils(), plancheDir);
+      return await fabriqueLaPlanche(path, fabriqueOutils(), plancheDir, options);
     } catch (erreur) {
       derniereErreur = erreur;
       if (tentative < TENTATIVES_MAXIMALES_PLANCHE) {

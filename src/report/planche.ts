@@ -32,7 +32,7 @@
  * `docs/superpowers/specs/2026-09-15-planche-de-manches-design.md`.
  *
  * Sur l'allure : la carte prend la couleur de sa regle, en deux intensites
- * selon le verdict. Voir `REGLES` plus bas et
+ * selon le verdict. Voir `REGLES` dans `regles.ts` et
  * `docs/superpowers/specs/2026-09-22-planche-encre-ii-design.md`.
  */
 
@@ -40,7 +40,11 @@ import { toBattleDetail } from "../battleDetail.ts";
 import type { BattleDetail, JoueurDeManche } from "../battleDetail.ts";
 import type { SessionFile } from "../store.ts";
 import { analyseSession } from "./analyse.ts";
+import { enteteEnHtml, type OptionsEntete } from "./entete.ts";
 import { bilanDeSession, titreDeSession } from "./format.ts";
+import { echappe } from "./html.ts";
+import { aucunPicto, type Pictos } from "./pictos.ts";
+import { REGLES, regleConnue } from "./regles.ts";
 import { MOTIF_SCOTCH } from "./texture.ts";
 
 /**
@@ -53,66 +57,6 @@ import { MOTIF_SCOTCH } from "./texture.ts";
  * tient en 1600 x 3484 - le rapport tombe de 1:6,4 a 1:2,2.
  */
 export const LARGEUR_PLANCHE = 1600;
-
-/**
- * Echappe ce qui part dans le document.
- *
- * Seul endroit du fichier ou du texte exterieur touche le HTML : tout ce qui
- * vient de stat.ink - pseudo, arme, carte, medaille - passe par ici.
- *
- * Cinq caracteres, pas quatre : le gabarit n'ouvre ses attributs qu'avec des
- * guillemets doubles, donc l'apostrophe droite ne casserait rien aujourd'hui
- * - mais c'est une fonction d'echappement generale, pas une specialisee pour
- * ce seul gabarit, et elle doit rester correcte si un attribut change un
- * jour de guillemet.
- */
-function echappe(texte: string): string {
-  return texte
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/**
- * Couleurs de carte, par regle.
- *
- * C'est le procede de splashcat.ink — la carte entiere prend une couleur, un
- * voile sombre porte le contenu — avec une donnee differente. splashcat colore
- * par lobby ; ici ca ne donnerait rien : sur les sessions reelles, le lobby est
- * constant d'un bout a l'autre (`private` sur les treize manches du 11/09,
- * `bankara_open` sur les vingt et une du 13/09), donc une planche monochrome.
- * La regle, elle, tourne a chaque manche.
- *
- * Deux intensites par regle : la **vive** pour une victoire, la **matte** pour
- * tout le reste. C'est le verdict, rendu par l'intensite plutot que par une
- * seconde couleur qui se battrait avec la premiere.
- *
- * La matte vaut la vive composee a 35 % sur le fond de page `#0e0f18`, mais
- * elle est ecrite ici plutot que calculee : `filter: brightness()` produirait
- * une couleur que la feuille ne nomme jamais, donc que le test de contraste ne
- * pourrait ni lire ni verifier — or c'est exactement ce que ce test existe pour
- * empecher.
- *
- * Regle qui en decoule, sans exception : **vive -> texte sombre, matte ->
- * texte clair**. Les contrastes vont de 4,89:1 (Palourdes vive) a 11,32:1, tous
- * mesures par `tests/report/planche.test.ts`, qui lit cette table dans la
- * feuille rendue plutot que de la recopier.
- *
- * Les vives viennent de la palette de splashcat (`battle.regular`, `ranked`,
- * `xmatch`, `league`, `orange`), a un ecart pres : son violet `#a64cf2` tombe a
- * 4,49:1, un centieme sous le seuil, et a ete eclairci.
- */
-const REGLES: ReadonlyArray<readonly [cle: string, vive: string, matte: string]> = [
-  ["nawabari", "#19d719", "#125518"], // Guerre de Territoire
-  ["area", "#f54910", "#5f2315"], // Defense de Zone
-  ["yagura", "#b05df5", "#472a65"], // Expedition Risquee
-  ["hoko", "#0fdb9b", "#0e5646"], // Mission Bazookarpe
-  ["asari", "#f02d7d", "#5d1a3b"], // Pluie de Palourdes
-  ["tricolor", "#ff9750", "#623f2c"], // Guerre de Territoire tricolore
-  ["inconnue", "#9aa0bb", "#3f4251"], // regle absente du payload, ou inconnue
-];
 
 /** Les couleurs de regle, en CSS. Une ligne par intensite, ancrable par le test. */
 const COULEURS_DE_REGLE = REGLES.flatMap(([cle, vive, matte]) => [
@@ -179,9 +123,9 @@ function couleurSure(couleur: string | undefined): string | undefined {
  * casse rien ; ce n'est pas non plus un bug a corriger en reordonnant la
  * pile - Lato reste en tete parce qu'elle porte les titres.
  *
- * Les polices officielles du jeu sont hors d'atteinte : la planche ne charge
- * aucune ressource externe, et cette regle ne se negocie pas pour un effet de
- * style. L'allure vient donc de la couleur et de la typographie disponible.
+ * Les polices officielles du jeu ne servent qu'a l'en-tete (voir `entete.ts`),
+ * embarquees en `data:` comme la texture : la planche ne charge toujours
+ * aucune ressource externe. Les cartes, elles, gardent cette pile.
  *
  * Aucun emoji : leur rendu hors ecran depend d'une police d'emoji installee,
  * ce qui n'est pas acquis. Victoire et defaite passent par l'intensite de la
@@ -475,9 +419,8 @@ function mancheEnHtml(detail: BattleDetail, numero: number): string {
       ? ""
       : `<p class="manche__medailles"><span>${echappe(detail.medailles.join(" · "))}</span></p>`;
 
-  // Une cle inconnue de la table retombe sur « inconnue » : c'est ce qui
-  // garantit qu'aucune valeur venue de stat.ink n'atteint l'attribut de classe.
-  const regle = REGLES.some(([cle]) => cle === detail.ruleKey) ? detail.ruleKey : "inconnue";
+  // Une cle inconnue de la table retombe sur « inconnue » : voir `regleConnue`.
+  const regle = regleConnue(detail.ruleKey);
   // Le modificateur de resultat reste en tete : deux tests comptent les cartes
   // avec `class="manche manche--`.
   const classes = [
@@ -515,9 +458,23 @@ function mancheEnHtml(detail: BattleDetail, numero: number): string {
  * `battles` est stocke du plus ancien au plus recent (voir `store.ts`) : le
  * numero de manche est donc son rang, sans tri prealable.
  */
-export function construisLaPlanche(file: SessionFile): string {
+export type OptionsPlanche = {
+  /**
+   * Pose le compte rendu en tete de planche, dessine (voir `entete.ts`). Sans
+   * lui, la planche est exactement celle d'avant l'option.
+   */
+  entete?: OptionsEntete;
+  /** Pictos du jeu, pour l'en-tete. Sans eux, l'en-tete retombe sur le texte. */
+  pictos?: Pictos;
+};
+
+export function construisLaPlanche(file: SessionFile, options: OptionsPlanche = {}): string {
   const analyse = analyseSession(file);
   const titre = titreDeSession(file, analyse);
+  const entete =
+    options.entete === undefined
+      ? undefined
+      : enteteEnHtml(file, analyse, options.entete, options.pictos ?? aucunPicto);
 
   const manches = file.battles
     .map((battle, index) => mancheEnHtml(toBattleDetail(battle), index + 1))
@@ -532,15 +489,26 @@ export function construisLaPlanche(file: SessionFile): string {
     // lui-meme, pas seulement sur le generateur qui l'a rendu : la CLI ecrit
     // ce fichier pour que l'utilisateur l'ouvre dans son propre navigateur,
     // qui ne connait pas cette regle sans la CSP.
-    '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:">',
+    // L'en-tete embarque les polices du jeu en `data:` : sans `font-src`, la
+    // CSP les refuserait et l'en-tete retomberait en silence sur Lato.
+    entete === undefined
+      ? '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:">'
+      : '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:; font-src data:">',
     `<title>${echappe(titre)}</title>`,
     `<style>\n${STYLE}\n</style>`,
+    ...(entete === undefined ? [] : [`<style>\n${entete.style}\n</style>`]),
     "</head>",
     "<body>",
-    '<header class="planche__entete">',
-    `<h1>${echappe(titre)}</h1>`,
-    `<p>${echappe(bilanDeSession(analyse).join(" · "))}</p>`,
-    "</header>",
+    // Le bandeau de score de l'en-tete porte deja titre et bilan : les deux
+    // ensemble afficheraient la session deux fois.
+    ...(entete === undefined
+      ? [
+          '<header class="planche__entete">',
+          `<h1>${echappe(titre)}</h1>`,
+          `<p>${echappe(bilanDeSession(analyse).join(" · "))}</p>`,
+          "</header>",
+        ]
+      : [entete.html]),
     '<main class="planche__grille">',
     manches,
     "</main>",

@@ -30,6 +30,11 @@ export type ArmeJouee = {
   /** Nom anglais, absent quand il est identique au francais. */
   anglais?: string;
   manches: number;
+  /** Cle stat.ink (`nzap89`) : c'est elle qui designe le picto. */
+  cle?: string;
+  /** Cles stat.ink de la sous-arme et de la speciale, quand stat.ink les donne. */
+  sous?: string;
+  speciale?: string;
 };
 
 /** Totaux d'un joueur sur toute la session, quel que soit son camp. */
@@ -66,6 +71,8 @@ export type Manche = {
   /** Vrai seulement pour une manche terminee par KO. Toujours faux en guerre de territoire. */
   ko: boolean;
   mode: string;
+  /** Cle stat.ink de la regle (`area`), pour son picto et sa couleur. */
+  regle?: string;
   stage: string;
   score?: ScoreManche;
   /** Mes chiffres sur cette manche, absents si je n'y figure pas. */
@@ -85,11 +92,15 @@ export type AgregatMode = {
   special: number;
   /** Stages distincts, dans l'ordre ou ils ont ete joues. */
   stages: string[];
+  /** Cle stat.ink de la regle. */
+  cle?: string;
 };
 
 /** Bilan d'un stage sur la session. */
 export type AgregatStage = {
   libelle: string;
+  /** Cle stat.ink du stage (`masaba`), pour sa vignette. */
+  cle?: string;
   manches: number;
   victoires: number;
   defaites: number;
@@ -99,6 +110,8 @@ export type AgregatStage = {
 export type AnalyseSession = {
   nom?: string;
   type?: string;
+  /** Cle stat.ink du lobby de la premiere manche (`private`). */
+  lobby?: string;
   objectif?: string;
   ressenti?: string;
   manches: Manche[];
@@ -112,8 +125,11 @@ export type AnalyseSession = {
   adverse: StatsJoueur[];
   parMode: AgregatMode[];
   parStage: AgregatStage[];
-  /** Mes medailles, de la plus frequente a la moins. */
-  medailles: { libelle: string; nombre: number }[];
+  /**
+   * Mes medailles, de la plus frequente a la moins. `or` : les medailles
+   * « #1 ... » de stat.ink, dorees en jeu ; les autres sont argentees.
+   */
+  medailles: { libelle: string; nombre: number; or: boolean }[];
   koSubis: number;
   koInfliges: number;
   /** Defaites consecutives en fin de session. 0 si la derniere manche est gagnee. */
@@ -172,10 +188,15 @@ function cumuleLeJoueur(cumuls: Map<string, CumulJoueur>, membre: StatinkTeamMem
     } else {
       const nom = nomDeLArme(cle, weapon.name?.en_US);
       const anglais = weapon.name?.en_US;
+      const sous = weapon.sub?.key;
+      const speciale = weapon.special?.key;
       cumul.armes.set(cle, {
         nom,
         ...(anglais !== undefined && anglais !== nom ? { anglais } : {}),
         manches: 1,
+        cle,
+        ...(typeof sous === "string" ? { sous } : {}),
+        ...(typeof speciale === "string" ? { speciale } : {}),
       });
     }
   }
@@ -251,7 +272,7 @@ export function analyseSession(file: SessionFile): AnalyseSession {
   const adverse = new Map<string, CumulJoueur>();
   const modes = new Map<string, AgregatMode>();
   const stages = new Map<string, AgregatStage>();
-  const medailles = new Map<string, number>();
+  const medailles = new Map<string, { nombre: number; or: boolean }>();
   let koSubis = 0;
   let koInfliges = 0;
   let secondesDeJeu = 0;
@@ -296,6 +317,7 @@ export function analyseSession(file: SessionFile): AnalyseSession {
       resultat,
       ko,
       mode,
+      ...(battle.rule?.key !== undefined ? { regle: battle.rule.key } : {}),
       stage,
       ...(lisLeScore(battle) !== undefined ? { score: lisLeScore(battle) } : {}),
       ...(moiDansLaManche !== undefined
@@ -314,7 +336,11 @@ export function analyseSession(file: SessionFile): AnalyseSession {
 
     for (const medaille of mesMedailles) {
       const libelle = libelleDeLaMedaille(medaille);
-      medailles.set(libelle, (medailles.get(libelle) ?? 0) + 1);
+      const deja = medailles.get(libelle);
+      medailles.set(libelle, {
+        nombre: (deja?.nombre ?? 0) + 1,
+        or: medaille.startsWith("#1"),
+      });
     }
 
     for (const membre of battle.our_team_members ?? []) cumuleLeJoueur(equipe, membre);
@@ -330,6 +356,7 @@ export function analyseSession(file: SessionFile): AnalyseSession {
       death: 0,
       special: 0,
       stages: [],
+      ...(battle.rule?.key !== undefined ? { cle: battle.rule.key } : {}),
     };
     agregatMode.manches += 1;
     if (resultat === "win") agregatMode.victoires += 1;
@@ -343,6 +370,7 @@ export function analyseSession(file: SessionFile): AnalyseSession {
 
     const agregatStage = stages.get(stage) ?? {
       libelle: stage,
+      ...(battle.stage?.key !== undefined ? { cle: battle.stage.key } : {}),
       manches: 0,
       victoires: 0,
       defaites: 0,
@@ -359,6 +387,7 @@ export function analyseSession(file: SessionFile): AnalyseSession {
   return {
     ...(file.name !== undefined ? { nom: file.name } : {}),
     ...(file.type !== undefined ? { type: file.type } : {}),
+    ...(file.battles[0]?.lobby?.key !== undefined ? { lobby: file.battles[0].lobby.key } : {}),
     ...(file.objectif !== undefined ? { objectif: file.objectif } : {}),
     ...(file.ressenti !== undefined ? { ressenti: file.ressenti } : {}),
     manches,
@@ -372,7 +401,7 @@ export function analyseSession(file: SessionFile): AnalyseSession {
     parMode: [...modes.values()],
     parStage: [...stages.values()],
     medailles: [...medailles]
-      .map(([libelle, nombreDeFois]) => ({ libelle, nombre: nombreDeFois }))
+      .map(([libelle, { nombre: nombreDeFois, or }]) => ({ libelle, nombre: nombreDeFois, or }))
       .sort((a, b) => b.nombre - a.nombre || a.libelle.localeCompare(b.libelle)),
     koSubis,
     koInfliges,

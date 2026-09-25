@@ -11,7 +11,7 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { DEFAULT_USER } from "../config.ts";
+import { DEFAULT_PLANCHE_DIR, DEFAULT_USER } from "../config.ts";
 import { previewSession, saveSession } from "./sessionFetchHandler.ts";
 import {
   deleteSession,
@@ -39,6 +39,7 @@ import {
   estUneSection,
   LIBELLES_SECTIONS,
   SECTIONS,
+  type SectionCompteRendu,
 } from "../report/index.ts";
 import { cheminDePlanche, fabriqueLaPlancheAvecReprise } from "./plancheHandler.ts";
 import { outilsDePlanche } from "./planchePhotographe.ts";
@@ -182,18 +183,26 @@ ipcMain.handle(IPC.readBattle, async (_event, input: ReadBattleInput) => {
   return toBattleDetail(battle);
 });
 
-ipcMain.handle(IPC.buildReport, async (_event, input: BuildReportInput) => {
-  // Les sections viennent de la fenetre : on les valide avant de lire quoi que
-  // ce soit, comme `parseSessionType` le fait pour le type de session.
-  const inconnue = (input.sections ?? []).find((section) => !estUneSection(section));
+/**
+ * Les sections viennent de la fenetre : on les valide avant de lire quoi que
+ * ce soit, comme `parseSessionType` le fait pour le type de session. Partage
+ * par le compte rendu et l'en-tete de planche, qui recoivent les memes cases.
+ */
+function sectionsValidees(sections: string[] | undefined): SectionCompteRendu[] {
+  const inconnue = (sections ?? []).find((section) => !estUneSection(section));
   if (inconnue !== undefined) {
     throw new Error(`Section de compte rendu inconnue : "${inconnue}"`);
   }
+  return (sections ?? []).filter(estUneSection);
+}
+
+ipcMain.handle(IPC.buildReport, async (_event, input: BuildReportInput) => {
+  const sections = sectionsValidees(input.sections);
 
   // readSession refuse tout chemin hors du dossier des sessions.
   const file = await readSession(input.path);
   return construisLeCompteRendu(file, {
-    sections: (input.sections ?? []).filter(estUneSection),
+    sections,
     ...(input.objectif !== undefined ? { objectif: input.objectif } : {}),
     ...(input.ressenti !== undefined ? { ressenti: input.ressenti } : {}),
   });
@@ -206,7 +215,20 @@ ipcMain.handle(IPC.buildPlanche, async (_event, input: BuildPlancheInput) => {
   // `outilsDePlanche` est passee telle quelle, comme fabrique : chaque
   // reprise a besoin d'une fenetre hors ecran neuve, pas de celle deja
   // detruite par la tentative precedente. Voir `plancheHandler.ts`.
-  const resultat = await fabriqueLaPlancheAvecReprise(input.path, outilsDePlanche);
+  const entete =
+    input.entete === undefined
+      ? undefined
+      : {
+          sections: sectionsValidees(input.entete.sections),
+          ...(input.entete.objectif !== undefined ? { objectif: input.entete.objectif } : {}),
+          ...(input.entete.ressenti !== undefined ? { ressenti: input.entete.ressenti } : {}),
+        };
+  const resultat = await fabriqueLaPlancheAvecReprise(
+    input.path,
+    outilsDePlanche,
+    DEFAULT_PLANCHE_DIR,
+    entete === undefined ? {} : { entete },
+  );
   if (!sousWslActif) return resultat;
 
   // Sous WSL, le chemin Linux affiche ne se colle pas dans l'explorateur

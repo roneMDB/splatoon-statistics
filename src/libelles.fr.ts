@@ -107,6 +107,23 @@ export function libelleDuStage(cle: string | undefined, anglais?: string): strin
   return (cle !== undefined ? STAGES[cle] : undefined) ?? anglais ?? cle ?? "stage inconnu";
 }
 
+/** Lobbies, tels que stat.ink les nomme, sous leur nom francais en jeu. */
+const LOBBIES: Record<string, string> = {
+  regular: "Match classique",
+  bankara_challenge: "Match anarchie (série)",
+  bankara_open: "Match anarchie (ouvert)",
+  xmatch: "Match X",
+  event: "Match challenge",
+  splatfest_challenge: "Festival (défi)",
+  splatfest_open: "Festival (ouvert)",
+  private: "Match privé",
+};
+
+/** Libelle francais d'un lobby, ou son nom anglais si la cle est inconnue. */
+export function libelleDuLobby(cle: string | undefined, anglais?: string): string {
+  return (cle !== undefined ? LOBBIES[cle] : undefined) ?? anglais ?? cle ?? "lobby inconnu";
+}
+
 /** Resultats d'une manche, tels que stat.ink les nomme. */
 const RESULTATS: Record<string, string> = {
   win: "Victoire",

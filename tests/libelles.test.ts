@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  libelleDuLobby,
   libelleDeLArme,
   libelleDeLaMedaille,
   libelleDuMode,
@@ -125,5 +126,19 @@ describe("libelleDeLArme", () => {
     expect(libelleDeLArme("Fusil d'Ordre (réplique)", "Order Charger Replica")).toBe(
       "Fusil d'Ordre (réplique) — Order Charger Replica",
     );
+  });
+});
+
+describe("libelleDuLobby", () => {
+  test("nomme les lobbies comme le jeu en francais", () => {
+    expect(libelleDuLobby("private")).toBe("Match privé");
+    expect(libelleDuLobby("xmatch")).toBe("Match X");
+    expect(libelleDuLobby("bankara_open")).toBe("Match anarchie (ouvert)");
+  });
+
+  test("retombe sur l'anglais, puis sur la cle", () => {
+    expect(libelleDuLobby("nouveau", "New Battle")).toBe("New Battle");
+    expect(libelleDuLobby("nouveau")).toBe("nouveau");
+    expect(libelleDuLobby(undefined)).toBe("lobby inconnu");
   });
 });

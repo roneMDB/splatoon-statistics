@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ecrisLaPlanche, parseReportArgs, rendCompteRendu } from "../src/reportCli.ts";
@@ -144,6 +144,18 @@ describe("rendCompteRendu", () => {
   });
 });
 
+describe("parseReportArgs --entete", () => {
+  test("est desactive par defaut", () => {
+    expect(parseReportArgs(["s.json", "--planche"]).entete).toBe(false);
+  });
+
+  test("s'active avec --entete et garde les sections demandees", () => {
+    const options = parseReportArgs(["s.json", "--planche", "--entete", "--sections", "role"]);
+    expect(options.entete).toBe(true);
+    expect(options.sections).toEqual(["role"]);
+  });
+});
+
 describe("ecrisLaPlanche", () => {
   // Aucun test ne doit ecrire dans le vrai data/planches/ : on fournit
   // toujours un dossier de planches temporaire, distinct du dossier de
@@ -159,5 +171,26 @@ describe("ecrisLaPlanche", () => {
     const contenu = await readFile(chemin, "utf8");
     expect(contenu.startsWith("<!doctype html>")).toBe(true);
     expect(contenu).toContain("Équipe A vs Équipe O");
+    expect(contenu).not.toContain('<section class="entete">');
+  });
+
+  test("avec --entete, pose l'en-tete dessine et lit les pictos du dossier fourni", async () => {
+    const { dir, path } = await sessionSurDisque();
+    const dossierPlanches = await mkdtemp(join(tmpdir(), "splat-planches-"));
+    const dossierPictos = await mkdtemp(join(tmpdir(), "splat-pictos-"));
+    dirs.push(dossierPlanches, dossierPictos);
+    await mkdir(join(dossierPictos, "polices"), { recursive: true });
+    await writeFile(join(dossierPictos, "polices", "titre.woff2"), "woff");
+
+    const chemin = await ecrisLaPlanche(
+      parseReportArgs([path, "--out", dir, "--planche", "--entete", "--objectif", "Tenir le support"]),
+      dossierPlanches,
+      dossierPictos,
+    );
+
+    const contenu = await readFile(chemin, "utf8");
+    expect(contenu).toContain('<section class="entete">');
+    expect(contenu).toContain("Tenir le support");
+    expect(contenu).toContain(`data:font/woff2;base64,${Buffer.from("woff").toString("base64")}`);
   });
 });

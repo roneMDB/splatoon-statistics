@@ -25,7 +25,8 @@
   },
   "include": [
     "src",
-    "tests"
+    "tests",
+    "scripts"
   ],
   "exclude": [
     "src/electron/preload.cts"
