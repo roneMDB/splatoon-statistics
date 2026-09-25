@@ -179,10 +179,13 @@ async function chargeLesChoix() {
     const case_ = document.createElement("input");
     case_.type = "checkbox";
     case_.value = section.cle;
-    case_.checked = true;
+    // Les sections cochees d'office viennent des reglages (settings.json).
+    case_.checked = section.coche !== false;
     etiquette.append(case_, document.createTextNode(` ${section.libelle}`));
     elements.compteRenduSections.append(etiquette);
   }
+
+  elements.plancheEntete.checked = choix.enteteParDefaut === true;
 
   elements.lobby.append(new Option("— tous —", ""));
   for (const lobby of choix.lobbies) {

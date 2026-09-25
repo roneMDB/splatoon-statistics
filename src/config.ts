@@ -1,4 +1,11 @@
-/** Constantes de l'acces a stat.ink et valeurs par defaut de la CLI. */
+/**
+ * Constantes de l'acces a stat.ink et valeurs par defaut de la CLI.
+ *
+ * Le compte et les dossiers viennent des reglages (`settings.json`, voir
+ * `reglages.ts`) ; le reste est technique et reste ici.
+ */
+
+import { REGLAGES } from "./reglages.ts";
 
 export const STATINK_ORIGIN = "https://stat.ink";
 
@@ -11,10 +18,10 @@ export const USER_AGENT =
   "Chrome/126.0.0.0 Safari/537.36";
 
 /** Compte interroge par defaut. */
-export const DEFAULT_USER = "Gloup";
+export const DEFAULT_USER = REGLAGES.utilisateur;
 
 /** Dossier ou sont ecrits les fichiers de session. */
-export const DEFAULT_OUT_DIR = "data/sessions";
+export const DEFAULT_OUT_DIR = REGLAGES.dossiers.sessions;
 
 /**
  * Dossier ou sont ecrites les planches de manches.
@@ -22,14 +29,14 @@ export const DEFAULT_OUT_DIR = "data/sessions";
  * A cote des sessions et non dedans : `listSessions` ne lit que des `.json` du
  * dossier des sessions, et un PNG voisin n'a rien a y faire.
  */
-export const DEFAULT_PLANCHE_DIR = "data/planches";
+export const DEFAULT_PLANCHE_DIR = REGLAGES.dossiers.planches;
 
 /**
  * Pictos et polices du jeu, remplis par `npm run pictos` sur chaque machine.
  * Ignores par git, comme `data/` : ils appartiennent a Nintendo et le depot est
  * public.
  */
-export const DEFAULT_PICTOS_DIR = "assets/splatoon";
+export const DEFAULT_PICTOS_DIR = REGLAGES.dossiers.pictos;
 
 /**
  * Plafond de securite : `page=N` trop grand renvoie la derniere page au lieu

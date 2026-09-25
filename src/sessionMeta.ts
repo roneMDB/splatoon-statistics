@@ -1,11 +1,20 @@
 /** Nom et nature d'une session : le seul moyen de distinguer une intra d'un
  * scrim, stat.ink les rangeant tous deux sous le lobby `private`. */
 
-/** Valeurs acceptees par `--type`, liste fermee. */
-export const SESSION_TYPES = ["intra", "scrim", "compet", "open", "autre"] as const;
+import { REGLAGES } from "./reglages.ts";
 
-/** Type union des natures de session acceptees. */
-export type SessionType = (typeof SESSION_TYPES)[number];
+/**
+ * Valeurs acceptees par `--type` : liste fermee, mais reglable
+ * (`typesDeSession` dans `settings.json`, voir `reglages.ts`).
+ */
+export const SESSION_TYPES: readonly string[] = REGLAGES.typesDeSession;
+
+/**
+ * Nature d'une session. Une chaine plutot qu'une union : la liste se regle
+ * hors du code. La garantie est a l'ecriture (`parseSessionType`) ; une session
+ * enregistree sous un type retire depuis des reglages reste lisible.
+ */
+export type SessionType = string;
 
 /** Metadonnees saisies par l'utilisateur, toutes facultatives. */
 export type SessionMeta = {
@@ -18,7 +27,7 @@ export type Ask = (question: string) => Promise<string>;
 
 /** Verifie qu'une chaine est un type de session connu. */
 export function isSessionType(value: string): value is SessionType {
-  return (SESSION_TYPES as readonly string[]).includes(value);
+  return SESSION_TYPES.includes(value);
 }
 
 /**

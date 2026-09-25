@@ -5,6 +5,9 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     // Les fenetres de temps sont interpretees dans le fuseau local : on le fixe
     // pour que les tests soient deterministes, quelle que soit la machine.
-    env: { TZ: "Europe/Paris" },
+    //
+    // SPLATOON_SETTINGS vide : les tests ignorent le `settings.json` de
+    // l'utilisateur et tournent sur les reglages par defaut (voir reglages.ts).
+    env: { TZ: "Europe/Paris", SPLATOON_SETTINGS: "" },
   },
 });

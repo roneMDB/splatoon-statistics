@@ -1,0 +1,34 @@
+{
+  "utilisateur": "Gloup",
+  "typesDeSession": [
+    "intra",
+    "scrim",
+    "compet",
+    "open",
+    "autre"
+  ],
+  "sectionsParDefaut": [
+    "courbe",
+    "role",
+    "modes",
+    "scouting"
+  ],
+  "enteteParDefaut": false,
+  "dossiers": {
+    "sessions": "data/sessions",
+    "planches": "data/planches",
+    "pictos": "assets/splatoon"
+  },
+  "seuils": {
+    "serieFinaleMinimale": 3,
+    "serieInitialeMinimale": 3,
+    "mancheCourteSecondes": 180,
+    "defaiteSerreeEcart": 5,
+    "baisseDeRegimeRelative": 0.25,
+    "modeEnEchecManches": 2,
+    "modeEnEchecStages": 2,
+    "meilleurModeManches": 2,
+    "partDeSessionReguliere": 0.5,
+    "medaillesCitees": 4
+  }
+}

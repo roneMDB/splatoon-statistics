@@ -153,6 +153,8 @@ export type SplatoonApi = {
     sessionTypes: readonly SessionType[];
     defaultUser: string;
     /** Sections de compte rendu proposees, dans l'ordre du document. */
-    reportSections: readonly { cle: string; libelle: string }[];
+    reportSections: readonly { cle: string; libelle: string; coche: boolean }[];
+    /** Case « compte rendu en tete de planche » cochee a l'ouverture. */
+    enteteParDefaut: boolean;
   }>;
 };

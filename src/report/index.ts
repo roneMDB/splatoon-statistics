@@ -18,10 +18,9 @@ import { sectionModes } from "./sections/modes.ts";
 import { sectionRole } from "./sections/role.ts";
 import { sectionScouting } from "./sections/scouting.ts";
 
-/** Sections disponibles, dans l'ordre ou elles apparaissent au document. */
-export const SECTIONS = ["courbe", "role", "modes", "scouting"] as const;
+import { SECTIONS, type SectionCompteRendu } from "./sectionsConnues.ts";
 
-export type SectionCompteRendu = (typeof SECTIONS)[number];
+export { SECTIONS, type SectionCompteRendu };
 
 /** Intitules des sections, pour les cases a cocher de la fenetre et l'aide de la CLI. */
 export const LIBELLES_SECTIONS: Record<SectionCompteRendu, string> = {

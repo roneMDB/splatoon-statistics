@@ -12,6 +12,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { DEFAULT_PLANCHE_DIR, DEFAULT_USER } from "../config.ts";
+import { REGLAGES } from "../reglages.ts";
 import { previewSession, saveSession } from "./sessionFetchHandler.ts";
 import {
   deleteSession,
@@ -126,7 +127,12 @@ ipcMain.handle(IPC.choices, () => ({
   lobbies: KNOWN_LOBBIES,
   sessionTypes: SESSION_TYPES,
   defaultUser: DEFAULT_USER,
-  reportSections: SECTIONS.map((cle) => ({ cle, libelle: LIBELLES_SECTIONS[cle] })),
+  reportSections: SECTIONS.map((cle) => ({
+    cle,
+    libelle: LIBELLES_SECTIONS[cle],
+    coche: REGLAGES.sectionsParDefaut.includes(cle),
+  })),
+  enteteParDefaut: REGLAGES.enteteParDefaut,
 }));
 
 ipcMain.handle(

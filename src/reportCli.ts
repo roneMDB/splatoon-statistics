@@ -14,6 +14,7 @@ import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { DEFAULT_OUT_DIR, DEFAULT_PICTOS_DIR, DEFAULT_PLANCHE_DIR } from "./config.ts";
+import { REGLAGES } from "./reglages.ts";
 import { chargeLesPictos } from "./report/pictos.ts";
 import { construisLaPlanche } from "./report/planche.ts";
 import { readSession } from "./sessionList.ts";
@@ -33,7 +34,7 @@ Imprime le compte rendu d'une session enregistree.
 
 Options
   --sections <liste>  Sections a inclure, separees par des virgules.
-                      Par defaut : toutes.
+                      Par defaut : ${REGLAGES.sectionsParDefaut.join(", ") || "aucune"} (settings.json).
 ${SECTIONS.map((section) => `                      ${section.padEnd(10)} ${LIBELLES_SECTIONS[section]}`).join("\n")}
   --objectif <texte>  Objectif de la session. Prend le pas sur celui du fichier.
   --ressenti <texte>  Ressenti sur la session. Prend le pas sur celui du fichier.
@@ -83,7 +84,7 @@ export function parseReportArgs(argv: string[]): ReportCliOptions {
     throw new Error("Indiquez le fichier de session a raconter.");
   }
 
-  let sections: SectionCompteRendu[] = [...SECTIONS];
+  let sections: SectionCompteRendu[] = [...REGLAGES.sectionsParDefaut];
   if (values.sections !== undefined) {
     const demandees = values.sections
       .split(",")

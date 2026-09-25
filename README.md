@@ -274,6 +274,31 @@ Valeurs de `--lobby` : `private`, `!private`, `regular`, `@bankara`,
 `bankara_challenge`, `bankara_open`, `xmatch`, `event`, `@splatfest`,
 `splatfest_challenge`, `splatfest_open`.
 
+## Réglages
+
+Les valeurs par défaut se règlent dans un fichier `settings.json`, à la racine du dépôt. Ce fichier est facultatif et ignoré par git, puisqu'il porte votre compte. `settings.exemple.json` en montre toutes les clés avec leur valeur par défaut. On ne recopie que ce qu'on veut changer :
+
+```json
+{
+  "utilisateur": "Bloup",
+  "typesDeSession": ["intra", "scrim", "compet", "open", "tournoi", "autre"],
+  "sectionsParDefaut": ["courbe", "role"],
+  "enteteParDefaut": true,
+  "seuils": { "medaillesCitees": 6 }
+}
+```
+
+| Clé | Rôle |
+|---|---|
+| `utilisateur` | Compte stat.ink interrogé par défaut (`--user`, champ « Compte »). |
+| `typesDeSession` | Types proposés par `--type` et par les menus, dans l'ordre voulu. Minuscules, chiffres et tirets uniquement. |
+| `sectionsParDefaut` | Sections cochées à l'ouverture d'une fiche, et prises par défaut par `npm run report`. |
+| `enteteParDefaut` | Coche d'office la case « compte rendu en tête de la planche ». |
+| `dossiers` | `sessions`, `planches` et `pictos`. |
+| `seuils` | Les seuils de rédaction du compte rendu (voir `src/report/seuils.ts`). Les nombres de manches, secondes et médailles sont des entiers d'au moins 1. `partDeSessionReguliere` et `baisseDeRegimeRelative` sont des parts comprises entre 0 (exclu) et 1. |
+
+La lecture est stricte : une clé inconnue ou une valeur invalide arrête le programme avec un message qui la nomme, plutôt que d'être ignorée en silence. Retirer un type de la liste n'empêche pas de relire les sessions déjà enregistrées sous ce type. La variable `SPLATOON_SETTINGS` désigne un autre fichier ; vide, elle désactive la lecture (c'est ce que font les tests).
+
 ## Fichier de session produit
 
 ```json
