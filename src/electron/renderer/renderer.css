@@ -17,6 +17,16 @@
   box-sizing: border-box;
 }
 
+/*
+ * `hidden` doit toujours cacher. Sans cette regle, toute classe qui pose un
+ * `display` (`.onglets { display: flex }`) l'emporte sur l'attribut, et
+ * l'element masque reste affiche : les onglets Apercu / Markdown se voyaient
+ * avant toute generation.
+ */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   background: var(--fond);
@@ -275,6 +285,16 @@ button:disabled {
   overflow-y: auto;
 }
 
+/*
+ * En bas de la fiche, le tableau n'a plus rien a laisser voir sous lui : il
+ * prend sa hauteur et la colonne defile d'un seul ascenseur, au lieu d'un
+ * defilement imbrique dans un autre.
+ */
+.fiche__manches .matchs {
+  max-height: none;
+  overflow-y: visible;
+}
+
 /* Les colonnes mode et carte tiennent les libelles francais les plus longs
    (« Guerre de Territoire », « Supermarché Cétacé ») sur une seule ligne : sur
    treize manches, un repli a deux lignes doublerait la hauteur du tableau. */
@@ -317,16 +337,22 @@ button:disabled {
 
 /* --- Compte rendu --- */
 
-.compte-rendu {
+.compte-rendu,
+.fiche__manches {
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid var(--trait);
+}
+
+/* Le compte rendu reste etroit ; le tableau des manches garde sa pleine largeur. */
+.compte-rendu {
   max-width: 560px;
 }
 
 /* Enfant direct : sans le `>`, cette regle atteindrait aussi les titres rendus
    dans l'apercu, qui doivent garder la casse et la couleur de Discord. */
-.compte-rendu > h3 {
+.compte-rendu > h3,
+.fiche__manches > h3 {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.04em;

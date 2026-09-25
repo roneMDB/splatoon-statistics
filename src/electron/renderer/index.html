@@ -207,7 +207,6 @@
             ></textarea>
           </div>
           <p class="resume" id="fiche-resume"></p>
-          <div class="matchs" id="fiche-matchs"></div>
           <div class="actions">
             <button type="button" id="bouton-fiche-enregistrer">Enregistrer</button>
             <button type="button" class="bouton--danger" id="bouton-supprimer">Supprimer</button>
@@ -262,6 +261,15 @@
               aria-labelledby="onglet-markdown"
               hidden
             ></textarea>
+          </section>
+
+          <!--
+            Tout en bas : c'est la partie la plus longue de la fiche, et placee
+            au-dessus elle repoussait le compte rendu hors de l'ecran.
+          -->
+          <section class="fiche__manches" aria-labelledby="titre-fiche-manches">
+            <h3 id="titre-fiche-manches">Manches</h3>
+            <div class="matchs" id="fiche-matchs"></div>
           </section>
         </div>
 
