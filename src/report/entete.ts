@@ -280,6 +280,7 @@ ${COULEURS_DE_TUILE}
 .adversaire__nom { display: block; font-weight: 700; font-size: 15px; line-height: 1.2; overflow-wrap: anywhere; }
 .adversaire__arme { display: block; margin-top: 2px; font-size: 13px; }
 .adversaire__chiffres { display: block; margin-top: 3px; font-size: 13px; }
+.adversaire__kd { display: block; }
 .adversaire__chiffres b { font-family: ${TITRE}; font-weight: 400; font-size: 17px; color: #eaff3d; }
 `.trim();
 
@@ -511,7 +512,8 @@ function blocEquipe(joueurs: StatsJoueur[], manches: number, etiquette: string, 
       arme === undefined ? "" : `<span class="adversaire__arme secondaire">${echappe(arme.nom)}</span>`;
     const chiffres =
       `<span class="adversaire__chiffres secondaire">` +
-      `<b>${joueur.kill}</b> élim. · <b>${joueur.death}</b> morts · K/D <b>${ratio(joueur.kill, joueur.death)}</b>` +
+      `<b>${joueur.kill}</b> élim. · <b>${joueur.assist}</b> assist. · <b>${joueur.death}</b> morts` +
+      `<span class="adversaire__kd">K/D <b>${ratio(joueur.kill, joueur.death)}</b></span>` +
       `</span>`;
     // Sur une image partagee, « moi » ne dit pas qui : le pseudo, et la carte soulignee.
     const nom = joueur.moi ? joueur.nom : (noms[index] ?? joueur.nom);

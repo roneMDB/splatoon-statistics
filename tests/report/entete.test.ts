@@ -132,6 +132,8 @@ describe("enteteEnHtml — blocs", () => {
     // « hydra » : l'Exteinteur, sous son nom francais seul.
     expect(html).toContain('<span class="adversaire__arme secondaire">Exteinteur</span>');
     expect(html).not.toContain("Hydra Splatling");
+    // Deux manches a 9 elim., 1 assist., 2 morts.
+    expect(html).toContain("<b>18</b> élim. · <b>2</b> assist. · <b>4</b> morts<span class=\"adversaire__kd\">K/D <b>4,50</b></span>");
   });
 
   test("montre notre equipe avec le bulletin, moi sous mon pseudo", () => {
