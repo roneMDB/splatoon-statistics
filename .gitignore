@@ -12,3 +12,6 @@ settings.json
 # Pictos et polices du jeu : propriete de Nintendo, le depot est public.
 # Chacun les recupere sur sa machine avec `npm run pictos`.
 assets/splatoon/
+
+# Application packagee (npm run app:package)
+dist-app/

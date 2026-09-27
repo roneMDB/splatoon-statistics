@@ -40,6 +40,46 @@ statistiques et leurs trois pièces d'équipement, les médailles, le score et l
 On passe d'une manche à l'autre sans revenir en arrière, et un bouton ouvre la page
 stat.ink du match.
 
+### Application Windows
+
+```bash
+npm run pictos         # une fois : les pictos sont embarqués dans le paquet
+npm run app:package    # produit dist-app/Splatoon Statistics-<version>-win.zip
+npm run app:deploy     # l'installe côté Windows, avec un raccourci au menu Démarrer
+```
+
+`app:deploy` copie `dist-app/win-unpacked` dans
+`%LOCALAPPDATA%\Programs\Splatoon Statistics` (installation pour un seul
+utilisateur, sans droits d'administrateur) et remplace la version précédente en
+entier. Il refuse de tourner tant que l'application est ouverte : Windows
+verrouille ses fichiers.
+
+Le paquet se construit depuis WSL, sans Wine : c'est une archive, sans
+installateur ni signature (d'où `signAndEditExecutable: false` - l'exécutable
+garde l'icône d'Electron). L'archive sert à qui n'a pas WSL ; sinon,
+`app:deploy` fait le travail. L'application tourne alors en natif : rien de ce qui
+suit sur WSL ne la concerne.
+
+L'icône est un dessin original (`build/icone.svg`) : une tache d'encre et trois
+barres. `npm run icone` en tire `build/icon.png` et `build/icon.ico`, versionnés.
+L'exécutable la reçoit au packaging par `rcedit`, lancé directement sous WSL
+(`scripts/apresPackaging.cjs`) : electron-builder, lui, passerait par Wine.
+
+Par défaut, la fenêtre n'a ni barre de titre ni barre de menu : l'application
+dessine sa propre bande aux couleurs du jeu, qu'on saisit pour déplacer la
+fenêtre, et garde les boutons du système à droite. Le réglage
+`fenetreSansBarres: false` (écran Réglages, groupe Général) rend la barre du
+système.
+
+La version packagée travaille dans `Documents\Splatoon Statistics` :
+`settings.json`, `data\sessions` et `data\planches` y vivent, comme à la racine
+du dépôt en développement. Les pictos sont lus dans le paquet
+(`resources\splatoon`), sauf si `settings.json` fixe `dossiers.pictos`. Voir
+`src/electron/demarrage.ts`.
+
+Les deux mondes ne partagent pas leurs données : pour reprendre les sessions
+récupérées sous WSL, on copie `data/sessions` dans le dossier Documents.
+
 #### Ouvrir un lien sous WSL
 
 Deux échecs silencieux se cumulent, et aucun ne remonte à l'application :

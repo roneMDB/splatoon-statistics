@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Recupere les matchs Splatoon 3 d'une session de club depuis stat.ink",
-  "main": "dist-electron/electron/main.js",
+  "main": "dist-electron/electron/demarrage.js",
   "engines": {
     "node": ">=22"
   },
@@ -12,8 +12,11 @@
     "fetch": "tsx src/cli.ts",
     "report": "tsx src/reportCli.ts",
     "pictos": "tsx scripts/recuperePictos.ts",
+    "icone": "tsx scripts/fabriqueIcone.ts",
     "app": "npm run app:build && tsx src/lanceApp.ts",
-    "app:build": "tsc -p tsconfig.electron.json && node -e \"require('fs').cpSync('src/electron/renderer','dist-electron/electron/renderer',{recursive:true})\"",
+    "app:build": "tsc -p tsconfig.electron.json && node -e \"const fs=require('fs');fs.cpSync('src/electron/renderer','dist-electron/electron/renderer',{recursive:true});fs.copyFileSync('build/icon.png','dist-electron/electron/renderer/icone.png')\"",
+    "app:package": "npm run app:build && electron-builder --win zip --x64",
+    "app:deploy": "tsx scripts/deploieWindows.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
@@ -21,8 +24,38 @@
   "devDependencies": {
     "@types/node": "^22.10.5",
     "electron": "^44.3.0",
+    "electron-builder": "^26.15.3",
+    "rcedit": "^5.0.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^2.1.8"
+  },
+  "author": "lebideau-e",
+  "build": {
+    "appId": "fr.gloup.splatoon-statistics",
+    "productName": "Splatoon Statistics",
+    "directories": {
+      "output": "dist-app"
+    },
+    "files": [
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/splatoon",
+        "to": "splatoon"
+      },
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "artifactName": "${productName}-${version}-win.${ext}",
+      "icon": "build/icon.ico"
+    },
+    "afterPack": "scripts/apresPackaging.cjs"
   }
 }
