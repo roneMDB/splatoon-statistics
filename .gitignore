@@ -15,3 +15,6 @@ assets/splatoon/
 
 # Application packagee (npm run app:package)
 dist-app/
+
+# Sauvegardes locales des planches
+planches_save/
