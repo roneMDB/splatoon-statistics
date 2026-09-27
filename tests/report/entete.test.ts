@@ -77,7 +77,7 @@ describe("enteteEnHtml — blocs", () => {
   test("dessine un bloc par section cochee, et le score toujours", () => {
     const { html } = rends(fichier);
     expect(html).toContain('class="score"');
-    for (const etiquette of ["Courbe de session", "Bulletin", "Modes et stages", "En face"]) {
+    for (const etiquette of ["Courbe de session", "Bulletin", "Modes et stages", "Notre équipe", "En face"]) {
       expect(html).toContain(`<p class="etiquette">${etiquette}</p>`);
     }
   });
@@ -132,14 +132,24 @@ describe("enteteEnHtml — blocs", () => {
     // « hydra » : l'Exteinteur, sous son nom francais seul.
     expect(html).toContain('<span class="adversaire__arme secondaire">Exteinteur</span>');
     expect(html).not.toContain("Hydra Splatling");
-    // Pas les coequipiers : l'en-tete ne montre que mes chiffres.
-    expect(html).not.toContain("Coequipier");
   });
 
-  test("affiche les noms d'equipe sous le titre et sur le bloc « En face »", () => {
+  test("montre notre equipe avec le bulletin, moi sous mon pseudo", () => {
+    const { html } = rends(fichier, { sections: ["role"] });
+    expect(html).toContain('<p class="etiquette">Notre équipe</p>');
+    expect(html).toContain('<li class="adversaire adversaire--moi">');
+    expect(html).toContain('<span class="adversaire__nom">☆Gloup☆</span>');
+    expect(html).toContain('<span class="adversaire__nom">Coequipier</span>');
+    expect(html).not.toContain("PseudoAdverse");
+  });
+
+  test("affiche les noms d'equipe sous le titre et en etiquette des deux camps", () => {
     const { html } = rends(session([battle("win")], { nomEquipe: "Gloup Squad", nomEquipeAdverse: "Les <Calamars>" }));
     expect(html).toContain('<p class="score__rencontre">Gloup Squad vs Les &lt;Calamars&gt;</p>');
-    expect(html).toContain("En face : Les &lt;Calamars&gt;");
+    expect(html).toContain('<p class="etiquette">Gloup Squad</p>');
+    expect(html).toContain('<p class="etiquette">Les &lt;Calamars&gt;</p>');
+    expect(html).not.toContain("En face");
+    expect(html).not.toContain("Notre équipe");
   });
 
   test("annonce le resultat final de la session dans le bandeau", () => {

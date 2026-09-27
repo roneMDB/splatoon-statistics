@@ -157,7 +157,7 @@ export const DESCRIPTION_DES_SEUILS: Record<
     section: "Bulletin de rôle et Scouting",
     unite: "%",
     explication:
-      "Part des manches qu'un joueur doit avoir jouées pour compter comme régulier. Seuls les réguliers sont comparés dans le bulletin et listés dans le scouting et le bloc « En face » de la planche : un remplaçant de deux manches ne se compare pas à qui a tout joué. Les adversaires en dessous sont seulement comptés.",
+      "Part des manches qu'un joueur doit avoir jouées pour compter comme régulier. Seuls les réguliers sont comparés dans le bulletin et listés dans le scouting et les blocs d’équipe de la planche : un remplaçant de deux manches ne se compare pas à qui a tout joué. Les adversaires en dessous sont seulement comptés.",
   },
   medaillesCitees: {
     libelle: "Médailles citées",

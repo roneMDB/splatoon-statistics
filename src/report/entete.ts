@@ -276,6 +276,7 @@ ${COULEURS_DE_TUILE}
 
 .adversaires { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; list-style: none; }
 .adversaire { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #0e0f18; clip-path: polygon(0 8px, 8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%); }
+.adversaire--moi .adversaire__nom { color: #eaff3d; }
 .adversaire__nom { display: block; font-weight: 700; font-size: 15px; line-height: 1.2; overflow-wrap: anywhere; }
 .adversaire__arme { display: block; margin-top: 2px; font-size: 13px; }
 .adversaire__chiffres { display: block; margin-top: 3px; font-size: 13px; }
@@ -493,13 +494,16 @@ function blocModes(analyse: AnalyseSession, registre: Registre, plein: boolean):
   );
 }
 
-/** Les adversaires presents sur la session : pseudo, arme dominante, chiffres. */
-function blocEnFace(analyse: AnalyseSession, registre: Registre): string {
-  const adverse: StatsJoueur[] = reguliers(analyse.adverse, analyse.manches.length);
-  if (adverse.length === 0) return "";
-  const noms = designeLesAdversaires(adverse);
+/**
+ * Les reguliers d'une equipe : pseudo, arme dominante, chiffres. Sert aux deux
+ * camps ; l'etiquette porte le nom saisi de l'equipe, a defaut un generique.
+ */
+function blocEquipe(joueurs: StatsJoueur[], manches: number, etiquette: string, registre: Registre): string {
+  const presents = reguliers(joueurs, manches);
+  if (presents.length === 0) return "";
+  const noms = designeLesAdversaires(presents);
 
-  const cartes = adverse.map((joueur, index) => {
+  const cartes = presents.map((joueur, index) => {
     const arme = joueur.armes[0];
     // Le nom francais seul : sur une carte de 370 pixels, la forme bilingue
     // « Épinceau brosse stellapex (Cometz Octobrush) » passe sur deux lignes.
@@ -509,15 +513,16 @@ function blocEnFace(analyse: AnalyseSession, registre: Registre): string {
       `<span class="adversaire__chiffres secondaire">` +
       `<b>${joueur.kill}</b> élim. · <b>${joueur.death}</b> morts · K/D <b>${ratio(joueur.kill, joueur.death)}</b>` +
       `</span>`;
+    // Sur une image partagee, « moi » ne dit pas qui : le pseudo, et la carte soulignee.
+    const nom = joueur.moi ? joueur.nom : (noms[index] ?? joueur.nom);
     return (
-      `<li class="adversaire">` +
+      `<li class="${joueur.moi ? "adversaire adversaire--moi" : "adversaire"}">` +
       (arme === undefined ? "" : registre.picto("armes", arme.cle, "", "l")) +
-      `<span><span class="adversaire__nom">${echappe(noms[index] ?? joueur.nom)}</span>${nomDArme}${chiffres}</span>` +
+      `<span><span class="adversaire__nom">${echappe(nom)}</span>${nomDArme}${chiffres}</span>` +
       `</li>`
     );
   });
 
-  const etiquette = analyse.nomEquipeAdverse === undefined ? "En face" : `En face : ${analyse.nomEquipeAdverse}`;
   return sticker(`<ul class="adversaires">${cartes.join("")}</ul>`, { etiquette, plein: true });
 }
 
@@ -526,7 +531,7 @@ function blocEnFace(analyse: AnalyseSession, registre: Registre): string {
  *
  * Deterministe, comme la planche : meme session, memes options, memes pictos,
  * meme chaine. L'ordre des blocs est fixe - score, mots, courbe, bulletin et
- * modes cote a cote, adversaires - quel que soit l'ordre des sections cochees :
+ * modes cote a cote, notre equipe, adversaires - quel que soit l'ordre des sections cochees :
  * c'est une mise en page, pas une suite de paragraphes.
  */
 export function enteteEnHtml(
@@ -549,7 +554,12 @@ export function enteteEnHtml(
     avec("courbe") ? blocCourbe(analyse, registre) : "",
     avec("role") ? blocBulletin(analyse, registre, !duo) : "",
     avec("modes") ? blocModes(analyse, registre, !duo) : "",
-    avec("scouting") ? blocEnFace(analyse, registre) : "",
+    avec("role")
+      ? blocEquipe(analyse.equipe, analyse.manches.length, analyse.nomEquipe ?? "Notre équipe", registre)
+      : "",
+    avec("scouting")
+      ? blocEquipe(analyse.adverse, analyse.manches.length, analyse.nomEquipeAdverse ?? "En face", registre)
+      : "",
   ].filter((bloc) => bloc !== "");
 
   return {
