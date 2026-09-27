@@ -513,7 +513,7 @@ function blocEquipe(joueurs: StatsJoueur[], manches: number, etiquette: string, 
     const chiffres =
       `<span class="adversaire__chiffres secondaire">` +
       `<b>${joueur.kill}</b> élim. · <b>${joueur.assist}</b> assist. · <b>${joueur.death}</b> morts` +
-      `<span class="adversaire__kd">K/D <b>${ratio(joueur.kill, joueur.death)}</b></span>` +
+      `<span class="adversaire__kd"><b>${joueur.special}</b> spé. · (K+A)/D <b>${ratio(joueur.kill + joueur.assist, joueur.death)}</b></span>` +
       `</span>`;
     // Sur une image partagee, « moi » ne dit pas qui : le pseudo, et la carte soulignee.
     const nom = joueur.moi ? joueur.nom : (noms[index] ?? joueur.nom);
