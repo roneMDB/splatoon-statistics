@@ -142,6 +142,16 @@ describe("enteteEnHtml — blocs", () => {
     expect(html).toContain("En face : Les &lt;Calamars&gt;");
   });
 
+  test("annonce le resultat final de la session dans le bandeau", () => {
+    const verdict = (resultats: string[]) =>
+      rends(session(resultats.map((resultat) => battle(resultat)))).html.match(
+        /class="score__verdict score__verdict--(\w+)">([^<]+)</,
+      )?.slice(1);
+    expect(verdict(["win", "win", "lose"])).toEqual(["victoire", "Victoire"]);
+    expect(verdict(["win", "lose", "lose"])).toEqual(["defaite", "Défaite"]);
+    expect(verdict(["win", "lose"])).toEqual(["egalite", "Égalité"]);
+  });
+
   test("n'affiche aucune rencontre sans nom d'equipe", () => {
     const { html } = rends(fichier);
     expect(html).not.toContain("score__rencontre");

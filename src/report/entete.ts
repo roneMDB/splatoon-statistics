@@ -184,6 +184,11 @@ const STYLE_FIXE = `
 .score__titre { font-family: ${TITRE}; font-weight: 400; font-size: 42px; line-height: 1.05; color: #eaff3d; }
 .score__sous { margin-top: 6px; font-size: 18px; }
 .score__rencontre { margin-top: 6px; font-size: 22px; font-weight: 700; overflow-wrap: anywhere; }
+.score__final { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.score__verdict { font-family: ${TITRE}; font-size: 26px; line-height: 1; padding: 6px 16px 5px; color: #0e0f18; text-transform: uppercase; clip-path: polygon(0 6px, 6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%); }
+.score__verdict--victoire { background: #eaff3d; }
+.score__verdict--defaite { background: #ff6fa1; }
+.score__verdict--egalite { background: #b9bdd6; }
 .score__chiffres { font-family: ${TITRE}; font-size: 88px; line-height: 1; white-space: nowrap; }
 .score__v { color: #eaff3d; }
 .score__d { color: #ff6fa1; }
@@ -284,6 +289,13 @@ function sticker(contenu: string, options: { etiquette?: string; plein?: boolean
   return `<div class="${classes.join(" ")}"><div class="sticker__corps">${etiquette}${contenu}</div></div>`;
 }
 
+/** Le resultat final de la session : plus de manches gagnees que perdues, ou l'inverse. */
+function verdictDeSession(victoires: number, defaites: number): { classe: string; libelle: string } {
+  if (victoires > defaites) return { classe: "victoire", libelle: "Victoire" };
+  if (victoires < defaites) return { classe: "defaite", libelle: "Défaite" };
+  return { classe: "egalite", libelle: "Égalité" };
+}
+
 /** Bandeau de score : titre, lobby, horaires, V-D en gros, reperes. */
 function blocScore(file: SessionFile, analyse: AnalyseSession, registre: Registre): string {
   const { victoires, defaites, nuls, total } = analyse.bilan;
@@ -291,6 +303,7 @@ function blocScore(file: SessionFile, analyse: AnalyseSession, registre: Registr
   const derniere = analyse.manches[analyse.manches.length - 1];
   const lobby = libelleDuLobby(analyse.lobby);
   const affiche = rencontre(analyse);
+  const verdict = verdictDeSession(victoires, defaites);
 
   const sous = [
     analyse.lobby === undefined ? undefined : lobby,
@@ -313,11 +326,14 @@ function blocScore(file: SessionFile, analyse: AnalyseSession, registre: Registr
       (affiche === undefined ? "" : `<p class="score__rencontre">${echappe(affiche)}</p>`) +
       `<p class="score__sous secondaire">${echappe(sous.join(" · "))}</p>` +
       `</div>` +
+      `<div class="score__final">` +
+      `<p class="score__verdict score__verdict--${verdict.classe}">${verdict.libelle}</p>` +
       `<p class="score__chiffres">` +
       `<span class="score__v">${victoires}<span class="score__lettre">V</span></span>` +
       `<span class="score__tiret">–</span>` +
       `<span class="score__d">${defaites}<span class="score__lettre">D</span></span>` +
       `</p>` +
+      `</div>` +
       `<ul class="score__puces secondaire">${puces.join("")}</ul>` +
       `</div>`,
     { plein: true, classe: "bloc-score" },
