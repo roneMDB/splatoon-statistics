@@ -38,6 +38,7 @@ const FONCTIONS = [
   ["buildReport", "buildReport"],
   ["buildPlanche", "buildPlanche"],
   ["revealPlanche", "revealPlanche"],
+  ["openPlancheDir", "openPlancheDir"],
   ["openExternal", "openExternal"],
   ["copyToClipboard", "copyToClipboard"],
   ["choices", "choices"],

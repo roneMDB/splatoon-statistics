@@ -12,6 +12,11 @@ const complet = {
 } as unknown as StatinkBattle;
 
 describe("toBattleRows", () => {
+  test("omet une cle de mode qui ne pourrait pas servir de classe CSS", () => {
+    const [row] = toBattleRows([{ ...complet, rule: { key: 'x" onclick="' } } as typeof complet]);
+    expect(row?.ruleKey).toBeUndefined();
+  });
+
   test("retient les colonnes affichees, aplaties et traduites", () => {
     expect(toBattleRows([complet])).toEqual([
       {
@@ -19,6 +24,7 @@ describe("toBattleRows", () => {
         startedAt: "2026-08-04T19:44:28+00:00",
         lobby: "private",
         rule: "Expédition Risquée",
+        ruleKey: "yagura",
         stage: "Marché Grefin",
         result: "win",
         resultLabel: "Victoire",

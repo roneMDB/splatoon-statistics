@@ -46,6 +46,13 @@ export type Reglages = {
   sectionsParDefaut: SectionCompteRendu[];
   /** Case « compte rendu en tete de planche » cochee a l'ouverture. */
   enteteParDefaut: boolean;
+  /**
+   * Fenetre sans barre de titre ni barre de menu : l'application dessine sa
+   * propre bande en haut, aux couleurs du jeu, et les boutons de fenetre
+   * restent ceux du systeme. Actif par defaut : c'est l'allure voulue ; `false`
+   * rend la barre du systeme a qui prefere.
+   */
+  fenetreSansBarres: boolean;
   dossiers: { sessions: string; planches: string; pictos: string };
   seuils: Seuils;
 };
@@ -55,10 +62,13 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   typesDeSession: ["intra", "scrim", "compet", "open", "autre"],
   sectionsParDefaut: [...SECTIONS],
   enteteParDefaut: false,
+  fenetreSansBarres: true,
   dossiers: {
     sessions: "data/sessions",
     planches: "data/planches",
-    pictos: "assets/splatoon",
+    // L'application packagee embarque ses pictos et pose cette variable
+    // (voir `src/electron/demarrage.ts`) ; un `settings.json` l'emporte.
+    pictos: process.env["SPLATOON_PICTOS_PAR_DEFAUT"] ?? "assets/splatoon",
   },
   seuils: {
     serieFinaleMinimale: 3,
@@ -237,11 +247,10 @@ export function valideLesReglages(brut: unknown, source = "settings.json"): Regl
     );
   }
 
-  if (brut.enteteParDefaut !== undefined) {
-    if (typeof brut.enteteParDefaut !== "boolean") {
-      throw new Error(`${source}, "enteteParDefaut" : true ou false attendu.`);
-    }
-    reglages.enteteParDefaut = brut.enteteParDefaut;
+  for (const cle of ["enteteParDefaut", "fenetreSansBarres"] as const) {
+    if (brut[cle] === undefined) continue;
+    if (typeof brut[cle] !== "boolean") throw new Error(`${source}, "${cle}" : true ou false attendu.`);
+    reglages[cle] = brut[cle];
   }
 
   if (brut.dossiers !== undefined) {

@@ -4,12 +4,37 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'self'; script-src 'self';"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; font-src data:;"
     />
     <title>Splatoon Statistics</title>
     <link rel="stylesheet" href="renderer.css" />
   </head>
   <body>
+    <!--
+      Bande de titre, quand la fenetre n'a plus la sienne (reglage
+      « fenetreSansBarres »). Elle sert de poignee pour deplacer la fenetre ;
+      les boutons du systeme se posent en surimpression a droite.
+    -->
+    <header class="bande" id="bande" hidden>
+      <img class="bande__icone" src="icone.png" alt="" />
+      <span class="bande__titre">Splatoon <em>Statistics</em></span>
+    </header>
+    <!--
+      Quitter, en haut a droite : un picto seul, le libelle passe en bulle
+      et en nom accessible.
+    -->
+    <button
+      type="button"
+      class="bouton--discret bouton-quitter"
+      id="bouton-quitter"
+      title="Quitter l'application"
+      aria-label="Quitter l'application"
+    >
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M12 3v9" />
+        <path d="M6.3 6.8a8 8 0 1 0 11.4 0" />
+      </svg>
+    </button>
     <main class="app">
       <section class="sessions" aria-labelledby="titre-sessions">
         <header class="sessions__entete">
@@ -24,8 +49,8 @@
 
         <div class="sessions__pied">
           <button type="button" class="bouton--discret" id="bouton-reglages">Réglages</button>
-          <button type="button" class="bouton--discret" id="bouton-quitter">
-            Quitter l'application
+          <button type="button" class="bouton--discret" id="bouton-dossier-planches">
+            Dossier des planches
           </button>
         </div>
       </section>
@@ -63,6 +88,16 @@
                   déjà enregistrées sous ce type.
                 </p>
               </div>
+              <label class="section">
+                <input type="checkbox" id="reglage-sans-barres" />
+                Fenêtre sans barre de titre ni barre de menu
+              </label>
+              <p class="reglages__aide">
+                L'application dessine sa propre bande en haut : on la saisit pour déplacer la
+                fenêtre, et les boutons réduire, agrandir et fermer restent à droite. Les
+                raccourcis de la barre de menu (recharger, outils de développement) disparaissent
+                avec elle.
+              </p>
             </fieldset>
 
             <fieldset class="reglages__groupe">

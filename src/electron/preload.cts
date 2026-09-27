@@ -28,6 +28,7 @@ const CANAUX = {
   buildReport: "report:build",
   buildPlanche: "planche:build",
   revealPlanche: "planche:reveal",
+  openPlancheDir: "planches:open-dir",
   openExternal: "app:open-external",
   copyToClipboard: "app:clipboard",
   quitApp: "app:quit",
@@ -36,6 +37,7 @@ const CANAUX = {
   readSettings: "settings:read",
   saveSettings: "settings:save",
   relaunchApp: "app:relaunch",
+  habillage: "app:habillage",
 } as const;
 
 contextBridge.exposeInMainWorld("splatoonApi", {
@@ -64,6 +66,8 @@ contextBridge.exposeInMainWorld("splatoonApi", {
 
   revealPlanche: (path: string) => ipcRenderer.invoke(CANAUX.revealPlanche, path),
 
+  openPlancheDir: () => ipcRenderer.invoke(CANAUX.openPlancheDir),
+
   openExternal: (url: string) => ipcRenderer.invoke(CANAUX.openExternal, url),
 
   copyToClipboard: (texte: string) =>
@@ -76,6 +80,8 @@ contextBridge.exposeInMainWorld("splatoonApi", {
   saveSettings: (brut: unknown) => ipcRenderer.invoke(CANAUX.saveSettings, brut),
 
   relaunchApp: () => ipcRenderer.invoke(CANAUX.relaunchApp),
+
+  habillage: () => ipcRenderer.invoke(CANAUX.habillage),
 
   /** Ferme l'application : la fenetre ne peut pas quitter le processus seule. */
   quitApp: () => ipcRenderer.invoke(CANAUX.quitApp),

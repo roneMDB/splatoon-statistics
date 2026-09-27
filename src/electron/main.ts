@@ -9,8 +9,9 @@
 import { app, BrowserWindow, clipboard, ipcMain, shell } from "electron";
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { DEFAULT_PLANCHE_DIR, DEFAULT_USER } from "../config.ts";
 import {
   chargeLesReglages,
@@ -52,6 +53,8 @@ import {
 } from "../report/index.ts";
 import { cheminDePlanche, fabriqueLaPlancheAvecReprise } from "./plancheHandler.ts";
 import { outilsDePlanche } from "./planchePhotographe.ts";
+import { chargeLHabillage } from "../report/pictos.ts";
+import { MOTIF_SCOTCH } from "../report/texture.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -89,9 +92,7 @@ const here = dirname(fileURLToPath(import.meta.url));
  * se voit pas sur un formulaire et un tableau.
  */
 
-// Sans cela, Chromium affiche les champs de date au format de sa propre locale,
-// soit du JJ/MM inverse pour un utilisateur francais.
-app.commandLine.appendSwitch("lang", "fr-FR");
+// Le drapeau `lang` est pose dans `demarrage.ts`, qui charge ce fichier.
 
 const lisLaVersionDuNoyau = (): string | undefined => {
   try {
@@ -109,13 +110,32 @@ const environnementWsl = {
 
 const sousWslActif = tourneSousWsl(process.platform, environnementWsl, lisLaVersionDuNoyau);
 
+/**
+ * Hauteur de la bande de titre dessinee par la fenetre quand `fenetreSansBarres`
+ * est actif. Les boutons du systeme (reduire, agrandir, fermer) s'y posent en
+ * surimpression : la bande et la surimpression doivent avoir la meme hauteur,
+ * d'ou une seule valeur, envoyee a la fenetre par le canal `habillage`.
+ */
+const HAUTEUR_BANDE = 46;
+
 function createWindow(): BrowserWindow {
+  const sansBarres = REGLAGES.fenetreSansBarres;
   const window = new BrowserWindow({
     width: 1100,
     height: 720,
     minWidth: 720,
     title: "Splatoon Statistics",
-    backgroundColor: "#12121a",
+    icon: join(here, "renderer", "icone.png"),
+    backgroundColor: "#0e0f18",
+    // Sans barre de titre, on garde les boutons du systeme en surimpression :
+    // les redessiner nous-memes perdrait le comportement natif (accrochage
+    // aux bords sous Windows, double clic pour agrandir).
+    ...(sansBarres
+      ? {
+          titleBarStyle: "hidden" as const,
+          titleBarOverlay: { color: "#0e0f18", symbolColor: "#eaff3d", height: HAUTEUR_BANDE },
+        }
+      : {}),
     webPreferences: {
       preload: join(here, "preload.cjs"),
       contextIsolation: true,
@@ -124,12 +144,24 @@ function createWindow(): BrowserWindow {
     },
   });
 
+  // La barre de menu (Fichier, Edition...) n'offre rien que la page n'ait deja.
+  // On la retire quand on retire la barre de titre, pas avant : ses raccourcis
+  // (recharger, outils de developpement) restent utiles a qui les connait.
+  if (sansBarres) window.removeMenu();
+
   // Le rendu n'est pas transpile : il est copie tel quel a cote du build.
   void window.loadFile(join(here, "renderer", "index.html"));
   return window;
 }
 
 ipcMain.handle(IPC.listSessions, () => listSessions());
+
+ipcMain.handle(IPC.habillage, async () => ({
+  ...(await chargeLHabillage()),
+  motif: MOTIF_SCOTCH,
+  sansBarres: REGLAGES.fenetreSansBarres,
+  hauteurBande: HAUTEUR_BANDE,
+}));
 
 ipcMain.handle(IPC.choices, () => ({
   lobbies: KNOWN_LOBBIES,
@@ -293,6 +325,37 @@ ipcMain.handle(IPC.revealPlanche, async (_event, path: unknown) => {
   }
 
   await clipboard.writeText(cheminWindows ?? resolu);
+  return "copie" as const;
+});
+
+/**
+ * Ouvre le dossier des planches, meme sans planche selectionnee.
+ *
+ * Aucun argument ne vient de la fenetre : le dossier est celui des reglages.
+ * Il est cree s'il manque, pour que le bouton ouvre toujours quelque chose
+ * avant la premiere planche. Sous WSL, meme detour par `explorer.exe` et meme
+ * repli sur le presse-papier que `revealPlanche`.
+ */
+ipcMain.handle(IPC.openPlancheDir, async () => {
+  const dossier = resolve(DEFAULT_PLANCHE_DIR);
+  await mkdir(dossier, { recursive: true });
+
+  if (!sousWslActif) {
+    // `openPath` ne rejette pas : il rend un message, vide en cas de reussite.
+    const echec = await shell.openPath(dossier);
+    if (echec === "") return "ouvert" as const;
+    await clipboard.writeText(dossier);
+    return "copie" as const;
+  }
+
+  const cheminWindows = versCheminWindows(dossier, environnementWsl);
+  const environnementPath = { PATH: process.env["PATH"] };
+  if (cheminWindows !== undefined && saitOuvrirExplorer(environnementPath, existsSync)) {
+    spawn("explorer.exe", [cheminWindows], { detached: true, stdio: "ignore" }).unref();
+    return "ouvert" as const;
+  }
+
+  await clipboard.writeText(cheminWindows ?? dossier);
   return "copie" as const;
 });
 

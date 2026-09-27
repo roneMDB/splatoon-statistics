@@ -57,6 +57,7 @@ describe("valideLesReglages", () => {
     [{ typesDeSession: ["intra", "intra"] }, /"intra" apparaît deux fois/],
     [{ sectionsParDefaut: ["bilan"] }, /section inconnue "bilan"/],
     [{ enteteParDefaut: "oui" }, /true ou false/],
+    [{ fenetreSansBarres: 1 }, /"fenetreSansBarres" : true ou false/],
     [{ dossiers: { pictos: "" } }, /dossiers"\.pictos : texte non vide/],
     [{ seuils: { medaillesCitees: 0 } }, /medaillesCitees : entier au moins égal à 1/],
     [{ seuils: { serieFinaleMinimale: 2.5 } }, /serieFinaleMinimale : entier/],

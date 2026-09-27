@@ -15,6 +15,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { DEFAULT_PICTOS_DIR } from "../config.ts";
 import type { SessionFile } from "../store.ts";
+import { REGLES } from "./regles.ts";
 
 export type CategoriePicto =
   | "armes"
@@ -91,6 +92,48 @@ export function clesDeLaSession(file: SessionFile): Map<CategoriePicto, Set<stri
   return cles;
 }
 
+/** Lit un picto en URI `data:`, ou `undefined` s'il manque ou si la cle est douteuse. */
+async function lisUnPicto(dossier: string, categorie: CategoriePicto, cle: string): Promise<string | undefined> {
+  if (!cleSure(cle)) return undefined;
+  for (const extension of EXTENSIONS[categorie]) {
+    const contenu = await readFile(join(dossier, categorie, `${cle}${extension}`)).catch(() => undefined);
+    if (contenu !== undefined) return `data:${TYPES[extension]};base64,${contenu.toString("base64")}`;
+  }
+  return undefined;
+}
+
+/** Ce que la fenetre de l'application emprunte au jeu pour s'habiller. */
+export type Habillage = {
+  polices: { titre?: string; texte?: string };
+  /** Picto de chaque regle connue, par cle stat.ink. */
+  regles: Record<string, string>;
+  /**
+   * Couleurs de chaque regle, celles de la planche (`REGLES`) : la fenetre ne
+   * les redeclare pas. `inconnue` est toujours la.
+   */
+  couleurs: Record<string, { vive: string; matte: string }>;
+};
+
+/**
+ * Polices et pictos de regle, pour la fenetre. Meme tolerance que pour la
+ * planche : sans `npm run pictos`, la fenetre garde ses polices systeme et ses
+ * lignes sans picto, mais s'ouvre.
+ */
+export async function chargeLHabillage(dossier: string = DEFAULT_PICTOS_DIR): Promise<Habillage> {
+  const regles: Record<string, string> = {};
+  for (const [cle] of REGLES) {
+    const uri = await lisUnPicto(dossier, "regles", cle);
+    if (uri !== undefined) regles[cle] = uri;
+  }
+  const titre = await lisUnPicto(dossier, "polices", "titre");
+  const texte = await lisUnPicto(dossier, "polices", "texte");
+  return {
+    polices: { ...(titre !== undefined ? { titre } : {}), ...(texte !== undefined ? { texte } : {}) },
+    regles,
+    couleurs: Object.fromEntries(REGLES.map(([cle, vive, matte]) => [cle, { vive, matte }])),
+  };
+}
+
 /**
  * Lit les pictos d'une session. Un fichier absent n'est pas une erreur : le
  * picto manque, la planche retombe sur le texte. Une arme sortie apres le
@@ -104,17 +147,8 @@ export async function chargeLesPictos(
 
   for (const [categorie, cles] of clesDeLaSession(file)) {
     for (const cle of cles) {
-      for (const extension of EXTENSIONS[categorie]) {
-        const contenu = await readFile(join(dossier, categorie, `${cle}${extension}`)).catch(
-          () => undefined,
-        );
-        if (contenu === undefined) continue;
-        trouves.set(
-          `${categorie}/${cle}`,
-          `data:${TYPES[extension]};base64,${contenu.toString("base64")}`,
-        );
-        break;
-      }
+      const uri = await lisUnPicto(dossier, categorie, cle);
+      if (uri !== undefined) trouves.set(`${categorie}/${cle}`, uri);
     }
   }
 

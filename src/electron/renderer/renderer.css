@@ -1,15 +1,34 @@
+/*
+ * Habillage de la fenetre : celui de la planche (`src/report/planche.ts` et
+ * `entete.ts`), pour que l'application et l'image postee sur Discord parlent
+ * la meme langue. Fond encre, panneaux en stickers, etiquettes jaunes
+ * penchees, polices du jeu, lignes de manche a la couleur de leur mode.
+ *
+ * Les polices, le motif et les pictos arrivent par le canal `habillage` (voir
+ * `appliqueLHabillage` dans `renderer.js`) : ils appartiennent a Nintendo ou a
+ * splashcat, ne sont pas dans le depot, et peuvent manquer. Chaque pile de
+ * polices retombe donc sur celles du systeme, et `--motif` absent laisse le
+ * fond uni.
+ */
+
 :root {
-  --fond: #12121a;
-  --fond-panneau: #1b1b26;
-  --fond-champ: #242432;
-  --trait: #32324a;
-  --texte: #e9e9f2;
-  --texte-doux: #a0a0b8;
-  --accent: #6ee7b7;
-  --victoire: #6ee7b7;
-  --defaite: #f19aa4;
-  --alerte: #fbbf77;
-  --erreur: #f87f8c;
+  --fond: #0e0f18;
+  --fond-colonne: #121424;
+  --fond-panneau: #1d2036;
+  --fond-champ: #151729;
+  --trait: #2e3358;
+  --texte: #f2f3fa;
+  --texte-doux: #b9bdd6;
+  --texte-sombre: #0e0f18;
+  --accent: #eaff3d;
+  --violet: #b05df5;
+  --victoire: #eaff3d;
+  --defaite: #ff6fa1;
+  --alerte: #ffb35c;
+  --erreur: #ff6fa1;
+  --titre: "Splatoon Titre", "Lato Black", system-ui, sans-serif;
+  --police: "Splatoon Texte", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --hauteur-bande: 0px;
   color-scheme: dark;
 }
 
@@ -31,32 +50,139 @@ body {
   margin: 0;
   background: var(--fond);
   color: var(--texte);
-  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 14px/1.5 var(--police);
 }
+
+/* Le motif de scotch de la planche, en fond, a peine visible. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--violet);
+  opacity: 0.07;
+  mask-image: var(--motif);
+  mask-size: 900px auto;
+  pointer-events: none;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--texte-sombre);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--trait);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--texte-doux);
+}
+
+/* --- Bande de titre (fenetre sans barres) --- */
+
+/*
+ * Toute la bande deplace la fenetre. Les boutons du systeme se posent par
+ * dessus, a droite : la bande leur laisse la place (`padding-right`) plutot
+ * que d'y mettre son propre contenu.
+ */
+.bande {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--hauteur-bande);
+  padding: 0 150px 0 12px;
+  background: var(--fond);
+  border-bottom: 3px solid var(--accent);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+/*
+ * Des gouttes d'encre qui pendent sous la bordure jaune : trois rangees de
+ * disques de tailles differentes, decalees, pour que la coulure ne se repete
+ * pas a l'oeil. Purement decoratif, et transparent aux clics.
+ */
+.bande::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 18px;
+  background:
+    radial-gradient(ellipse 7px 17px at 50% 0, var(--accent) 98%, transparent) 30px 0 / 230px 18px repeat-x,
+    radial-gradient(ellipse 5px 11px at 50% 0, var(--accent) 98%, transparent) 110px 0 / 170px 12px repeat-x,
+    radial-gradient(ellipse 3.5px 7px at 50% 0, var(--accent) 98%, transparent) 64px 0 / 97px 8px repeat-x;
+  pointer-events: none;
+}
+
+.bande__icone {
+  width: 32px;
+  height: 32px;
+  transform: rotate(-8deg);
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+
+/* Le titre est une etiquette, comme celles des colonnes : penchee, en deux tons. */
+.bande__titre {
+  padding: 3px 12px 1px;
+  background: var(--accent);
+  color: var(--texte-sombre);
+  font-family: var(--titre);
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  transform: skewX(-10deg) rotate(-1deg);
+}
+
+.bande__titre em {
+  font-style: normal;
+  color: var(--violet);
+}
+
+/* --- Mise en page --- */
 
 .app {
   display: grid;
   grid-template-columns: minmax(260px, 360px) 1fr;
-  gap: 1px;
-  background: var(--trait);
-  height: 100vh;
+  height: calc(100vh - var(--hauteur-bande));
 }
 
 .sessions,
 .recuperation {
-  background: var(--fond-panneau);
   overflow-y: auto;
-  padding: 20px;
+  padding: 22px;
 }
 
+.sessions {
+  background: color-mix(in srgb, var(--fond-colonne) 85%, transparent);
+  border-right: 2px solid var(--trait);
+}
+
+/* Les titres de colonne sont les etiquettes de la planche : jaune, penchees. */
 h1,
 h2 {
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  display: inline-block;
+  margin: 0 0 18px;
+  padding: 3px 14px 1px;
+  background: var(--accent);
+  color: var(--texte-sombre);
+  font-family: var(--titre);
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: var(--texte-doux);
-  margin: 0 0 16px;
+  transform: skewX(-10deg);
 }
 
 /*
@@ -72,9 +198,47 @@ h2 {
 .sessions__pied {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   margin-top: auto;
   padding-top: 18px;
+}
+
+.sessions__pied button {
+  font-size: 13px;
+  padding: 6px 14px 5px;
+}
+
+/*
+ * Quitter : un rond en haut a droite, sous la bande quand elle est la (les
+ * boutons du systeme occupent son coin droit).
+ */
+.bouton-quitter {
+  position: fixed;
+  top: calc(var(--hauteur-bande) + 14px);
+  right: 18px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
+/* La colonne lui laisse sa marge : au defilement, rien ne passe dessous. */
+.recuperation {
+  padding-right: 64px;
+}
+
+.bouton-quitter svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.bouton--discret.bouton-quitter:hover:not(:disabled) {
+  border-color: var(--erreur);
+  color: var(--erreur);
 }
 
 .sessions__entete {
@@ -96,18 +260,49 @@ h2 {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
+/*
+ * Une session, c'est un sticker : panneau aux coins coupes, liseré clair. Un
+ * contour pose sur un element decoupe au `clip-path` serait rogne aux biseaux,
+ * d'ou le liseré en ombre interieure, qui suit le rectangle, et les coins
+ * arrondis plutot que biseautes.
+ */
 .session {
-  background: var(--fond-champ);
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 10px 12px;
+  position: relative;
+  background: var(--fond-panneau);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 0 0 2px rgba(242, 243, 250, 0.14),
+    0 6px 14px rgba(0, 0, 0, 0.35);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.session:nth-child(odd) {
+  transform: rotate(-0.5deg);
+}
+
+.session:nth-child(even) {
+  transform: rotate(0.5deg);
+}
+
+.session:hover,
+.session:focus-visible {
+  outline: none;
+  transform: rotate(0deg) scale(1.02);
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    0 8px 18px rgba(0, 0, 0, 0.45);
 }
 
 .session__nom {
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 14.5px;
 }
 
 .session__nom--absent {
@@ -121,26 +316,33 @@ h2 {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  margin-top: 4px;
+  margin-top: 6px;
   color: var(--texte-doux);
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
 .session__type {
-  background: var(--trait);
-  border-radius: 999px;
-  padding: 1px 8px;
-  font-size: 12px;
-  color: var(--texte);
+  background: var(--violet);
+  color: var(--texte-sombre);
+  font-family: var(--titre);
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 1px 8px 0;
+  transform: skewX(-10deg);
 }
 
 .session__bilan {
+  font-family: var(--titre);
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
   margin-left: auto;
+  color: var(--texte-doux);
 }
 
 .session__bilan b {
   color: var(--victoire);
+  font-weight: 400;
 }
 
 .session__bilan i {
@@ -151,6 +353,8 @@ h2 {
 .sessions__vide {
   color: var(--texte-doux);
 }
+
+/* --- Formulaires --- */
 
 .formulaire {
   display: flex;
@@ -189,31 +393,77 @@ button {
   font: inherit;
   color: inherit;
   background: var(--fond-champ);
-  border: 1px solid var(--trait);
-  border-radius: 6px;
-  padding: 8px 10px;
+  border: 2px solid var(--trait);
+  border-radius: 10px;
+  padding: 7px 10px;
+}
+
+/*
+ * Ce qu'on tape reste en police systeme : dans celle du jeu, le G majuscule
+ * se lit C (« Gloup » devient « Cloup »), et un pseudo ou une date mal lus a la
+ * saisie sont exactement ce qu'il ne faut pas.
+ */
+input,
+select,
+textarea {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: #454b7d;
 }
 
 input:focus-visible,
 select:focus-visible,
-textarea:focus-visible,
-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent);
 }
 
+input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+/*
+ * Les boutons sont des pastilles : pleines et jaunes pour l'action principale,
+ * sombres et cerclees pour le reste. Ils penchent un peu au survol, comme les
+ * menus du jeu.
+ */
 button {
   background: var(--accent);
-  color: #10221c;
-  border: none;
-  font-weight: 600;
-  padding: 10px 16px;
+  color: var(--texte-sombre);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  font-family: var(--titre);
+  font-size: 14.5px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  padding: 8px 20px 7px;
   cursor: pointer;
   align-self: flex-start;
+  transition:
+    transform 100ms ease,
+    background-color 100ms ease,
+    border-color 100ms ease;
+}
+
+button:hover:not(:disabled) {
+  transform: rotate(-1.5deg) scale(1.04);
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+button:focus-visible {
+  outline: 3px solid var(--texte);
+  outline-offset: 2px;
 }
 
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: progress;
 }
 
@@ -222,12 +472,29 @@ button:disabled {
   opacity: 0.6;
 }
 
+.bouton--discret {
+  background: var(--fond-panneau);
+  color: var(--texte);
+  border-color: rgba(242, 243, 250, 0.22);
+}
+
+.bouton--discret:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.bouton--danger {
+  background: var(--erreur);
+  color: var(--texte-sombre);
+}
+
+/* --- Bandeaux --- */
+
 .bandeau {
   margin: 16px 0 0;
-  padding: 10px 12px;
-  border-radius: 6px;
-  border-left: 3px solid var(--trait);
-  background: var(--fond-champ);
+  padding: 10px 14px;
+  border-radius: 12px;
+  border-left: 5px solid var(--trait);
+  background: var(--fond-panneau);
   max-width: 560px;
   white-space: pre-wrap;
 }
@@ -259,17 +526,6 @@ button:disabled {
   flex-wrap: wrap;
 }
 
-.bouton--discret {
-  background: var(--fond-champ);
-  color: var(--texte);
-  border: 1px solid var(--trait);
-}
-
-.bouton--danger {
-  background: var(--erreur);
-  color: #2a1015;
-}
-
 .resume {
   color: var(--texte-doux);
   margin: 16px 0 8px;
@@ -277,12 +533,15 @@ button:disabled {
   white-space: pre-line;
 }
 
+/* --- Manches --- */
+
 .matchs {
-  border: 1px solid var(--trait);
-  border-radius: 8px;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   max-height: 46vh;
   overflow-y: auto;
+  padding-right: 4px;
 }
 
 /*
@@ -295,53 +554,71 @@ button:disabled {
   overflow-y: visible;
 }
 
-/* Les colonnes mode et carte tiennent les libelles francais les plus longs
-   (« Guerre de Territoire », « Supermarché Cétacé ») sur une seule ligne : sur
-   treize manches, un repli a deux lignes doublerait la hauteur du tableau. */
+/*
+ * Une ligne a la couleur de son mode (`--regle`, posee par le script) : vive
+ * pour une victoire, matte sinon. Meme regle que la planche : texte sombre sur
+ * la vive, clair sur la matte.
+ *
+ * Les colonnes mode et carte tiennent les libelles francais les plus longs
+ * (« Guerre de Territoire », « Supermarché Cétacé ») sur une seule ligne : sur
+ * treize manches, un repli a deux lignes doublerait la hauteur du tableau.
+ */
 .match {
   display: grid;
-  grid-template-columns: 4.5em minmax(11em, auto) 1fr 5em;
+  grid-template-columns: 24px 3.8em minmax(11em, auto) 1fr 5.5em;
+  align-items: center;
   gap: 10px;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--trait);
+  padding: 5px 12px;
+  border-radius: 10px;
+  background: var(--regle, var(--fond-panneau));
+  color: var(--texte);
   font-variant-numeric: tabular-nums;
 }
 
-.match > :nth-child(2),
-.match > :nth-child(3) {
+.match--win {
+  color: var(--texte-sombre);
+  font-weight: 700;
+}
+
+.match__picto {
+  width: 24px;
+  height: 24px;
+  background: center / contain no-repeat;
+}
+
+.match > :nth-child(3),
+.match > :nth-child(4) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.match:last-child {
-  border-bottom: none;
+.match > :last-child {
+  font-family: var(--titre);
+  font-weight: 400;
+  text-align: right;
+  text-transform: uppercase;
 }
 
-.match--win > :last-child {
-  color: var(--victoire);
-}
-
-.match--lose > :last-child {
-  color: var(--defaite);
-}
-
-.session {
+.match--ouvrable {
   cursor: pointer;
+  transition: transform 100ms ease;
 }
 
-.session:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+.match--ouvrable:hover,
+.match--ouvrable:focus-visible {
+  outline: none;
+  transform: translateX(4px);
+  box-shadow: inset 0 0 0 2px var(--texte);
 }
 
 /* --- Compte rendu --- */
 
 .compte-rendu,
 .fiche__manches {
-  margin-top: 24px;
+  margin-top: 26px;
   padding-top: 20px;
-  border-top: 1px solid var(--trait);
+  border-top: 2px dashed var(--trait);
 }
 
 /* Le compte rendu reste etroit ; le tableau des manches garde sa pleine largeur. */
@@ -353,19 +630,25 @@ button:disabled {
    dans l'apercu, qui doivent garder la casse et la couleur de Discord. */
 .compte-rendu > h3,
 .fiche__manches > h3 {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  display: inline-block;
+  margin: 0 0 14px;
+  padding: 2px 12px 0;
+  background: var(--texte);
+  color: var(--texte-sombre);
+  font-family: var(--titre);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: var(--texte-doux);
-  margin: 0 0 12px;
+  transform: skewX(-10deg);
 }
 
 .sections {
-  border: 1px solid var(--trait);
-  border-radius: 6px;
+  border: 2px solid var(--trait);
+  border-radius: 12px;
+  background: var(--fond-panneau);
   margin: 0 0 14px;
-  padding: 10px 12px 12px;
+  padding: 10px 14px 12px;
 }
 
 .sections legend {
@@ -389,7 +672,6 @@ button:disabled {
 }
 
 .section input {
-  accent-color: var(--accent);
   margin: 0;
   padding: 0;
   width: auto;
@@ -419,17 +701,18 @@ textarea {
   display: flex;
   gap: 4px;
   margin-top: 14px;
-  border-bottom: 1px solid var(--trait);
+  border-bottom: 2px solid var(--trait);
 }
 
 .onglets button {
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
   border-radius: 0;
   padding: 7px 14px;
   color: var(--texte-doux);
   cursor: pointer;
+  transform: none;
 }
 
 .onglets button[aria-selected="true"] {
@@ -450,18 +733,24 @@ textarea {
   border-radius: 8px;
   background: #313338;
   color: #dbdee1;
+  font-family: "gg sans", "Noto Sans", system-ui, sans-serif;
   font-size: 15px;
   line-height: 1.375;
 }
 
-/* Annule la regle globale `h1, h2` de cette feuille : elle met les titres de
-   l'application en majuscules et en lettres espacees, ce que Discord ne fait
-   pas. Un apercu qui ne ressemble pas a sa destination ne sert a rien. */
+/* Annule la regle globale `h1, h2` de cette feuille : elle en fait des
+   etiquettes jaunes, ce que Discord ne fait pas. Un apercu qui ne ressemble
+   pas a sa destination ne sert a rien. */
 .apercu__titre {
+  display: block;
+  padding: 0;
+  background: none;
   color: #f2f3f5;
+  font-family: inherit;
   font-weight: 700;
   text-transform: none;
   letter-spacing: normal;
+  transform: none;
   margin: 16px 0 8px;
 }
 
@@ -508,16 +797,6 @@ h3.apercu__titre {
 
 /* --- Détail d'une manche --- */
 
-.match--ouvrable {
-  cursor: pointer;
-}
-
-.match--ouvrable:hover,
-.match--ouvrable:focus-visible {
-  background: var(--fond-champ);
-  outline: none;
-}
-
 .manche__entete {
   display: flex;
   align-items: center;
@@ -528,12 +807,11 @@ h3.apercu__titre {
 }
 
 .manche__entete h3 {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--texte-doux);
   margin: 0;
+  font-family: var(--titre);
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--accent);
 }
 
 .manche__entete .actions {
@@ -546,29 +824,34 @@ h3.apercu__titre {
 }
 
 .equipe {
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .equipe h4 {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 1px 10px 0;
+  background: var(--violet);
+  color: var(--texte-sombre);
+  font-family: var(--titre);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: var(--texte-doux);
-  margin: 0 0 6px;
+  transform: skewX(-10deg);
 }
 
 .joueur {
-  border: 1px solid var(--trait);
-  border-radius: 6px;
-  padding: 8px 10px;
+  background: var(--fond-panneau);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 8px 12px;
   margin-bottom: 6px;
 }
 
 /* Ma ligne se repère d'un coup d'œil parmi les huit. */
 .joueur--moi {
   border-color: var(--accent);
-  background: var(--fond-champ);
 }
 
 .joueur__entete {
@@ -616,7 +899,7 @@ h3.apercu__titre {
 /* --- Planche de manches --- */
 
 .planche__option {
-  margin-top: 0.6rem;
+  margin-top: 0.8rem;
   font-size: 13px;
 }
 
@@ -639,20 +922,30 @@ h3.apercu__titre {
 
 .reglages__intro code,
 .reglages__aide code {
-  color: var(--texte);
+  color: var(--accent);
 }
 
 .reglages__groupe {
-  border: 1px solid var(--trait);
-  border-radius: 6px;
-  margin: 0 0 16px;
-  padding: 10px 14px 14px;
+  border: 2px solid var(--trait);
+  border-radius: 14px;
+  background: var(--fond-panneau);
+  margin: 0 0 18px;
+  padding: 12px 16px 16px;
 }
 
 .reglages__groupe legend {
-  color: var(--texte);
-  font-weight: 600;
-  padding: 0 4px;
+  padding: 1px 10px 0;
+  background: var(--accent);
+  color: var(--texte-sombre);
+  font-family: var(--titre);
+  font-size: 13.5px;
+  text-transform: uppercase;
+  transform: skewX(-10deg);
+}
+
+.reglages__groupe input:not([type="checkbox"]),
+.reglages__groupe select {
+  background: var(--fond-champ);
 }
 
 .reglages__aide {
@@ -660,6 +953,10 @@ h3.apercu__titre {
   color: var(--texte-doux);
   font-size: 12.5px;
   line-height: 1.45;
+}
+
+.reglages__groupe > .section {
+  margin-top: 14px;
 }
 
 .reglages__sections {
@@ -676,7 +973,7 @@ h3.apercu__titre {
   gap: 4px 14px;
   align-items: center;
   padding: 12px 0;
-  border-top: 1px solid var(--trait);
+  border-top: 2px dashed var(--trait);
 }
 
 .seuil:first-child {
@@ -685,7 +982,7 @@ h3.apercu__titre {
 
 .seuil__titre {
   color: var(--texte);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 13.5px;
 }
 

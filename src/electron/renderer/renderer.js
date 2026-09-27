@@ -34,6 +34,7 @@ const elements = {
   boutonEnregistrer: document.getElementById("bouton-enregistrer"),
   boutonAnnuler: document.getElementById("bouton-annuler"),
   boutonQuitter: document.getElementById("bouton-quitter"),
+  boutonDossierPlanches: document.getElementById("bouton-dossier-planches"),
   ficheNom: document.getElementById("fiche-nom"),
   ficheType: document.getElementById("fiche-type"),
   ficheObjectif: document.getElementById("fiche-objectif"),
@@ -81,7 +82,52 @@ const elements = {
   boutonReglagesDefauts: document.getElementById("bouton-reglages-defauts"),
   boutonReglagesRetour: document.getElementById("bouton-reglages-retour"),
   boutonReglagesRedemarrer: document.getElementById("bouton-reglages-redemarrer"),
+  reglageSansBarres: document.getElementById("reglage-sans-barres"),
+  bande: document.getElementById("bande"),
 };
+
+/** Pictos et couleurs de regle, par cle stat.ink, recus avec l'habillage. */
+let pictosDeRegle = {};
+let couleursDeRegle = {};
+
+/**
+ * Habille la fenetre aux couleurs du jeu : polices, motif, pictos de regle, et
+ * bande de titre quand la fenetre n'a plus la sienne.
+ *
+ * Rien ici n'est indispensable. Sans `npm run pictos`, les polices et les
+ * pictos manquent et la fenetre garde ses polices systeme ; un echec de
+ * chargement d'une police ne doit pas empecher de s'en servir.
+ *
+ * Les polices passent par `FontFace` et le motif par une propriete CSS posee
+ * depuis le script : une feuille `<style>` ecrite a la volee serait refusee
+ * par la politique de securite du document (`style-src 'self'`).
+ */
+async function appliqueLHabillage() {
+  const habillage = await api.habillage();
+  const racine = document.documentElement;
+
+  for (const [famille, uri] of [
+    ["Splatoon Titre", habillage.polices.titre],
+    ["Splatoon Texte", habillage.polices.texte],
+  ]) {
+    if (uri === undefined) continue;
+    try {
+      document.fonts.add(await new FontFace(famille, `url("${uri}")`).load());
+    } catch {
+      // Police illisible : on reste sur la pile de repli.
+    }
+  }
+
+  racine.style.setProperty("--motif", `url("${habillage.motif}")`);
+  pictosDeRegle = habillage.regles;
+  couleursDeRegle = habillage.couleurs;
+
+  if (habillage.sansBarres) {
+    racine.style.setProperty("--hauteur-bande", `${habillage.hauteurBande}px`);
+    document.body.classList.add("sans-barres");
+    elements.bande.hidden = false;
+  }
+}
 
 /** Vue affichee, pour que « Retour » des reglages y ramene. */
 let vueCourante = "formulaire";
@@ -108,6 +154,12 @@ function construisLesMatchs(rows, ouvrable = false) {
   return rows.map((row, index) => {
     const ligne = document.createElement("div");
     ligne.className = `match match--${row.result ?? "inconnu"}`;
+    // La couleur de la ligne est celle du mode, comme sur la planche : vive
+    // pour une victoire, matte pour le reste (voir `REGLES` dans `regles.ts`).
+    const couleurs = couleursDeRegle[row.ruleKey ?? ""] ?? couleursDeRegle.inconnue;
+    if (couleurs !== undefined) {
+      ligne.style.setProperty("--regle", row.result === "win" ? couleurs.vive : couleurs.matte);
+    }
     if (ouvrable) {
       ligne.classList.add("match--ouvrable");
       ligne.setAttribute("role", "button");
@@ -128,6 +180,11 @@ function construisLesMatchs(rows, ouvrable = false) {
       : "—";
     // `row.result` reste la cle de mise en forme (classe CSS ci-dessus) ;
     // c'est `row.resultLabel` qui porte le libelle francais.
+    const picto = document.createElement("span");
+    picto.className = "match__picto";
+    const uri = row.ruleKey === undefined ? undefined : pictosDeRegle[row.ruleKey];
+    if (uri !== undefined) picto.style.backgroundImage = `url("${uri}")`;
+    ligne.append(picto);
     for (const valeur of [heure, row.rule ?? "—", row.stage ?? "—", row.resultLabel ?? "—"]) {
       const cellule = document.createElement("span");
       cellule.textContent = valeur;
@@ -788,13 +845,36 @@ elements.boutonPlancheOuvrir.addEventListener("click", async () => {
   }
 });
 
+elements.boutonDossierPlanches.addEventListener("click", async () => {
+  cacheLesBandeaux();
+
+  elements.boutonDossierPlanches.disabled = true;
+  try {
+    const issue = await api.openPlancheDir();
+    if (issue === "copie") {
+      bandeau(
+        elements.succes,
+        "Explorateur indisponible : le chemin du dossier a été copié dans le presse-papier.",
+      );
+    }
+  } catch (erreur) {
+    bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  } finally {
+    elements.boutonDossierPlanches.disabled = false;
+  }
+});
+
 elements.boutonRetour.addEventListener("click", () => {
   ficheCourante = undefined;
   montreLaVue("formulaire");
 });
 
 preRemplisLaFenetre();
-chargeLesChoix()
+// L'habillage passe avant la liste : les lignes de manches lisent ses pictos.
+// Il ne bloque pas le demarrage s'il echoue.
+appliqueLHabillage()
+  .catch(() => {})
+  .then(chargeLesChoix)
   .then(rafraichisLaListe)
   .catch((erreur) => {
     bandeau(elements.erreur, `Démarrage impossible : ${String(erreur?.message ?? erreur)}`);
@@ -876,6 +956,7 @@ function remplisLesReglages(reglages) {
     case_.checked = reglages.sectionsParDefaut.includes(case_.value);
   }
   elements.reglageEntete.checked = reglages.enteteParDefaut;
+  elements.reglageSansBarres.checked = reglages.fenetreSansBarres;
   elements.reglageDossierSessions.value = reglages.dossiers.sessions;
   elements.reglageDossierPlanches.value = reglages.dossiers.planches;
   elements.reglageDossierPictos.value = reglages.dossiers.pictos;
@@ -904,6 +985,7 @@ function lisLesReglages() {
       (case_) => case_.value,
     ),
     enteteParDefaut: elements.reglageEntete.checked,
+    fenetreSansBarres: elements.reglageSansBarres.checked,
     dossiers: {
       sessions: elements.reglageDossierSessions.value,
       planches: elements.reglageDossierPlanches.value,

@@ -29,6 +29,8 @@ export const IPC = {
   buildPlanche: "planche:build",
   /** Revele le PNG d'une planche dans le gestionnaire de fichiers du systeme. */
   revealPlanche: "planche:reveal",
+  /** Ouvre le dossier des planches dans le gestionnaire de fichiers du systeme. */
+  openPlancheDir: "planches:open-dir",
   /** Ouvre un lien stat.ink dans le navigateur du systeme. */
   openExternal: "app:open-external",
   /** Met un texte dans le presse-papier du systeme. */
@@ -52,6 +54,8 @@ export const IPC = {
   saveSettings: "settings:save",
   /** Redemarre l'application, pour appliquer des reglages enregistres. */
   relaunchApp: "app:relaunch",
+  /** Polices du jeu, pictos de regle, motif et forme de la fenetre. */
+  habillage: "app:habillage",
 } as const;
 
 /** Ce que l'ecran des reglages recoit a l'ouverture. */
@@ -172,6 +176,17 @@ export type SplatoonApi = {
     brut: unknown,
   ) => Promise<{ reglages: import("../reglages.ts").Reglages; enAttente: boolean }>;
   relaunchApp: () => Promise<void>;
+  /**
+   * De quoi habiller la fenetre aux couleurs du jeu. `sansBarres` dit si la
+   * fenetre doit dessiner sa propre bande de titre, deplacable.
+   */
+  habillage: () => Promise<
+    import("../report/pictos.ts").Habillage & {
+      motif: string;
+      sansBarres: boolean;
+      hauteurBande: number;
+    }
+  >;
   /** Renvoie la fonction de desabonnement. */
   onFetchProgress: (
     listener: (progress: import("../fetchSession.ts").FetchPageProgress) => void,

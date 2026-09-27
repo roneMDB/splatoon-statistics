@@ -27,6 +27,12 @@ export type BattleRow = {
   lobby?: string;
   /** Mode, en francais. */
   rule?: string;
+  /**
+   * Cle stat.ink du mode (`nawabari`, `yagura`...), pour la couleur et le
+   * picto de la ligne. Omise si elle n'est pas faite de `[a-z0-9_]` : elle
+   * finit dans une classe CSS.
+   */
+  ruleKey?: string;
   /** Carte, en francais. */
   stage?: string;
   /**
@@ -54,6 +60,9 @@ export function toBattleRows(battles: StatinkBattle[]): BattleRow[] {
     ...(battle.lobby?.key !== undefined ? { lobby: battle.lobby.key } : {}),
     ...(battle.rule?.key !== undefined
       ? { rule: libelleDuMode(battle.rule.key, battle.rule.name?.en_US) }
+      : {}),
+    ...(battle.rule?.key !== undefined && /^[a-z0-9_]{1,64}$/.test(battle.rule.key)
+      ? { ruleKey: battle.rule.key }
       : {}),
     ...(battle.stage?.key !== undefined
       ? { stage: libelleDuStage(battle.stage.key, battle.stage.name?.en_US) }
