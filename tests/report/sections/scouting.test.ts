@@ -37,14 +37,16 @@ describe("sectionScouting", () => {
     expect(lignes[legende]).toContain("K/D : éliminations par mort, sans les assistances");
   });
 
-  test("ne nomme jamais un adversaire par son pseudo", () => {
-    const rendu = texte(
-      sectionScouting(analyse({ manches: treizeManches, adverse: [octobrush, versatile] })),
+  test("nomme les adversaires par leur pseudo, leur arme a cote", () => {
+    const lignes = sectionScouting(
+      analyse({ manches: treizeManches, adverse: [octobrush, versatile] }),
     );
+    const rendu = texte(lignes);
 
-    expect(rendu).not.toContain("Marée");
-    expect(rendu).not.toContain("Écume");
-    expect(rendu).toContain("Cometz Octobrush");
+    expect(rendu).toContain("Marée");
+    expect(rendu).toContain("Écume");
+    const ligneMaree = lignes.find((ligne) => ligne.startsWith("Marée"));
+    expect(ligneMaree).toContain("Cometz Octobrush");
   });
 
   test("designe le plus dangereux comme menace principale", () => {
@@ -52,28 +54,34 @@ describe("sectionScouting", () => {
       sectionScouting(analyse({ manches: treizeManches, adverse: [octobrush, versatile] })),
     );
 
-    expect(rendu).toContain("Menace principale : Cometz Octobrush");
+    expect(rendu).toContain("Menace principale : Marée** · Cometz Octobrush · 114 éliminations");
   });
 
-  test("numerote deux adversaires que la meme arme rendrait indistinguables", () => {
-    const jumeau = joueur({
-      nom: "autre",
-      kill: 10,
-      manches: 13,
-      armes: [{ nom: "Cometz Octobrush", manches: 13 }],
-    });
+  test("numerote deux adversaires sans pseudo, qui seraient indistinguables", () => {
+    const sansNom = (kill: number) =>
+      joueur({ nom: "(sans nom)", kill, manches: 13, armes: [{ nom: "Cometz Octobrush", manches: 13 }] });
     const rendu = texte(
-      sectionScouting(analyse({ manches: treizeManches, adverse: [octobrush, jumeau] })),
+      sectionScouting(analyse({ manches: treizeManches, adverse: [sansNom(20), sansNom(10)] })),
     );
 
-    expect(rendu).toContain("Cometz Octobrush (1)");
-    expect(rendu).toContain("Cometz Octobrush (2)");
+    expect(rendu).toContain("(sans nom) (1)");
+    expect(rendu).toContain("(sans nom) (2)");
+  });
+
+  test("coiffe la section du nom de l'equipe adverse quand il est saisi", () => {
+    const sans = sectionScouting(analyse({ manches: treizeManches, adverse: [octobrush] }));
+    const avec = sectionScouting(
+      analyse({ manches: treizeManches, adverse: [octobrush], nomEquipeAdverse: "Les Calamars" }),
+    );
+
+    expect(sans[0]).toBe("### ⚔️ En face");
+    expect(avec[0]).toBe("### ⚔️ En face : Les Calamars");
   });
 
   test("signale le joueur qui n'a jamais change d'arme", () => {
     const rendu = texte(sectionScouting(analyse({ manches: treizeManches, adverse: [octobrush] })));
 
-    expect(rendu).toContain("une seule arme sur toute la session");
+    expect(rendu).toContain("Une seule arme sur toute la session");
   });
 
   test("ne signale pas de mono-arme quand le joueur n'a pas fait toute la session", () => {
@@ -86,13 +94,13 @@ describe("sectionScouting", () => {
       sectionScouting(analyse({ manches: treizeManches, adverse: [remplacant] })),
     );
 
-    expect(rendu).not.toContain("une seule arme sur toute la session");
+    expect(rendu).not.toContain("Une seule arme sur toute la session");
   });
 
   test("ne parle pas de mono-arme sur une session d'une seule manche", () => {
     const rendu = texte(sectionScouting(analyse({ manches: [manche()], adverse: [joueur({ nom: "a" })] })));
 
-    expect(rendu).not.toContain("une seule arme");
+    expect(rendu).not.toContain("Une seule arme");
   });
 
   test("ne tabule pas les joueurs de passage", () => {

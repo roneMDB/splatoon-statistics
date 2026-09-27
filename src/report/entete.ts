@@ -20,7 +20,7 @@
 
 import type { AnalyseSession, ArmeJouee, StatsJoueur } from "./analyse.ts";
 import { reguliers } from "./analyse.ts";
-import { moyenne, pluriel, ratio, titreDeSession } from "./format.ts";
+import { designeLesAdversaires, moyenne, pluriel, ratio, rencontre, titreDeSession } from "./format.ts";
 import { echappe } from "./html.ts";
 import type { SectionCompteRendu } from "./index.ts";
 import { cleSure, type CategoriePicto, type Pictos } from "./pictos.ts";
@@ -183,6 +183,7 @@ const STYLE_FIXE = `
 .score__titres { flex: 1; min-width: 0; }
 .score__titre { font-family: ${TITRE}; font-weight: 400; font-size: 42px; line-height: 1.05; color: #eaff3d; }
 .score__sous { margin-top: 6px; font-size: 18px; }
+.score__rencontre { margin-top: 6px; font-size: 22px; font-weight: 700; overflow-wrap: anywhere; }
 .score__chiffres { font-family: ${TITRE}; font-size: 88px; line-height: 1; white-space: nowrap; }
 .score__v { color: #eaff3d; }
 .score__d { color: #ff6fa1; }
@@ -270,7 +271,8 @@ ${COULEURS_DE_TUILE}
 
 .adversaires { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; list-style: none; }
 .adversaire { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #0e0f18; clip-path: polygon(0 8px, 8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%); }
-.adversaire__nom { display: block; font-weight: 700; font-size: 15px; line-height: 1.2; }
+.adversaire__nom { display: block; font-weight: 700; font-size: 15px; line-height: 1.2; overflow-wrap: anywhere; }
+.adversaire__arme { display: block; margin-top: 2px; font-size: 13px; }
 .adversaire__chiffres { display: block; margin-top: 3px; font-size: 13px; }
 .adversaire__chiffres b { font-family: ${TITRE}; font-weight: 400; font-size: 17px; color: #eaff3d; }
 `.trim();
@@ -288,6 +290,7 @@ function blocScore(file: SessionFile, analyse: AnalyseSession, registre: Registr
   const premiere = analyse.manches[0];
   const derniere = analyse.manches[analyse.manches.length - 1];
   const lobby = libelleDuLobby(analyse.lobby);
+  const affiche = rencontre(analyse);
 
   const sous = [
     analyse.lobby === undefined ? undefined : lobby,
@@ -307,6 +310,7 @@ function blocScore(file: SessionFile, analyse: AnalyseSession, registre: Registr
       registre.picto("lobbies", analyse.lobby, "", "xl") +
       `<div class="score__titres">` +
       `<h1 class="score__titre">${echappe(titreDeSession(file, analyse))}</h1>` +
+      (affiche === undefined ? "" : `<p class="score__rencontre">${echappe(affiche)}</p>`) +
       `<p class="score__sous secondaire">${echappe(sous.join(" · "))}</p>` +
       `</div>` +
       `<p class="score__chiffres">` +
@@ -473,50 +477,32 @@ function blocModes(analyse: AnalyseSession, registre: Registre, plein: boolean):
   );
 }
 
-/**
- * Le nom francais de l'arme dominante, numerote en cas d'homonymie.
- *
- * `designeLesAdversaires` rend la forme bilingue, faite pour une phrase ; sur
- * une carte de 370 pixels, « Épinceau brosse stellapex (Cometz Octobrush) »
- * passe sur deux lignes. Le francais seul, comme dans le tableau du Markdown.
- */
-function nomsFrancaisNumerotes(adverse: StatsJoueur[]): string[] {
-  const nom = (joueur: StatsJoueur) => joueur.armes[0]?.nom ?? "arme inconnue";
-  const total = new Map<string, number>();
-  for (const joueur of adverse) total.set(nom(joueur), (total.get(nom(joueur)) ?? 0) + 1);
-
-  const vus = new Map<string, number>();
-  return adverse.map((joueur) => {
-    if ((total.get(nom(joueur)) ?? 0) < 2) return nom(joueur);
-    const rang = (vus.get(nom(joueur)) ?? 0) + 1;
-    vus.set(nom(joueur), rang);
-    return `${nom(joueur)} (${rang})`;
-  });
-}
-
-/** Les adversaires presents sur la session, designes par leur arme. */
+/** Les adversaires presents sur la session : pseudo, arme dominante, chiffres. */
 function blocEnFace(analyse: AnalyseSession, registre: Registre): string {
   const adverse: StatsJoueur[] = reguliers(analyse.adverse, analyse.manches.length);
   if (adverse.length === 0) return "";
-  const noms = nomsFrancaisNumerotes(adverse);
+  const noms = designeLesAdversaires(adverse);
 
   const cartes = adverse.map((joueur, index) => {
     const arme = joueur.armes[0];
+    // Le nom francais seul : sur une carte de 370 pixels, la forme bilingue
+    // « Épinceau brosse stellapex (Cometz Octobrush) » passe sur deux lignes.
+    const nomDArme =
+      arme === undefined ? "" : `<span class="adversaire__arme secondaire">${echappe(arme.nom)}</span>`;
     const chiffres =
       `<span class="adversaire__chiffres secondaire">` +
       `<b>${joueur.kill}</b> élim. · <b>${joueur.death}</b> morts · K/D <b>${ratio(joueur.kill, joueur.death)}</b>` +
       `</span>`;
     return (
       `<li class="adversaire">` +
-      (arme === undefined
-        ? `<span><span class="adversaire__nom">${echappe(noms[index] ?? "—")}</span>${chiffres}</span>`
-        : registre.picto("armes", arme.cle, "", "l") +
-          `<span><span class="adversaire__nom">${echappe(noms[index] ?? arme.nom)}</span>${chiffres}</span>`) +
+      (arme === undefined ? "" : registre.picto("armes", arme.cle, "", "l")) +
+      `<span><span class="adversaire__nom">${echappe(noms[index] ?? joueur.nom)}</span>${nomDArme}${chiffres}</span>` +
       `</li>`
     );
   });
 
-  return sticker(`<ul class="adversaires">${cartes.join("")}</ul>`, { etiquette: "En face", plein: true });
+  const etiquette = analyse.nomEquipeAdverse === undefined ? "En face" : `En face : ${analyse.nomEquipeAdverse}`;
+  return sticker(`<ul class="adversaires">${cartes.join("")}</ul>`, { etiquette, plein: true });
 }
 
 /**

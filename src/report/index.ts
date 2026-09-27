@@ -12,7 +12,7 @@
 import type { SessionFile } from "../store.ts";
 import { analyseSession } from "./analyse.ts";
 import type { AnalyseSession } from "./analyse.ts";
-import { bilanDeSession, titreDeSession } from "./format.ts";
+import { bilanDeSession, rencontre, titreDeSession } from "./format.ts";
 import { sectionCourbe } from "./sections/courbe.ts";
 import { sectionModes } from "./sections/modes.ts";
 import { sectionRole } from "./sections/role.ts";
@@ -56,7 +56,14 @@ function entete(file: SessionFile, analyse: AnalyseSession): string[] {
   const [premier, ...reste] = bilanDeSession(analyse);
   const bilan = [`**${premier}**`, ...reste].join(" · ");
 
-  return [`## ${titreDeSession(file, analyse)}`, "", bilan, ""];
+  const affiche = rencontre(analyse);
+  return [
+    `## ${titreDeSession(file, analyse)}`,
+    "",
+    ...(affiche === undefined ? [] : [`**${affiche}**`, ""]),
+    bilan,
+    "",
+  ];
 }
 
 /**

@@ -87,6 +87,13 @@ describe("parseReportArgs", () => {
     expect(options.objectif).toBe("Support");
     expect(options.ressenti).toBe("Dur");
   });
+
+  test("porte les noms d'equipe passes en option", () => {
+    const options = parseReportArgs(["x.json", "--equipe", "Gloup Squad", "--equipe-adverse", "Calamars"]);
+
+    expect(options.equipes).toEqual({ nomEquipe: "Gloup Squad", nomEquipeAdverse: "Calamars" });
+    expect(parseReportArgs(["x.json"]).equipes).toEqual({});
+  });
 });
 
 describe("parseReportArgs --planche", () => {
@@ -124,6 +131,16 @@ describe("rendCompteRendu", () => {
     const rendu = await rendCompteRendu(parseReportArgs([path, "--out", "data/sessions"]));
 
     expect(rendu).toContain("## Intra du 11/09");
+  });
+
+  test("annonce les equipes passees en option", async () => {
+    const { dir, path } = await sessionSurDisque();
+
+    const rendu = await rendCompteRendu(
+      parseReportArgs([path, "--out", dir, "--equipe", "Gloup Squad", "--equipe-adverse", "Calamars"]),
+    );
+
+    expect(rendu).toContain("**Gloup Squad vs Calamars**");
   });
 
   test("laisse l'option primer sur l'objectif enregistre", async () => {

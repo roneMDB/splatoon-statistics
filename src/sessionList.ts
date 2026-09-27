@@ -32,6 +32,10 @@ export type SessionSummary = {
   objectif?: string;
   /** Ressenti saisi a la main. Absent s'il n'a jamais ete rempli. */
   ressenti?: string;
+  /** Nom de mon equipe. Absent s'il n'a jamais ete rempli. */
+  nomEquipe?: string;
+  /** Nom de l'equipe adverse. Absent s'il n'a jamais ete rempli. */
+  nomEquipeAdverse?: string;
   fetchedAt: string;
   window: { from: string; to: string };
   battleCount: number;
@@ -76,6 +80,8 @@ export function summarizeSessionFile(
     ...(file.type !== undefined ? { type: file.type } : {}),
     ...(file.objectif !== undefined ? { objectif: file.objectif } : {}),
     ...(file.ressenti !== undefined ? { ressenti: file.ressenti } : {}),
+    ...(file.nomEquipe !== undefined ? { nomEquipe: file.nomEquipe } : {}),
+    ...(file.nomEquipeAdverse !== undefined ? { nomEquipeAdverse: file.nomEquipeAdverse } : {}),
     fetchedAt: file.fetchedAt,
     window: { from: file.window.from, to: file.window.to },
     battleCount: file.battleCount,
@@ -261,7 +267,14 @@ export async function readSession(
  */
 export async function updateSessionMeta(
   path: string,
-  meta: { name?: string; type?: SessionType; objectif?: string; ressenti?: string },
+  meta: {
+    name?: string;
+    type?: SessionType;
+    objectif?: string;
+    ressenti?: string;
+    nomEquipe?: string;
+    nomEquipeAdverse?: string;
+  },
   outDir: string = DEFAULT_OUT_DIR,
 ): Promise<SessionSummary> {
   const resolu = await cheminDeSession(path, outDir);
@@ -273,6 +286,8 @@ export async function updateSessionMeta(
     type: meta.type,
     objectif: meta.objectif,
     ressenti: meta.ressenti,
+    nomEquipe: meta.nomEquipe,
+    nomEquipeAdverse: meta.nomEquipeAdverse,
     window: sessionWindowOf(file),
     // Le fichier stocke les filtres a plat ; ils repartent tels quels.
     filters: file.filters as BattleFilters,

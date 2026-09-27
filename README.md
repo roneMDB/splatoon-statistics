@@ -31,7 +31,7 @@ nouvelle récupération à droite. **Prévisualiser** interroge stat.ink et affi
 les matchs trouvés sans rien écrire ; **Enregistrer** écrit exactement ce que
 l'aperçu montrait, sans second appel réseau.
 
-Cliquer une session ouvre sa fiche : ses matchs, son nom, son type, l'objectif
+Cliquer une session ouvre sa fiche : ses matchs, son nom, son type, les noms d'équipe, l'objectif
 qu'on s'était fixé et son ressenti, tous modifiables. On peut aussi l'y supprimer,
 après confirmation.
 
@@ -191,16 +191,22 @@ annoncé sans série de défaites. Aucun modèle de langage n'intervient ; deux 
 même session donnent deux fois le même texte. Les seuils sont réunis dans
 `src/report/seuils.ts`.
 
-Seuls l'objectif et le ressenti sont saisis à la main, et ils sont enregistrés dans
-le fichier de session.
+Seuls l'objectif, le ressenti et, facultativement, le nom de mon équipe et celui de
+l'équipe adverse sont saisis à la main, et ils sont enregistrés dans le fichier de
+session. Le nom d'équipe est porté par chaque session et non par les réglages : une
+équipe change de nom, et une ancienne session garde celui qu'elle avait. La fiche
+propose en suggestion les noms déjà saisis, le plus récent d'abord. Une fois
+saisis, ils s'affichent sous le titre (« Gloup Squad vs Les Calamars »), en tête du
+scouting et titrent chaque camp sur les cartes de la planche, à la place de
+« Nous » et « Eux ».
 
-Les adversaires sont désignés par leur arme, jamais par leur pseudo : en intra, ce
-sont des camarades de club qui lisent le même Discord.
+Les adversaires sont désignés par leur pseudo, leur arme dominante à côté.
 
 ```bash
 npm run report -- data/sessions/Gloup_20260911-2000_20260911-2301.json
 npm run report -- <fichier> --sections role,modes
 npm run report -- <fichier> --planche
+npm run report -- <fichier> --equipe "Gloup Squad" --equipe-adverse "Les Calamars"
 ```
 
 La ligne de commande imprime le même document sur la sortie standard ; elle sert à

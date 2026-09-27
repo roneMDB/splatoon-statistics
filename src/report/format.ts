@@ -92,21 +92,20 @@ export function tableau(entetes: string[], lignes: string[][]): string[] {
  * change en un endroit :
  *
  * - soi-meme : « moi » ;
- * - un coequipier : son pseudo en jeu ;
- * - un adversaire : son arme dominante dans les deux langues, **jamais son
- *   pseudo**. Les adversaires
- *   d'une intra sont des camarades de club, et le compte rendu finit sur un
- *   Discord ou ils se lisent : leur pseudo n'a pas a se retrouver accole a un
- *   chiffre de morts.
+ * - un coequipier comme un adversaire : son pseudo en jeu.
  *
- * Designer un adversaire par son arme ne l'anonymise pas - dans une partie a
- * huit, « Octobrush » designe une personne pour qui etait la. Cela evite le
- * pseudo a cote du jugement, rien de plus.
+ * Les adversaires etaient longtemps designes par leur arme, pour ne pas
+ * accoler le pseudo d'un camarade de club a un chiffre de morts. Le choix
+ * s'est inverse : le compte rendu sert a preparer la revanche, et « Octobrush »
+ * designait de toute facon une personne pour qui etait la. L'arme reste citee
+ * a cote du pseudo la ou elle informe, dans le scouting.
  */
-export function designe(joueur: StatsJoueur, camp: "nous" | "eux"): string {
-  if (joueur.moi) return "moi";
-  if (camp === "nous") return joueur.nom;
+export function designe(joueur: StatsJoueur): string {
+  return joueur.moi ? "moi" : joueur.nom;
+}
 
+/** L'arme dominante d'un joueur, dans les deux langues. */
+export function armeDominante(joueur: StatsJoueur): string {
   const arme = joueur.armes[0];
   return arme === undefined ? "arme inconnue" : libelleDeLArme(arme.nom, arme.anglais);
 }
@@ -114,7 +113,7 @@ export function designe(joueur: StatsJoueur, camp: "nous" | "eux"): string {
 /**
  * Designe toute une equipe adverse en levant les homonymies d'arme.
  *
- * Deux joueurs sur la meme arme dominante porteraient la meme designation :
+ * Deux joueurs sans pseudo (« (sans nom) ») porteraient la meme designation :
  * on numerote alors, faute de quoi le tableau presenterait deux lignes
  * indistinguables.
  */
@@ -122,17 +121,26 @@ export function designeLesAdversaires(adversaires: StatsJoueur[]): string[] {
   const vus = new Map<string, number>();
   const total = new Map<string, number>();
   for (const joueur of adversaires) {
-    const nom = designe(joueur, "eux");
+    const nom = designe(joueur);
     total.set(nom, (total.get(nom) ?? 0) + 1);
   }
 
   return adversaires.map((joueur) => {
-    const nom = designe(joueur, "eux");
+    const nom = designe(joueur);
     if ((total.get(nom) ?? 0) < 2) return nom;
     const rang = (vus.get(nom) ?? 0) + 1;
     vus.set(nom, rang);
     return `${nom} (${rang})`;
   });
+}
+
+/**
+ * « Gloup Squad vs Les Calamars », ou rien si aucun nom d'equipe n'est saisi.
+ * Un seul nom connu : l'autre camp garde le libelle generique de la planche.
+ */
+export function rencontre(analyse: Pick<AnalyseSession, "nomEquipe" | "nomEquipeAdverse">): string | undefined {
+  if (analyse.nomEquipe === undefined && analyse.nomEquipeAdverse === undefined) return undefined;
+  return `${analyse.nomEquipe ?? "Nous"} vs ${analyse.nomEquipeAdverse ?? "Eux"}`;
 }
 
 /** `2026-09-11T18:00:00Z` -> `11/09`. */

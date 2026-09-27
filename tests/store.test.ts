@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildSessionFile, buildSessionFileName, writeSession } from "../src/store.ts";
+import { avecLesEquipes, buildSessionFile, buildSessionFileName, writeSession } from "../src/store.ts";
 import { buildWindow } from "../src/window.ts";
 import type { StatinkBattle } from "../src/statink/types.ts";
 
@@ -175,5 +175,27 @@ describe("buildSessionFile, nom et type de session", () => {
       "name",
       "type",
     ]);
+  });
+});
+
+describe("avecLesEquipes", () => {
+  const file = {
+    ...buildSessionFile({ user: "Gloup", window, battles: [], fetchedAt: new Date(0) }),
+    nomEquipe: "Ancienne",
+    nomEquipeAdverse: "Adverse",
+  };
+
+  test("un champ absent garde la valeur de la session", () => {
+    expect(avecLesEquipes(file, { nomEquipe: " Nouvelle " })).toMatchObject({
+      nomEquipe: "Nouvelle",
+      nomEquipeAdverse: "Adverse",
+    });
+  });
+
+  test("une chaine vide efface le nom, sans toucher la session d'origine", () => {
+    const resultat = avecLesEquipes(file, { nomEquipe: "", nomEquipeAdverse: "  " });
+    expect(resultat).not.toHaveProperty("nomEquipe");
+    expect(resultat).not.toHaveProperty("nomEquipeAdverse");
+    expect(file.nomEquipe).toBe("Ancienne");
   });
 });

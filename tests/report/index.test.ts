@@ -48,6 +48,21 @@ describe("construisLeCompteRendu — entete", () => {
     expect(rendu).toContain("## Intra du 11/09 — Équipe A vs Équipe O");
   });
 
+  test("annonce la rencontre sous le titre quand les equipes sont nommees", () => {
+    const rendu = construisLeCompteRendu(
+      session({ nomEquipe: "Gloup Squad", nomEquipeAdverse: "Les Calamars" }),
+      { sections: [] },
+    );
+
+    expect(rendu).toContain("## Session du 11/09\n\n**Gloup Squad vs Les Calamars**\n");
+  });
+
+  test("n'annonce aucune rencontre sans nom d'equipe", () => {
+    const rendu = construisLeCompteRendu(session(), { sections: [] });
+
+    expect(rendu).not.toContain(" vs ");
+  });
+
   test("se passe du nom et du type quand la session n'en a pas", () => {
     const rendu = construisLeCompteRendu(session(), { sections: [] });
 

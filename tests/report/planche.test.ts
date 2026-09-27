@@ -63,7 +63,7 @@ const battle = (uuid: string, resultat: string, options: Partial<StatinkBattle> 
   } as unknown as StatinkBattle;
 };
 
-const session = (battles: StatinkBattle[]): SessionFile =>
+const session = (battles: StatinkBattle[], extra: Partial<SessionFile> = {}): SessionFile =>
   ({
     source: "stat.ink",
     user: "Gloup",
@@ -74,6 +74,7 @@ const session = (battles: StatinkBattle[]): SessionFile =>
     filters: {},
     battleCount: battles.length,
     battles,
+    ...extra,
   }) as SessionFile;
 
 /**
@@ -173,6 +174,21 @@ describe("construisLaPlanche", () => {
     expect(html).toContain("☆Bloup☆");
     expect(html).toContain("Sauvxge");
     expect(html).toContain("к? Reby");
+  });
+
+  test("titre chaque camp du nom de son equipe quand il est saisi", () => {
+    const html = construisLaPlanche(
+      session([battle("a", "win")], { nomEquipe: "Gloup Squad", nomEquipeAdverse: "Les Calamars" }),
+    );
+    expect(html).toContain('class="equipe__titre">Gloup Squad<');
+    expect(html).toContain('class="equipe__titre">Les Calamars<');
+    expect(html).toContain("Gloup Squad vs Les Calamars");
+  });
+
+  test("garde « Eux » quand seul le nom de mon equipe est saisi", () => {
+    const html = construisLaPlanche(session([battle("a", "win")], { nomEquipe: "Gloup Squad" }));
+    expect(html).toContain('class="equipe__titre">Gloup Squad<');
+    expect(html).toContain('class="equipe__titre">Eux<');
   });
 
   test("place toujours Nous avant Eux, meme quand on perd", () => {

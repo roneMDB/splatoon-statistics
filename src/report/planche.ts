@@ -24,12 +24,9 @@
  *    atterrit dans un attribut `style`, ou echapper ne suffit pas et ou la
  *    valeur est refusee plutot que nettoyee. Voir `couleurSure`.
  *
- * Sur les pseudos des adversaires : `format.ts` pose la regle inverse pour le
- * compte rendu — un adversaire y est designe par son arme, jamais par son
- * pseudo. La planche fait exception, deliberement. Elle ne juge pas : elle
- * reproduit le tableau de fin de manche que les huit joueurs ont deja vu a
- * l'ecran. Voir la section B de
- * `docs/superpowers/specs/2026-09-15-planche-de-manches-design.md`.
+ * Sur les pseudos : la planche reproduit le tableau de fin de manche que les
+ * huit joueurs ont deja vu a l'ecran, adversaires compris. Chaque camp porte
+ * le nom de son equipe quand il a ete saisi, « Nous » et « Eux » sinon.
  *
  * Sur l'allure : la carte prend la couleur de sa regle, en deux intensites
  * selon le verdict. Voir `REGLES` dans `regles.ts` et
@@ -41,7 +38,7 @@ import type { BattleDetail, JoueurDeManche } from "../battleDetail.ts";
 import type { SessionFile } from "../store.ts";
 import { analyseSession } from "./analyse.ts";
 import { enteteEnHtml, Registre, type OptionsEntete } from "./entete.ts";
-import { bilanDeSession, titreDeSession } from "./format.ts";
+import { bilanDeSession, rencontre, titreDeSession } from "./format.ts";
 import { echappe } from "./html.ts";
 import { aucunPicto, type Pictos } from "./pictos.ts";
 import { REGLES, regleConnue } from "./regles.ts";
@@ -316,6 +313,9 @@ ${COULEURS_DE_REGLE}
 .equipe { padding: 10px 12px; }
 .equipe + .equipe { border-left: 1px solid rgba(242, 243, 250, 0.14); }
 .equipe__titre {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.1em;
@@ -477,7 +477,12 @@ function equipeEnHtml(
  * lui qui donne le rythme a la grille et permet de retrouver une manche sans
  * compter les cartes.
  */
-function mancheEnHtml(detail: BattleDetail, numero: number, registre: Registre): string {
+function mancheEnHtml(
+  detail: BattleDetail,
+  numero: number,
+  registre: Registre,
+  camps: { nous: string; eux: string },
+): string {
   const contexte = [
     heureDe(detail.startedAt),
     detail.rule,
@@ -512,13 +517,18 @@ function mancheEnHtml(detail: BattleDetail, numero: number, registre: Registre):
     `<span class="manche__contexte">${echappe(contexte.join(" · "))}</span>` +
     `</div>` +
     `<div class="manche__equipes">` +
-    equipeEnHtml("Nous", detail.nous, registre, detail.couleurNous) +
-    equipeEnHtml("Eux", detail.eux, registre, detail.couleurEux) +
+    equipeEnHtml(camps.nous, detail.nous, registre, detail.couleurNous) +
+    equipeEnHtml(camps.eux, detail.eux, registre, detail.couleurEux) +
     `</div>` +
     medailles +
     `</article>` +
     `</div>`
   );
+}
+
+/** Le titre de chaque camp sur les cartes : le nom d'equipe saisi, ou le generique. */
+function campsDe(file: SessionFile): { nous: string; eux: string } {
+  return { nous: file.nomEquipe ?? "Nous", eux: file.nomEquipeAdverse ?? "Eux" };
 }
 
 /**
@@ -585,7 +595,8 @@ export function construisLaPlanche(file: SessionFile, options: OptionsPlanche = 
   // Cartes et legende d'abord : l'en-tete rend la feuille du registre, qui doit
   // deja connaitre tous les pictos des cartes.
   const details = file.battles.map((battle) => toBattleDetail(battle));
-  const manches = details.map((detail, index) => mancheEnHtml(detail, index + 1, registre)).join("\n");
+  const camps = campsDe(file);
+  const manches = details.map((detail, index) => mancheEnHtml(detail, index + 1, registre, camps)).join("\n");
   const legende = legendeEnHtml(details, registre);
   const entete =
     options.entete === undefined ? undefined : enteteEnHtml(file, analyse, options.entete, pictos, registre);
@@ -602,7 +613,7 @@ export function construisLaPlanche(file: SessionFile, options: OptionsPlanche = 
         ? [
             '<header class="planche__entete">',
             `<h1>${echappe(titre)}</h1>`,
-            `<p>${echappe(bilanDeSession(analyse).join(" · "))}</p>`,
+            `<p>${echappe([rencontre(analyse), ...bilanDeSession(analyse)].filter(Boolean).join(" · "))}</p>`,
             "</header>",
           ].join("\n")
         : entete.html,
@@ -654,7 +665,9 @@ export function construisLesPages(file: SessionFile, options: OptionsPlanche = {
     const debut = rang * MANCHES_PAR_PAGE;
     const lot = details.slice(debut, debut + MANCHES_PAR_PAGE);
     const registre = new Registre(pictos);
-    const manches = lot.map((detail, index) => mancheEnHtml(detail, debut + index + 1, registre)).join("\n");
+    const manches = lot
+      .map((detail, index) => mancheEnHtml(detail, debut + index + 1, registre, campsDe(file)))
+      .join("\n");
     const legende = legendeEnHtml(lot, registre);
     const premiere = debut + 1;
     const derniere = debut + lot.length;
@@ -674,7 +687,7 @@ export function construisLesPages(file: SessionFile, options: OptionsPlanche = {
         corps: [
           '<header class="planche__entete planche__entete--page">',
           `<h1>${echappe(titre)}</h1>`,
-          `<p>${echappe(portee)}</p>`,
+          `<p>${echappe([rencontre(analyse), portee].filter(Boolean).join(" · "))}</p>`,
           "</header>",
           legende,
           '<main class="planche__grille planche__grille--colonne">',

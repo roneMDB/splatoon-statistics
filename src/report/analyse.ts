@@ -114,6 +114,10 @@ export type AnalyseSession = {
   lobby?: string;
   objectif?: string;
   ressenti?: string;
+  /** Nom de mon equipe, saisi a la main. */
+  nomEquipe?: string;
+  /** Nom de l'equipe d'en face, saisi a la main. */
+  nomEquipeAdverse?: string;
   manches: Manche[];
   bilan: { victoires: number; defaites: number; nuls: number; total: number };
   /** Somme des durees de manche, arrondie a la minute. */
@@ -390,6 +394,8 @@ export function analyseSession(file: SessionFile): AnalyseSession {
     ...(file.battles[0]?.lobby?.key !== undefined ? { lobby: file.battles[0].lobby.key } : {}),
     ...(file.objectif !== undefined ? { objectif: file.objectif } : {}),
     ...(file.ressenti !== undefined ? { ressenti: file.ressenti } : {}),
+    ...(file.nomEquipe !== undefined ? { nomEquipe: file.nomEquipe } : {}),
+    ...(file.nomEquipeAdverse !== undefined ? { nomEquipeAdverse: file.nomEquipeAdverse } : {}),
     manches,
     bilan,
     tempsDeJeuMinutes: Math.round(secondesDeJeu / 60),

@@ -35,6 +35,7 @@ import { estUneUrlStatink, saitOuvrirUnLien } from "../lienExterne.ts";
 import { saitOuvrirExplorer } from "../revelePlanche.ts";
 import { parseSessionType, SESSION_TYPES } from "../sessionMeta.ts";
 import { KNOWN_LOBBIES } from "../statink/url.ts";
+import { avecLesEquipes, type Equipes } from "../store.ts";
 import { tourneSousWsl, versCheminWindows } from "../wsl.ts";
 import {
   IPC,
@@ -207,6 +208,8 @@ ipcMain.handle(
       type?: string;
       objectif?: string;
       ressenti?: string;
+      nomEquipe?: string;
+      nomEquipeAdverse?: string;
     },
   ) =>
     updateSessionMeta(input.path, {
@@ -214,6 +217,8 @@ ipcMain.handle(
       type: parseSessionType(input.type),
       objectif: input.objectif,
       ressenti: input.ressenti,
+      nomEquipe: input.nomEquipe,
+      nomEquipeAdverse: input.nomEquipeAdverse,
     }),
 );
 
@@ -242,11 +247,19 @@ function sectionsValidees(sections: string[] | undefined): SectionCompteRendu[] 
   return (sections ?? []).filter(estUneSection);
 }
 
+/** Les noms d'equipe saisis, seuls champs de l'entree qui les concernent. */
+function equipesDe(input: { nomEquipe?: string; nomEquipeAdverse?: string }): Equipes {
+  return {
+    ...(input.nomEquipe !== undefined ? { nomEquipe: input.nomEquipe } : {}),
+    ...(input.nomEquipeAdverse !== undefined ? { nomEquipeAdverse: input.nomEquipeAdverse } : {}),
+  };
+}
+
 ipcMain.handle(IPC.buildReport, async (_event, input: BuildReportInput) => {
   const sections = sectionsValidees(input.sections);
 
   // readSession refuse tout chemin hors du dossier des sessions.
-  const file = await readSession(input.path);
+  const file = avecLesEquipes(await readSession(input.path), equipesDe(input));
   return construisLeCompteRendu(file, {
     sections,
     ...(input.objectif !== undefined ? { objectif: input.objectif } : {}),
@@ -273,7 +286,7 @@ ipcMain.handle(IPC.buildPlanche, async (_event, input: BuildPlancheInput) => {
     input.path,
     outilsDePlanche,
     DEFAULT_PLANCHE_DIR,
-    entete === undefined ? {} : { entete },
+    { ...(entete === undefined ? {} : { entete }), equipes: equipesDe(input) },
   );
   if (!sousWslActif) return resultat;
 

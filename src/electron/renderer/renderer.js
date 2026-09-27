@@ -37,6 +37,10 @@ const elements = {
   boutonDossierPlanches: document.getElementById("bouton-dossier-planches"),
   ficheNom: document.getElementById("fiche-nom"),
   ficheType: document.getElementById("fiche-type"),
+  ficheEquipe: document.getElementById("fiche-equipe"),
+  ficheEquipeAdverse: document.getElementById("fiche-equipe-adverse"),
+  equipesConnues: document.getElementById("equipes-connues"),
+  equipesAdversesConnues: document.getElementById("equipes-adverses-connues"),
   ficheObjectif: document.getElementById("fiche-objectif"),
   ficheRessenti: document.getElementById("fiche-ressenti"),
   compteRenduSections: document.getElementById("compte-rendu-sections"),
@@ -297,6 +301,8 @@ async function ouvreLaFiche(session) {
     ficheCourante = summary;
     elements.ficheNom.value = summary.name ?? "";
     elements.ficheType.value = summary.type ?? "";
+    elements.ficheEquipe.value = summary.nomEquipe ?? "";
+    elements.ficheEquipeAdverse.value = summary.nomEquipeAdverse ?? "";
     elements.ficheObjectif.value = summary.objectif ?? "";
     elements.ficheRessenti.value = summary.ressenti ?? "";
     // Un compte rendu et une planche affiches appartiennent a la session
@@ -367,6 +373,7 @@ async function rafraichisLaListe() {
   const { sessions, errors } = await api.listSessions();
 
   elements.liste.replaceChildren(...sessions.map(construisLaLigne));
+  proposeLesEquipes(sessions);
   elements.listeVide.hidden = sessions.length > 0;
   elements.compteSessions.textContent = sessions.length
     ? `${sessions.length} session${sessions.length > 1 ? "s" : ""}`
@@ -379,6 +386,30 @@ async function rafraichisLaListe() {
           errors.map((erreur) => `${erreur.path} — ${erreur.message}`).join("\n")
       : "",
   );
+}
+
+/**
+ * Remplit les suggestions des champs d'equipe avec les noms deja saisis. Le nom
+ * de mon equipe change avec le temps : la liste suit l'ordre des sessions, la
+ * plus recente d'abord, pour que le nom actuel soit propose en premier.
+ */
+function proposeLesEquipes(sessions) {
+  const options = (champ) =>
+    [...new Set(sessions.map((session) => session[champ]).filter(Boolean))].map((nom) => {
+      const option = document.createElement("option");
+      option.value = nom;
+      return option;
+    });
+  elements.equipesConnues.replaceChildren(...options("nomEquipe"));
+  elements.equipesAdversesConnues.replaceChildren(...options("nomEquipeAdverse"));
+}
+
+/** Les noms d'equipe en cours de saisie, qui priment sur ceux enregistres. */
+function equipesSaisies() {
+  return {
+    nomEquipe: elements.ficheEquipe.value.trim(),
+    nomEquipeAdverse: elements.ficheEquipeAdverse.value.trim(),
+  };
 }
 
 function litLeFormulaire() {
@@ -500,6 +531,8 @@ elements.boutonFicheEnregistrer.addEventListener("click", async () => {
       type: elements.ficheType.value || undefined,
       objectif: elements.ficheObjectif.value.trim() || undefined,
       ressenti: elements.ficheRessenti.value.trim() || undefined,
+      nomEquipe: elements.ficheEquipe.value.trim() || undefined,
+      nomEquipeAdverse: elements.ficheEquipeAdverse.value.trim() || undefined,
     });
     // Sans cela, la fiche garde le resume perime : une confirmation de
     // suppression juste apres un renommage afficherait encore l'ancien nom.
@@ -744,6 +777,7 @@ elements.boutonGenerer.addEventListener("click", async () => {
       // compte rendu avant de decider de garder l'objectif qu'on vient d'ecrire.
       objectif: elements.ficheObjectif.value.trim(),
       ressenti: elements.ficheRessenti.value.trim(),
+      ...equipesSaisies(),
     });
     elements.compteRenduTexte.value = texte;
     elements.compteRenduApercu.replaceChildren(construisLeRendu(texte));
@@ -789,9 +823,12 @@ elements.boutonPlanche.addEventListener("click", async () => {
   cacheLaPlanche();
   try {
     // Memes reglages que « Generer » : les sections cochees, et la saisie en
-    // cours de l'objectif et du ressenti plutot que ce qui est enregistre.
+    // cours de l'objectif, du ressenti et des equipes plutot que ce qui est
+    // enregistre.
     const planche = await api.buildPlanche({
       path: ficheCourante.path,
+      // Les noms d'equipe titrent les cartes : ils valent avec ou sans en-tete.
+      ...equipesSaisies(),
       ...(elements.plancheEntete.checked
         ? {
             entete: {

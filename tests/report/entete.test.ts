@@ -126,14 +126,26 @@ describe("enteteEnHtml — blocs", () => {
     expect([...html.matchAll(/tuile__ko/g)]).toHaveLength(1);
   });
 
-  test("designe les adversaires par leur arme, jamais par leur pseudo", () => {
+  test("nomme les adversaires par leur pseudo, avec leur arme", () => {
     const { html } = rends(fichier);
+    expect(html).toContain('<span class="adversaire__nom">PseudoAdverse</span>');
     // « hydra » : l'Exteinteur, sous son nom francais seul.
-    expect(html).toContain("Exteinteur");
+    expect(html).toContain('<span class="adversaire__arme secondaire">Exteinteur</span>');
     expect(html).not.toContain("Hydra Splatling");
-    expect(html).not.toContain("PseudoAdverse");
-    // Ni les coequipiers : l'en-tete ne montre que mes chiffres.
+    // Pas les coequipiers : l'en-tete ne montre que mes chiffres.
     expect(html).not.toContain("Coequipier");
+  });
+
+  test("affiche les noms d'equipe sous le titre et sur le bloc « En face »", () => {
+    const { html } = rends(session([battle("win")], { nomEquipe: "Gloup Squad", nomEquipeAdverse: "Les <Calamars>" }));
+    expect(html).toContain('<p class="score__rencontre">Gloup Squad vs Les &lt;Calamars&gt;</p>');
+    expect(html).toContain("En face : Les &lt;Calamars&gt;");
+  });
+
+  test("n'affiche aucune rencontre sans nom d'equipe", () => {
+    const { html } = rends(fichier);
+    expect(html).not.toContain("score__rencontre");
+    expect(html).toContain('<p class="etiquette">En face</p>');
   });
 
   test("n'affiche ni post-it ni bulle sans objectif ni ressenti", () => {

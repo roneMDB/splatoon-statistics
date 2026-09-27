@@ -17,7 +17,7 @@ import { DEFAULT_PLANCHE_DIR } from "../config.ts";
 import type { OptionsEntete } from "../report/entete.ts";
 import { aucunPicto, type Pictos } from "../report/pictos.ts";
 import { construisLesPages, type PagePlanche } from "../report/planche.ts";
-import type { SessionFile } from "../store.ts";
+import { avecLesEquipes, type Equipes, type SessionFile } from "../store.ts";
 
 /**
  * Au-dela, Chromium rend une image **noire, sans erreur**. Cette limite est
@@ -133,6 +133,8 @@ export type OutilsDePlanche = {
 export type OptionsDeFabrication = {
   /** Pose le compte rendu dessine en tete de planche. Voir `src/report/entete.ts`. */
   entete?: OptionsEntete;
+  /** Noms d'equipe de la saisie en cours, qui priment sur ceux de la session. */
+  equipes?: Equipes;
 };
 
 /**
@@ -296,7 +298,7 @@ export async function fabriqueLaPlanche(
   plancheDir: string = DEFAULT_PLANCHE_DIR,
   options: OptionsDeFabrication = {},
 ): Promise<ResultatPlanche> {
-  const file = await outils.lisLaSession(path);
+  const file = avecLesEquipes(await outils.lisLaSession(path), options.equipes);
   const pictos = (await outils.chargeLesPictos?.(file)) ?? aucunPicto;
   const pages =
     options.entete === undefined

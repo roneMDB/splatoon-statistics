@@ -400,6 +400,23 @@ describe("updateSessionMeta", () => {
     expect(resume.ressenti).toBe("Trop de 1v1 tentes");
   });
 
+  test("enregistre les noms d'equipe, trimes, et les rend dans le resume", async () => {
+    const dir = await tempDir();
+    const path = await ecrisSession(dir, { from: "2026-08-19 20:00", to: "2026-08-19 22:00" });
+
+    const resume = await updateSessionMeta(
+      path,
+      { nomEquipe: "  Gloup Squad ", nomEquipeAdverse: "   " },
+      dir,
+    );
+
+    expect(resume.nomEquipe).toBe("Gloup Squad");
+    expect(resume).not.toHaveProperty("nomEquipeAdverse");
+    const relu = await readSession(path, dir);
+    expect(relu.nomEquipe).toBe("Gloup Squad");
+    expect(relu).not.toHaveProperty("nomEquipeAdverse");
+  });
+
   test("l'objectif et le ressenti survivent a une modification du nom", async () => {
     // buildSessionFile ne connait qu'une liste fermee de champs de niveau
     // fichier : un champ qu'il ignorerait disparaitrait a la premiere edition.

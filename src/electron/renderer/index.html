@@ -225,6 +225,22 @@
             <select id="fiche-type"></select>
           </div>
           <div class="champ">
+            <label for="fiche-equipe">Mon équipe (facultatif)</label>
+            <input type="text" id="fiche-equipe" list="equipes-connues" autocomplete="off" />
+          </div>
+          <div class="champ">
+            <label for="fiche-equipe-adverse">Équipe adverse (facultatif)</label>
+            <input
+              type="text"
+              id="fiche-equipe-adverse"
+              list="equipes-adverses-connues"
+              autocomplete="off"
+            />
+          </div>
+          <!-- Les noms deja saisis sur d'autres sessions, du plus recent au plus ancien. -->
+          <datalist id="equipes-connues"></datalist>
+          <datalist id="equipes-adverses-connues"></datalist>
+          <div class="champ">
             <label for="fiche-objectif">Objectif de la session</label>
             <input
               type="text"

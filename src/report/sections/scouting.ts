@@ -1,14 +1,14 @@
 /**
  * Scouting adverse : a quoi on faisait face.
  *
- * Les adversaires sont designes par leur arme, jamais par leur pseudo - voir
- * `designe` dans format.ts pour la raison. La section reste donc lisible par
- * les interesses eux-memes, ce qui est le cas de figure normal en intra.
+ * Les adversaires sont designes par leur pseudo, leur arme a cote - voir
+ * `designe` dans format.ts. Le nom de leur equipe, s'il a ete saisi, coiffe la
+ * section.
  */
 
 import { reguliers } from "../analyse.ts";
 import type { AnalyseSession } from "../analyse.ts";
-import { designeLesAdversaires, pluriel, ratio, tableau } from "../format.ts";
+import { armeDominante, designeLesAdversaires, pluriel, ratio, tableau } from "../format.ts";
 
 export function sectionScouting(analyse: AnalyseSession): string[] {
   if (analyse.adverse.length === 0) return [];
@@ -20,7 +20,8 @@ export function sectionScouting(analyse: AnalyseSession): string[] {
   const passages = analyse.adverse.length - adverse.length;
   if (adverse.length === 0) return [];
 
-  const lignes: string[] = ["### ⚔️ En face", ""];
+  const titre = analyse.nomEquipeAdverse === undefined ? "En face" : `En face : ${analyse.nomEquipeAdverse}`;
+  const lignes: string[] = [`### ⚔️ ${titre}`, ""];
   const noms = designeLesAdversaires(adverse);
 
   // Dans le tableau, l'arme n'est nommee qu'en francais : la forme bilingue
@@ -28,8 +29,9 @@ export function sectionScouting(analyse: AnalyseSession): string[] {
   // phrases qui suivent, elles, portent les deux noms.
   lignes.push(
     ...tableau(
-      ["Arme", "Élim.", "Morts", "Spé", "K/D", "Armes"],
-      adverse.map((joueur) => [
+      ["Joueur", "Arme", "Élim.", "Morts", "Spé", "K/D", "Armes"],
+      adverse.map((joueur, index) => [
+        noms[index] ?? joueur.nom,
         joueur.armes[0]?.nom ?? "—",
         String(joueur.kill),
         String(joueur.death),
@@ -51,7 +53,8 @@ export function sectionScouting(analyse: AnalyseSession): string[] {
   const menace = adverse[0];
   if (menace !== undefined && menace.kill > 0) {
     faits.push(
-      `**Menace principale : ${noms[0]}**, ${menace.kill} éliminations ` +
+      // Un point median, pas de parentheses : le nom d'arme en porte deja.
+      `**Menace principale : ${noms[0]}** · ${armeDominante(menace)} · ${menace.kill} éliminations ` +
         `pour ${menace.death} morts.`,
     );
   }
@@ -62,19 +65,21 @@ export function sectionScouting(analyse: AnalyseSession): string[] {
     (joueur) => joueur.armes.length === 1 && joueur.manches === analyse.manches.length,
   );
   if (monoArme.length > 0 && analyse.manches.length > 1) {
-    const cites = monoArme.map((joueur) => noms[adverse.indexOf(joueur)]).join(", ");
+    const cites = monoArme
+      .map((joueur) => `${noms[adverse.indexOf(joueur)]} · ${armeDominante(joueur)}`)
+      .join(" ; ");
     faits.push(
-      `${cites} : une seule arme sur toute la session. ` +
+      `Une seule arme sur toute la session : ${cites}. ` +
         `Un pick qui ne bouge pas se prépare à l'avance.`,
     );
   }
 
   const versatile = [...adverse].sort((a, b) => b.armes.length - a.armes.length)[0];
   if (versatile !== undefined && versatile.armes.length > 2) {
-    // Nom francais seul en tete : la forme bilingue, suivie d'une enumeration
-    // de sept armes, donne une phrase que personne ne lit jusqu'au bout.
+    // Noms francais seuls : la forme bilingue, sur une enumeration de sept
+    // armes, donne une phrase que personne ne lit jusqu'au bout.
     faits.push(
-      `${versatile.armes[0]?.nom} a tourné sur ${versatile.armes.length} armes : ` +
+      `${noms[adverse.indexOf(versatile)]} a tourné sur ${versatile.armes.length} armes : ` +
         versatile.armes.map((arme) => `${arme.nom} ×${arme.manches}`).join(", ") +
         `. Le tableau retient la plus jouée.`,
     );

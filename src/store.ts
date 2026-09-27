@@ -28,6 +28,14 @@ export type SessionFile = {
    * de trim et d'absence que `objectif`.
    */
   ressenti?: string;
+  /**
+   * Nom de mon equipe pour cette session. Porte par la session et non par les
+   * reglages : l'equipe change de nom, et une ancienne session doit garder
+   * celui qu'elle avait. Meme contrat de trim et d'absence que `objectif`.
+   */
+  nomEquipe?: string;
+  /** Nom de l'equipe d'en face. Meme contrat que `equipe`. */
+  nomEquipeAdverse?: string;
   /** Instant de la recuperation, en ISO 8601 UTC. */
   fetchedAt: string;
   /** Fenetre demandee, en ISO 8601 UTC pour lever toute ambiguite de fuseau. */
@@ -49,6 +57,10 @@ export type BuildSessionFileOptions = {
   objectif?: string;
   /** Ressenti sur la session, saisi a la main. Facultatif. */
   ressenti?: string;
+  /** Nom de mon equipe. Facultatif. */
+  nomEquipe?: string;
+  /** Nom de l'equipe adverse. Facultatif. */
+  nomEquipeAdverse?: string;
   window: SessionWindow;
   filters?: BattleFilters;
   battles: StatinkBattle[];
@@ -69,6 +81,8 @@ export function buildSessionFile(
   const name = options.name?.trim();
   const objectif = options.objectif?.trim();
   const ressenti = options.ressenti?.trim();
+  const nomEquipe = options.nomEquipe?.trim();
+  const nomEquipeAdverse = options.nomEquipeAdverse?.trim();
 
   return {
     source: "stat.ink",
@@ -79,6 +93,8 @@ export function buildSessionFile(
     ...(options.type !== undefined ? { type: options.type } : {}),
     ...(objectif ? { objectif } : {}),
     ...(ressenti ? { ressenti } : {}),
+    ...(nomEquipe ? { nomEquipe } : {}),
+    ...(nomEquipeAdverse ? { nomEquipeAdverse } : {}),
     fetchedAt: options.fetchedAt.toISOString(),
     window: {
       from: new Date(options.window.fromMs).toISOString(),
@@ -88,6 +104,25 @@ export function buildSessionFile(
     battleCount: options.battles.length,
     battles: options.battles,
   };
+}
+
+/** Noms d'equipe saisis en cours, qui prennent le pas sur ceux de la session. */
+export type Equipes = { nomEquipe?: string; nomEquipeAdverse?: string };
+
+/**
+ * La session avec les noms d'equipe de la saisie en cours, comme l'objectif et
+ * le ressenti : on relit un compte rendu avant d'enregistrer. Un champ absent
+ * garde la valeur de la session ; une chaine vide l'efface.
+ */
+export function avecLesEquipes(file: SessionFile, equipes: Equipes = {}): SessionFile {
+  const resultat = { ...file };
+  for (const cle of ["nomEquipe", "nomEquipeAdverse"] as const) {
+    const valeur = equipes[cle];
+    if (valeur === undefined) continue;
+    if (valeur.trim() === "") delete resultat[cle];
+    else resultat[cle] = valeur.trim();
+  }
+  return resultat;
 }
 
 /**

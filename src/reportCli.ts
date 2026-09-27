@@ -25,7 +25,7 @@ import {
   SECTIONS,
   type SectionCompteRendu,
 } from "./report/index.ts";
-import type { SessionFile } from "./store.ts";
+import { avecLesEquipes, type Equipes, type SessionFile } from "./store.ts";
 
 const USAGE = `
 Imprime le compte rendu d'une session enregistree.
@@ -38,6 +38,9 @@ Options
 ${SECTIONS.map((section) => `                      ${section.padEnd(10)} ${LIBELLES_SECTIONS[section]}`).join("\n")}
   --objectif <texte>  Objectif de la session. Prend le pas sur celui du fichier.
   --ressenti <texte>  Ressenti sur la session. Prend le pas sur celui du fichier.
+  --equipe <nom>      Nom de mon equipe. Prend le pas sur celui du fichier.
+  --equipe-adverse <nom>
+                      Nom de l'equipe adverse. Prend le pas sur celui du fichier.
   --planche           Ecrit la planche de manches en HTML au lieu d'imprimer
                       le compte rendu. Dans ${DEFAULT_PLANCHE_DIR}. Les
                       chiffres des joueurs portent les pictos du jeu.
@@ -56,6 +59,8 @@ export type ReportCliOptions = {
   sections: SectionCompteRendu[];
   objectif?: string;
   ressenti?: string;
+  /** Noms d'equipe, qui priment sur ceux du fichier. */
+  equipes: Equipes;
   outDir: string;
   /** Ecrit la planche en HTML au lieu d'imprimer le compte rendu. */
   planche: boolean;
@@ -73,6 +78,8 @@ export function parseReportArgs(argv: string[]): ReportCliOptions {
       sections: { type: "string" },
       objectif: { type: "string" },
       ressenti: { type: "string" },
+      equipe: { type: "string" },
+      "equipe-adverse": { type: "string" },
       planche: { type: "boolean" },
       entete: { type: "boolean" },
       out: { type: "string" },
@@ -106,6 +113,10 @@ export function parseReportArgs(argv: string[]): ReportCliOptions {
     sections,
     ...(values.objectif !== undefined ? { objectif: values.objectif } : {}),
     ...(values.ressenti !== undefined ? { ressenti: values.ressenti } : {}),
+    equipes: {
+      ...(values.equipe !== undefined ? { nomEquipe: values.equipe } : {}),
+      ...(values["equipe-adverse"] !== undefined ? { nomEquipeAdverse: values["equipe-adverse"] } : {}),
+    },
     outDir: values.out ?? DEFAULT_OUT_DIR,
     planche: values.planche === true,
     entete: values.entete === true,
@@ -121,12 +132,13 @@ export function parseReportArgs(argv: string[]): ReportCliOptions {
  * garde protege la fenetre, pas quelqu'un qui tape un chemin dans son terminal.
  */
 async function lisLaSession(options: ReportCliOptions): Promise<SessionFile> {
-  return readSession(options.path, options.outDir).catch(async (erreur: unknown) => {
+  const file = await readSession(options.path, options.outDir).catch(async (erreur: unknown) => {
     if (erreur instanceof Error && erreur.message.startsWith("Chemin de session refuse")) {
       return JSON.parse(await readFile(options.path, "utf8")) as SessionFile;
     }
     throw erreur;
   });
+  return avecLesEquipes(file, options.equipes);
 }
 
 /** Lit la session et rend son compte rendu. */

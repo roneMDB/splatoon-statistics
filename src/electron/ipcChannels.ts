@@ -104,11 +104,17 @@ export type BuildReportInput = {
   sections: string[];
   objectif?: string;
   ressenti?: string;
+  /** Saisie en cours ; prime sur les noms d'equipe enregistres. */
+  nomEquipe?: string;
+  nomEquipeAdverse?: string;
 };
 
 /** Ce que la fenetre envoie pour obtenir une planche. */
 export type BuildPlancheInput = {
   path: string;
+  /** Saisie en cours ; prime sur les noms d'equipe enregistres. */
+  nomEquipe?: string;
+  nomEquipeAdverse?: string;
   /**
    * Pose le compte rendu dessine en tete de planche. Memes champs que
    * `BuildReportInput`, valides de la meme facon.
@@ -139,6 +145,8 @@ export type SplatoonApi = {
     type?: string;
     objectif?: string;
     ressenti?: string;
+    nomEquipe?: string;
+    nomEquipeAdverse?: string;
   }) => Promise<import("../sessionList.ts").SessionSummary>;
   deleteSession: (path: string) => Promise<void>;
   /** Detail d'une manche, deja traduit. */
