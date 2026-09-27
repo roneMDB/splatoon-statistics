@@ -544,13 +544,13 @@ describe("construisLesPages", () => {
     expect(pages[1]!.html).toContain(`Manches ${MANCHES_PAR_PAGE + 1} à ${total} sur ${total}`);
   });
 
-  test("avec l'en-tete, une page de synthese sur une colonne ouvre la serie, sans carte", () => {
+  test("avec l'en-tete, une page de synthese large ouvre la serie, sans carte", () => {
     const pages = construisLesPages(session(manches(2)), { entete: { sections: [] } });
 
     expect(pages.map((page) => page.nom)).toEqual(["00-synthese", "01-manches-1-2"]);
     const [synthese, suivante] = pages;
-    expect(synthese!.largeur).toBe(LARGEUR_PAGE_MANCHES);
-    expect(synthese!.html).toContain('<section class="entete entete--colonne">');
+    expect(synthese!.largeur).toBe(LARGEUR_PLANCHE);
+    expect(synthese!.html).toContain('<section class="entete">');
     expect(synthese!.html).not.toContain('class="manche manche--');
     expect(synthese!.html).toContain("font-src data:");
     // Les polices du jeu ne servent qu'a l'en-tete : les pages de manches ne
