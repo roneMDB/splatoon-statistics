@@ -81,6 +81,34 @@ describe("nomDePlanche", () => {
 });
 
 describe("fabriqueLaPlanche", () => {
+  test("garde le HTML de la planche a cote du PNG, sous le meme nom", async () => {
+    const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+    try {
+      let htmlMesure = "";
+      const doublure = outils();
+      const mesure = doublure.mesure;
+      doublure.mesure = async (html, largeur) => {
+        htmlMesure = html;
+        return mesure(html, largeur);
+      };
+
+      await fabriqueLaPlanche(
+        "data/sessions/Gloup_20260804-2100_20260804-2359.json",
+        doublure,
+        dossier,
+      );
+
+      const html = await readFile(
+        join(dossier, "Gloup_20260804-2100_20260804-2359.html"),
+        "utf8",
+      );
+      expect(html).toBe(htmlMesure);
+      expect(html).toContain("<html");
+    } finally {
+      await rm(dossier, { recursive: true, force: true });
+    }
+  });
+
   test("ecrit le PNG et rend ses dimensions", async () => {
     const dossier = await mkdtemp(join(tmpdir(), "planches-"));
     try {

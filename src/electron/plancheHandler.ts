@@ -197,6 +197,8 @@ export async function cheminDePlanche(
  * `writeFile` n'etant pas injecte, rien ne verifie par test qu'il s'execute
  * bien apres `ferme()` - c'est l'ordre du code ci-dessous qui en decide.
  *
+ * Le HTML photographie est ecrit a cote, sous le meme nom en `.html`.
+ *
  * Le PNG est toujours ecrit, meme quand le presse-papier a fonctionne : c'est
  * le chemin fiable, le presse-papier n'est que le raccourci. Et le
  * presse-papier ne doit jamais faire echouer la fabrication : un rejet de
@@ -261,6 +263,10 @@ export async function fabriqueLaPlanche(
   // lancee.
   const chemin = resolve(join(plancheDir, nomDePlanche(path)));
   await writeFile(chemin, capture.png);
+  // Le document photographie, garde a cote du PNG sous le meme nom. Il est
+  // autonome (polices, pictos et motif en `data:`) : il s'ouvre tel quel
+  // dans un navigateur, pour retoucher ou comparer sans refaire la capture.
+  await writeFile(chemin.replace(/\.png$/, ".html"), html, "utf8");
 
   let pressePapier: "copie" | "indisponible";
   try {
