@@ -12,7 +12,7 @@ import {
   type OutilsDePlanche,
 } from "../../src/electron/plancheHandler.ts";
 import type { SessionFile } from "../../src/store.ts";
-import { LARGEUR_PAGE_MANCHES, LARGEUR_PLANCHE, MANCHES_PAR_PAGE } from "../../src/report/planche.ts";
+import { LARGEUR_PAGE_MANCHES, MANCHES_PAR_PAGE } from "../../src/report/planche.ts";
 
 const sessionVide = (): SessionFile =>
   ({
@@ -385,7 +385,7 @@ describe("fabriqueLaPlanche — une image par page", () => {
       const page = [`mesure:${LARGEUR_PAGE_MANCHES}:true`, "capture:2400", "ferme"];
       expect(doublure.journal).toEqual([
         "lis:a/b.json",
-        `mesure:${LARGEUR_PLANCHE}:true`, "capture:2400", "ferme",
+        ...page,
         ...page,
         ...page,
       ]);
@@ -394,7 +394,7 @@ describe("fabriqueLaPlanche — une image par page", () => {
         `01-manches-1-${MANCHES_PAR_PAGE}.png`,
         `02-manches-${MANCHES_PAR_PAGE + 1}-${MANCHES_PAR_PAGE + 1}.png`,
       ]);
-      expect(resultat.images[0]!.largeur).toBe(LARGEUR_PLANCHE);
+      expect(resultat.images[0]!.largeur).toBe(LARGEUR_PAGE_MANCHES);
       expect(copiees).toHaveLength(1);
     } finally {
       await rm(dossier, { recursive: true, force: true });
@@ -648,7 +648,7 @@ describe("fabriqueLaPlanche — en-tete", () => {
         return () => undefined;
       });
       await fabriqueLaPlanche("a/b.json", doublure, dossier);
-      expect(vus[0]).not.toContain('<section class="entete">');
+      expect(vus[0]).not.toContain('<section class="entete entete--colonne">');
       expect(lus).toBe(1);
     } finally {
       await rm(dossier, { recursive: true, force: true });
@@ -670,7 +670,7 @@ describe("fabriqueLaPlanche — en-tete", () => {
         entete: { sections: ["courbe"], objectif: "Tenir le support" },
       });
 
-      expect(vus[0]).toContain('<section class="entete">');
+      expect(vus[0]).toContain('<section class="entete entete--colonne">');
       expect(vus[0]).toContain("Tenir le support");
       expect(vus[0]).toContain("data:image/svg+xml;base64,QUJD");
     } finally {
@@ -683,7 +683,7 @@ describe("fabriqueLaPlanche — en-tete", () => {
     try {
       const { doublure, vus } = outilsQuiGardentLeHtml();
       await fabriqueLaPlanche("a/b.json", doublure, dossier, { entete: { sections: [] } });
-      expect(vus[0]).toContain('<section class="entete">');
+      expect(vus[0]).toContain('<section class="entete entete--colonne">');
     } finally {
       await rm(dossier, { recursive: true, force: true });
     }
@@ -711,9 +711,9 @@ describe("fabriqueLaPlanche — en-tete", () => {
       // la synthese puis la page de manches. Chaque tentative ouvre donc bien
       // sur l'en-tete.
       expect(vus).toHaveLength(3);
-      expect(vus.filter((html) => html.includes('<section class="entete">'))).toHaveLength(2);
-      expect(vus[0]).toContain('<section class="entete">');
-      expect(vus[1]).toContain('<section class="entete">');
+      expect(vus.filter((html) => html.includes('<section class="entete entete--colonne">'))).toHaveLength(2);
+      expect(vus[0]).toContain('<section class="entete entete--colonne">');
+      expect(vus[1]).toContain('<section class="entete entete--colonne">');
     } finally {
       await rm(dossier, { recursive: true, force: true });
     }

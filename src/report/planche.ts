@@ -632,8 +632,9 @@ export type PagePlanche = { nom: string; html: string; largeur: number };
  * Rend la planche en serie de pages, une image chacune : ce que l'application
  * photographie. Voir `LARGEUR_PAGE_MANCHES` pour la raison du decoupage.
  *
- * Avec l'en-tete, une page de synthese l'ouvre, a la largeur de la planche
- * entiere pour laquelle `entete.ts` est dessine. Viennent ensuite les manches,
+ * Avec l'en-tete, une page de synthese l'ouvre, a la meme largeur que les
+ * pages de manches et sur une seule colonne : elle se lit sur telephone sans
+ * zoomer. Viennent ensuite les manches,
  * `MANCHES_PAR_PAGE` par page. Chaque page porte le titre et la legende : dans
  * une galerie Discord, elle peut etre vue seule. Chacune a aussi son propre
  * registre de pictos, pour n'embarquer que ceux qu'elle montre.
@@ -650,11 +651,17 @@ export function construisLesPages(file: SessionFile, options: OptionsPlanche = {
   const pages: PagePlanche[] = [];
 
   if (options.entete !== undefined) {
-    const entete = enteteEnHtml(file, analyse, options.entete, pictos, new Registre(pictos));
+    const entete = enteteEnHtml(file, analyse, { ...options.entete, colonne: true }, pictos, new Registre(pictos));
     pages.push({
       nom: "00-synthese",
-      largeur: LARGEUR_PLANCHE,
-      html: documentEnHtml({ titre, largeur: LARGEUR_PLANCHE, polices: true, styles: [entete.style], corps: [entete.html] }),
+      largeur: LARGEUR_PAGE_MANCHES,
+      html: documentEnHtml({
+        titre,
+        largeur: LARGEUR_PAGE_MANCHES,
+        polices: true,
+        styles: [entete.style],
+        corps: [entete.html],
+      }),
     });
   }
 

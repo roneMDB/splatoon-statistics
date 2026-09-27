@@ -36,6 +36,12 @@ export type OptionsEntete = {
   objectif?: string;
   /** Prend le pas sur le ressenti enregistre dans la session. */
   ressenti?: string;
+  /**
+   * Tous les blocs l'un sous l'autre, pour une image etroite (voir
+   * `LARGEUR_PAGE_MANCHES`) lisible sur telephone. Decide par la planche, pas
+   * par la fenetre.
+   */
+  colonne?: boolean;
 };
 
 /** Le HTML de l'en-tete, et la feuille qui lui est propre. */
@@ -280,6 +286,20 @@ ${COULEURS_DE_TUILE}
 .adversaire__arme { display: block; margin-top: 2px; font-size: 13px; }
 .adversaire__chiffres { display: block; margin-top: 3px; font-size: 13px; }
 .adversaire__chiffres b { font-family: ${TITRE}; font-weight: 400; font-size: 17px; color: #eaff3d; }
+
+/*
+ * Une seule colonne, a 800 pixels : ce qui tenait cote a cote se range l'un
+ * sous l'autre, et les grilles larges perdent des colonnes. La courbe passe a
+ * la ligne plutot que de reduire ses tuiles sous la taille de leur lettre.
+ */
+.entete--colonne { grid-template-columns: 1fr; }
+.entete--colonne .score { flex-wrap: wrap; row-gap: 16px; }
+.entete--colonne .score__titres { flex: 1 1 calc(100% - 120px); }
+.entete--colonne .score__final { margin-left: auto; }
+.entete--colonne .courbe { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
+.entete--colonne .mots { flex-direction: column; }
+.entete--colonne .postit, .entete--colonne .bulle { flex-basis: auto; align-self: stretch; }
+.entete--colonne .adversaires { grid-template-columns: repeat(2, 1fr); }
 `.trim();
 
 /** Un sticker : l'enveloppe au contour, le corps decoupe, une etiquette. */
@@ -553,7 +573,7 @@ export function enteteEnHtml(
   ].filter((bloc) => bloc !== "");
 
   return {
-    html: `<section class="entete">\n${blocs.join("\n")}\n</section>`,
+    html: `<section class="${options.colonne ? "entete entete--colonne" : "entete"}">\n${blocs.join("\n")}\n</section>`,
     style: [polices(pictos), STYLE_FIXE, registre.style()].filter((partie) => partie !== "").join("\n"),
   };
 }
