@@ -1,18 +1,18 @@
 import { describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import {
   cheminDePlanche,
   fabriqueLaPlanche,
   fabriqueLaPlancheAvecReprise,
+  dossierDePlanche,
   HAUTEUR_MAXIMALE_PLANCHE,
-  nomDePlanche,
   TENTATIVES_MAXIMALES_PLANCHE,
   type OutilsDePlanche,
 } from "../../src/electron/plancheHandler.ts";
 import type { SessionFile } from "../../src/store.ts";
-import { LARGEUR_PLANCHE } from "../../src/report/planche.ts";
+import { LARGEUR_PAGE_MANCHES, LARGEUR_PLANCHE, MANCHES_PAR_PAGE } from "../../src/report/planche.ts";
 
 const sessionVide = (): SessionFile =>
   ({
@@ -29,8 +29,8 @@ const PNG_FACTICE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);
 
 /**
  * Doublure du monde exterieur. `journal` retient ce qui a ete appele. Par
- * defaut, `capture` rend exactement les dimensions demandees (largeur
- * constante de la planche, hauteur mesuree) : aucune troncature a signaler,
+ * defaut, `capture` rend exactement le bitmap attendu (largeur de la page et
+ * hauteur mesuree, toutes deux a l'echelle) : aucune troncature a signaler,
  * sauf reglage explicite.
  */
 function outils(
@@ -44,6 +44,8 @@ function outils(
 ): OutilsDePlanche & { journal: string[] } {
   const journal: string[] = [];
   const hauteur = reglages.hauteur ?? 2400;
+  const echelle = reglages.echelle ?? 1;
+  let largeurMesuree = 0;
   return {
     journal,
     lisLaSession: async (path) => {
@@ -52,14 +54,15 @@ function outils(
     },
     mesure: async (html, largeur) => {
       journal.push(`mesure:${largeur}:${html.length > 0}`);
-      return { hauteur, echelle: reglages.echelle ?? 1 };
+      largeurMesuree = largeur;
+      return { hauteur, echelle };
     },
     capture: async (hauteurDemandee) => {
       journal.push(`capture:${hauteurDemandee}`);
       return {
         png: PNG_FACTICE,
-        largeur: reglages.captureLargeur ?? LARGEUR_PLANCHE,
-        hauteur: reglages.captureHauteur ?? hauteurDemandee,
+        largeur: reglages.captureLargeur ?? largeurMesuree * echelle,
+        hauteur: reglages.captureHauteur ?? hauteurDemandee * echelle,
       };
     },
     ferme: async () => {
@@ -72,12 +75,23 @@ function outils(
   };
 }
 
-describe("nomDePlanche", () => {
-  test("reprend le nom de la session, extension changee", () => {
-    expect(nomDePlanche("data/sessions/Gloup_20260804-2100_20260804-2359.json")).toBe(
-      "Gloup_20260804-2100_20260804-2359.png",
+describe("dossierDePlanche", () => {
+  test("reprend le nom de la session, sans extension", () => {
+    expect(dossierDePlanche("data/sessions/Gloup_20260804-2100_20260804-2359.json")).toBe(
+      "Gloup_20260804-2100_20260804-2359",
     );
   });
+});
+
+/** Une session de `n` manches, pour les tests qui comptent les pages. */
+const sessionDe = (n: number): SessionFile => ({
+  ...sessionVide(),
+  battleCount: n,
+  battles: Array.from({ length: n }, (_, i) => ({
+    uuid: `u${i}`,
+    lobby: { key: "private" },
+    result: "win",
+  })) as unknown as SessionFile["battles"],
 });
 
 describe("fabriqueLaPlanche", () => {
@@ -99,7 +113,7 @@ describe("fabriqueLaPlanche", () => {
       );
 
       const html = await readFile(
-        join(dossier, "Gloup_20260804-2100_20260804-2359.html"),
+        join(dossier, "Gloup_20260804-2100_20260804-2359", "01-manches-1-1.html"),
         "utf8",
       );
       expect(html).toBe(htmlMesure);
@@ -109,7 +123,7 @@ describe("fabriqueLaPlanche", () => {
     }
   });
 
-  test("ecrit le PNG et rend ses dimensions", async () => {
+  test("ecrit le PNG dans le dossier de la session et rend ses dimensions", async () => {
     const dossier = await mkdtemp(join(tmpdir(), "planches-"));
     try {
       const resultat = await fabriqueLaPlanche(
@@ -118,13 +132,14 @@ describe("fabriqueLaPlanche", () => {
         dossier,
       );
 
-      expect(resultat.chemin).toBe(
-        join(dossier, "Gloup_20260804-2100_20260804-2359.png"),
-      );
-      expect(resultat.hauteur).toBe(3120);
-      expect(resultat.largeur).toBe(LARGEUR_PLANCHE);
-      expect(resultat.octets).toBe(PNG_FACTICE.byteLength);
-      expect(new Uint8Array(await readFile(resultat.chemin))).toEqual(PNG_FACTICE);
+      expect(resultat.dossier).toBe(join(dossier, "Gloup_20260804-2100_20260804-2359"));
+      expect(resultat.images).toHaveLength(1);
+      const [image] = resultat.images;
+      expect(image!.chemin).toBe(join(resultat.dossier, "01-manches-1-1.png"));
+      expect(image!.hauteur).toBe(3120);
+      expect(image!.largeur).toBe(LARGEUR_PAGE_MANCHES);
+      expect(image!.octets).toBe(PNG_FACTICE.byteLength);
+      expect(new Uint8Array(await readFile(image!.chemin))).toEqual(PNG_FACTICE);
     } finally {
       await rm(dossier, { recursive: true, force: true });
     }
@@ -138,8 +153,9 @@ describe("fabriqueLaPlanche", () => {
     const dossierRelatif = relative(process.cwd(), dossierAbsolu);
     try {
       const resultat = await fabriqueLaPlanche("a/b.json", outils(), dossierRelatif);
-      expect(isAbsolute(resultat.chemin)).toBe(true);
-      expect(resultat.chemin).toBe(resolve(dossierRelatif, "b.png"));
+      expect(isAbsolute(resultat.dossier)).toBe(true);
+      expect(resultat.dossier).toBe(resolve(dossierRelatif, "b"));
+      expect(isAbsolute(resultat.images[0]!.chemin)).toBe(true);
     } finally {
       await rm(dossierAbsolu, { recursive: true, force: true });
     }
@@ -171,7 +187,7 @@ describe("fabriqueLaPlanche", () => {
 
       expect(resultat.pressePapier).toBe("indisponible");
       expect(doublure.journal).toContain("copie-tentee");
-      expect(new Uint8Array(await readFile(resultat.chemin))).toEqual(PNG_FACTICE);
+      expect(new Uint8Array(await readFile(resultat.images[0]!.chemin))).toEqual(PNG_FACTICE);
     } finally {
       await rm(dossier, { recursive: true, force: true });
     }
@@ -215,7 +231,7 @@ describe("fabriqueLaPlanche", () => {
     try {
       const doublure = outils({ hauteur: 10_000, echelle: 1 });
       const resultat = await fabriqueLaPlanche("a/b.json", doublure, dossier);
-      expect(resultat.hauteur).toBe(10_000);
+      expect(resultat.images[0]!.hauteur).toBe(10_000);
     } finally {
       await rm(dossier, { recursive: true, force: true });
     }
@@ -264,7 +280,7 @@ describe("fabriqueLaPlanche", () => {
       await fabriqueLaPlanche("a/b.json", doublure, dossier);
       expect(doublure.journal).toEqual([
         "lis:a/b.json",
-        `mesure:${LARGEUR_PLANCHE}:true`,
+        `mesure:${LARGEUR_PAGE_MANCHES}:true`,
         "capture:2400",
         "ferme",
         "copie",
@@ -296,7 +312,7 @@ describe("fabriqueLaPlanche", () => {
           outils({ hauteur: 3120, captureHauteur: 2000 }),
           dossier,
         );
-        expect(resultat.hauteur).toBe(2000);
+        expect(resultat.images[0]!.hauteur).toBe(2000);
         expect(resultat.avertissement).toBeDefined();
         expect(resultat.avertissement).toMatch(/2000/);
         expect(resultat.avertissement).toMatch(/3120/);
@@ -309,21 +325,127 @@ describe("fabriqueLaPlanche", () => {
       const dossier = await mkdtemp(join(tmpdir(), "planches-"));
       try {
         // Meme principe que ci-dessus, mais sur la largeur : la fenetre hors
-        // ecran a rendu un bitmap moins large que LARGEUR_PLANCHE. Le PNG est
-        // ecrit quand meme, mais l'avertissement doit le dire.
+        // ecran a rendu un bitmap moins large que la page. Le PNG est ecrit
+        // quand meme, mais l'avertissement doit le dire.
         const resultat = await fabriqueLaPlanche(
           "a/b.json",
-          outils({ hauteur: 3120, captureLargeur: 1400 }),
+          outils({ hauteur: 3120, captureLargeur: 700 }),
           dossier,
         );
-        expect(resultat.largeur).toBe(1400);
+        expect(resultat.images[0]!.largeur).toBe(700);
         expect(resultat.avertissement).toBeDefined();
-        expect(resultat.avertissement).toMatch(/1400/);
-        expect(resultat.avertissement).toMatch(String(LARGEUR_PLANCHE));
+        expect(resultat.avertissement).toMatch(/700/);
+        expect(resultat.avertissement).toMatch(String(LARGEUR_PAGE_MANCHES));
       } finally {
         await rm(dossier, { recursive: true, force: true });
       }
     });
+
+    test("attend un bitmap a l'echelle de la capture, et ne s'alarme pas de l'avoir", async () => {
+      const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+      try {
+        // La capture se fait en x2 : un bitmap deux fois plus grand que la
+        // page en pixels CSS est exactement ce qui etait demande.
+        const resultat = await fabriqueLaPlanche("a/b.json", outils({ hauteur: 1100, echelle: 2 }), dossier);
+        expect(resultat.images[0]!.largeur).toBe(LARGEUR_PAGE_MANCHES * 2);
+        expect(resultat.images[0]!.hauteur).toBe(2200);
+        expect(resultat.avertissement).toBeUndefined();
+
+        // Et un bitmap a l'echelle 1 quand on attendait 2 est bien tronque.
+        const rate = await fabriqueLaPlanche(
+          "a/b.json",
+          outils({ hauteur: 1100, echelle: 2, captureLargeur: LARGEUR_PAGE_MANCHES, captureHauteur: 1100 }),
+          dossier,
+        );
+        expect(rate.avertissement).toMatch(/2200/);
+      } finally {
+        await rm(dossier, { recursive: true, force: true });
+      }
+    });
+  });
+});
+
+describe("fabriqueLaPlanche — une image par page", () => {
+  test("photographie chaque page dans sa propre fenetre, puis copie la premiere image", async () => {
+    const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+    try {
+      const doublure = outils();
+      doublure.lisLaSession = async (path) => {
+        doublure.journal.push(`lis:${path}`);
+        return sessionDe(MANCHES_PAR_PAGE + 1);
+      };
+      const copiees: Uint8Array[] = [];
+      doublure.copie = async (png) => {
+        copiees.push(png);
+        return true;
+      };
+
+      const resultat = await fabriqueLaPlanche("a/b.json", doublure, dossier, { entete: { sections: [] } });
+
+      const page = [`mesure:${LARGEUR_PAGE_MANCHES}:true`, "capture:2400", "ferme"];
+      expect(doublure.journal).toEqual([
+        "lis:a/b.json",
+        `mesure:${LARGEUR_PLANCHE}:true`, "capture:2400", "ferme",
+        ...page,
+        ...page,
+      ]);
+      expect(resultat.images.map((image) => relative(resultat.dossier, image.chemin))).toEqual([
+        "00-synthese.png",
+        `01-manches-1-${MANCHES_PAR_PAGE}.png`,
+        `02-manches-${MANCHES_PAR_PAGE + 1}-${MANCHES_PAR_PAGE + 1}.png`,
+      ]);
+      expect(resultat.images[0]!.largeur).toBe(LARGEUR_PLANCHE);
+      expect(copiees).toHaveLength(1);
+    } finally {
+      await rm(dossier, { recursive: true, force: true });
+    }
+  });
+
+  test("efface les pages perimees d'une fabrication precedente, et rien d'autre", async () => {
+    const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+    try {
+      const sous = join(dossier, "b");
+      await mkdir(sous, { recursive: true });
+      for (const nom of ["05-manches-13-15.png", "05-manches-13-15.html", "notes.txt", "photo.png"]) {
+        await writeFile(join(sous, nom), "ancien", "utf8");
+      }
+
+      await fabriqueLaPlanche("a/b.json", outils(), dossier);
+
+      expect((await readdir(sous)).sort()).toEqual([
+        "01-manches-1-1.html",
+        "01-manches-1-1.png",
+        "notes.txt",
+        "photo.png",
+      ]);
+    } finally {
+      await rm(dossier, { recursive: true, force: true });
+    }
+  });
+
+  test("une page qui echoue n'ecrit rien : les images d'avant restent en place", async () => {
+    const dossier = await mkdtemp(join(tmpdir(), "planches-"));
+    try {
+      const sous = join(dossier, "b");
+      await mkdir(sous, { recursive: true });
+      await writeFile(join(sous, "01-manches-1-3.png"), "ancien", "utf8");
+
+      const doublure = outils();
+      doublure.lisLaSession = async () => sessionDe(MANCHES_PAR_PAGE + 1);
+      let captures = 0;
+      const capture = doublure.capture;
+      doublure.capture = async (hauteur) => {
+        captures += 1;
+        if (captures === 2) throw new Error("Chromium n'a pas repondu.");
+        return capture(hauteur);
+      };
+
+      await expect(fabriqueLaPlanche("a/b.json", doublure, dossier)).rejects.toThrow("Chromium");
+      expect(await readdir(sous)).toEqual(["01-manches-1-3.png"]);
+      expect(doublure.journal.filter((entree) => entree === "ferme")).toHaveLength(2);
+    } finally {
+      await rm(dossier, { recursive: true, force: true });
+    }
   });
 });
 
@@ -346,7 +468,7 @@ describe("fabriqueLaPlancheAvecReprise", () => {
 
       const resultat = await fabriqueLaPlancheAvecReprise("a/b.json", fabrique, dossier);
 
-      expect(resultat.hauteur).toBe(3120);
+      expect(resultat.images[0]!.hauteur).toBe(3120);
       expect(appels).toBe(2);
     } finally {
       await rm(dossier, { recursive: true, force: true });
@@ -395,6 +517,19 @@ describe("fabriqueLaPlancheAvecReprise", () => {
 
 describe("cheminDePlanche", () => {
   const tempDir = () => mkdtemp(join(tmpdir(), "planches-garde-"));
+
+  test("accepte un .png du sous-dossier d'une session", async () => {
+    const dir = await tempDir();
+    try {
+      await mkdir(join(dir, "Gloup_x"));
+      const path = join(dir, "Gloup_x", "01-manches-1-3.png");
+      await writeFile(path, "png", "utf8");
+
+      await expect(cheminDePlanche(path, dir)).resolves.toBe(resolve(path));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 
   test("accepte un .png ecrit dans le dossier des planches", async () => {
     const dir = await tempDir();
@@ -572,8 +707,13 @@ describe("fabriqueLaPlanche — en-tete", () => {
 
       await fabriqueLaPlancheAvecReprise("a/b.json", fabrique, dossier, { entete: { sections: [] } });
 
-      expect(vus).toHaveLength(2);
-      for (const html of vus) expect(html).toContain('<section class="entete">');
+      // La premiere tentative echoue sur sa premiere page ; la seconde mesure
+      // la synthese puis la page de manches. Chaque tentative ouvre donc bien
+      // sur l'en-tete.
+      expect(vus).toHaveLength(3);
+      expect(vus.filter((html) => html.includes('<section class="entete">'))).toHaveLength(2);
+      expect(vus[0]).toContain('<section class="entete">');
+      expect(vus[1]).toContain('<section class="entete">');
     } finally {
       await rm(dossier, { recursive: true, force: true });
     }

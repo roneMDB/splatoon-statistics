@@ -279,9 +279,9 @@ ipcMain.handle(IPC.buildPlanche, async (_event, input: BuildPlancheInput) => {
 
   // Sous WSL, le chemin Linux affiche ne se colle pas dans l'explorateur
   // Windows : on ajoute son equivalent quand la conversion aboutit (voir
-  // `versCheminWindows`), sans rien changer a `chemin` lui-meme.
-  const cheminWindows = versCheminWindows(resultat.chemin, environnementWsl);
-  return cheminWindows === undefined ? resultat : { ...resultat, cheminWindows };
+  // `versCheminWindows`), sans rien changer a `dossier` lui-meme.
+  const dossierWindows = versCheminWindows(resultat.dossier, environnementWsl);
+  return dossierWindows === undefined ? resultat : { ...resultat, dossierWindows };
 });
 
 /**

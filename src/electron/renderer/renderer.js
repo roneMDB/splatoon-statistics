@@ -409,7 +409,10 @@ let manchesCourantes = [];
 let rangDeLaManche = -1;
 /** Detail affiche, pour savoir quel lien stat.ink ouvrir. */
 let mancheCourante;
-/** Chemin du dernier PNG de planche fabrique, pour le bouton "Ouvrir le dossier". */
+/**
+ * Premiere image de la derniere planche fabriquee, pour le bouton "Ouvrir le
+ * dossier" : la reveler ouvre l'explorateur dans le dossier de la session.
+ */
 let cheminPlancheCourante;
 
 elements.formulaire.addEventListener("submit", async (evenement) => {
@@ -799,24 +802,29 @@ elements.boutonPlanche.addEventListener("click", async () => {
           }
         : {}),
     });
-    const ko = Math.round(planche.octets / 1024);
+    const nombre = planche.images.length;
+    const ko = Math.round(planche.images.reduce((total, image) => total + image.octets, 0) / 1024);
     // Sous WSL, le chemin Linux ne se colle pas dans l'explorateur Windows :
     // on affiche l'equivalent Windows quand l'application l'a fourni, le
     // chemin Linux sinon.
-    const cheminAffiche = planche.cheminWindows ?? planche.chemin;
-    const lignes = [`${cheminAffiche} · ${planche.largeur} × ${planche.hauteur} px · ${ko} Ko`];
+    const dossierAffiche = planche.dossierWindows ?? planche.dossier;
+    const lignes = [`${dossierAffiche} · ${nombre} ${nombre > 1 ? "images" : "image"} · ${ko} Ko`];
     // "Copier" met le Markdown dans le presse-papier ; la planche l'y
-    // remplace par l'image. Le dire evite de perdre un compte rendu qu'on
-    // vient de copier sans s'en apercevoir.
+    // remplace par sa premiere image. Le dire evite de perdre un compte rendu
+    // qu'on vient de copier sans s'en apercevoir.
+    const glisser =
+      nombre > 1
+        ? `glissez les ${nombre} images du dossier dans Discord (10 au plus par message).`
+        : "glissez le fichier dans Discord.";
     lignes.push(
       planche.pressePapier === "copie"
-        ? "A remplacé le presse-papier par l'image — prête à coller dans Discord."
-        : "Presse-papier indisponible : glissez le fichier dans Discord.",
+        ? `A remplacé le presse-papier par la première image. Pour la série complète, ${glisser}`
+        : `Presse-papier indisponible : ${glisser}`,
     );
     if (planche.avertissement !== undefined) lignes.push(planche.avertissement);
     elements.plancheResultat.textContent = lignes.join("\n");
     elements.plancheResultat.hidden = false;
-    cheminPlancheCourante = planche.chemin;
+    cheminPlancheCourante = planche.images[0].chemin;
     elements.boutonPlancheOuvrir.hidden = false;
   } catch (erreur) {
     bandeau(elements.erreur, String(erreur?.message ?? erreur));

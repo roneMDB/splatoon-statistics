@@ -70,6 +70,23 @@ const ATTENDS_DEUX_IMAGES =
  */
 const PAUSE_APRES_REDIMENSIONNEMENT_MS = 250;
 
+/**
+ * Zoom de la fenetre de capture : deux pixels de bitmap par pixel CSS.
+ *
+ * Une planche se lit surtout apres un pincement sur un telephone, dont l'ecran
+ * compte trois pixels par pixel CSS : capturee a l'echelle 1, elle y devenait
+ * floue des le premier zoom. Le zoom de page, plutot qu'un
+ * `--force-device-scale-factor`, parce qu'il ne touche que cette fenetre et
+ * pas celle de l'application.
+ *
+ * Mesure sur la machine de developpement (WSLg, SwiftShader) : une fenetre de
+ * 2 x 840 DIP zoomee a 2 met la page en page a 840 px CSS, rapporte
+ * `devicePixelRatio` = 2, et `capturePage()` rend 1680 px de large - du texte
+ * redessine, pas un agrandissement. La fenetre se dimensionne donc en
+ * pixels CSS x ce zoom, et `mesure` rend l'echelle que la page constate.
+ */
+const ECHELLE_CAPTURE = 2;
+
 /** Delai de garde sur un aller-retour Chromium qui peut ne jamais rendre la main. */
 const DELAI_LONG_MS = 30_000;
 
@@ -121,16 +138,17 @@ export function outilsDePlanche(): OutilsDePlanche {
       largeurRendue = largeur;
       fenetre = new BrowserWindow({
         show: false,
-        width: largeur,
+        width: largeur * ECHELLE_CAPTURE,
         height: 900,
         webPreferences: {
           offscreen: true,
+          zoomFactor: ECHELLE_CAPTURE,
           sandbox: true,
           contextIsolation: true,
           nodeIntegration: false,
         },
       });
-      fenetre.setContentSize(largeur, 900);
+      fenetre.setContentSize(largeur * ECHELLE_CAPTURE, 900);
       await avecDelaiDeGarde(fenetre.loadFile(fichier), DELAI_LONG_MS, "Le chargement de la planche");
 
       const [hauteur, echelle] = await avecDelaiDeGarde(
@@ -154,7 +172,7 @@ export function outilsDePlanche(): OutilsDePlanche {
       if (fenetre === undefined) {
         throw new Error("Aucune fenêtre à capturer : la mesure n'a pas eu lieu.");
       }
-      fenetre.setContentSize(largeurRendue, hauteur);
+      fenetre.setContentSize(largeurRendue * ECHELLE_CAPTURE, hauteur * ECHELLE_CAPTURE);
       await avecDelaiDeGarde(
         fenetre.webContents.executeJavaScript(ATTENDS_DEUX_IMAGES),
         DELAI_LONG_MS,

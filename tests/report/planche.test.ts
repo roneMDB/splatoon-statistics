@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { construisLaPlanche, LARGEUR_PLANCHE } from "../../src/report/planche.ts";
+import {
+  construisLaPlanche,
+  construisLesPages,
+  LARGEUR_PAGE_MANCHES,
+  LARGEUR_PLANCHE,
+  MANCHES_PAR_PAGE,
+} from "../../src/report/planche.ts";
 import type { SessionFile } from "../../src/store.ts";
 import type { StatinkBattle } from "../../src/statink/types.ts";
 import { contraste, declaration, melange, voileDe } from "./couleurs.ts";
@@ -472,5 +478,104 @@ describe("construisLaPlanche", () => {
     const html = construisLaPlanche(session([]));
     expect(html).toContain("</html>");
     expect(html).not.toContain('class="manche manche--');
+  });
+});
+
+describe("construisLesPages", () => {
+  /** `n` manches, d'uuid distincts : le rang se lit dans le bandeau. */
+  const manches = (n: number) =>
+    Array.from({ length: n }, (_, i) => battle(`a${String(i).padStart(3, "0")}`, i % 2 === 0 ? "win" : "lose"));
+
+  /** Les numeros de manche d'une page, dans l'ordre du document. */
+  const numeros = (html: string) =>
+    [...html.matchAll(/class="manche__numero">(\d+)</g)].map((m) => Number(m[1]));
+
+  test("range les manches par pages de MANCHES_PAR_PAGE, sans en perdre ni en repeter", () => {
+    const n = 7 * MANCHES_PAR_PAGE + 1;
+    const pages = construisLesPages(session(manches(n)));
+
+    expect(pages).toHaveLength(8);
+    expect(pages.flatMap((page) => numeros(page.html))).toEqual(
+      Array.from({ length: n }, (_, i) => i + 1),
+    );
+    for (const page of pages.slice(0, -1)) expect(numeros(page.html)).toHaveLength(MANCHES_PAR_PAGE);
+  });
+
+  test("nomme les pages dans l'ordre, avec les manches qu'elles portent", () => {
+    const pages = construisLesPages(session(manches(MANCHES_PAR_PAGE + 1)));
+    expect(pages.map((page) => page.nom)).toEqual([
+      `01-manches-1-${MANCHES_PAR_PAGE}`,
+      `02-manches-${MANCHES_PAR_PAGE + 1}-${MANCHES_PAR_PAGE + 1}`,
+    ]);
+  });
+
+  test("une page de manches est etroite, a une colonne, et sa largeur atteint la feuille", () => {
+    const [page] = construisLesPages(session(manches(2)));
+    expect(page!.largeur).toBe(LARGEUR_PAGE_MANCHES);
+    expect(page!.html).toContain(`width: ${LARGEUR_PAGE_MANCHES}px`);
+    expect(page!.html).toContain('<main class="planche__grille planche__grille--colonne">');
+    expect(page!.html).toMatch(/\.planche__grille--colonne\s*\{[^}]*grid-template-columns:\s*1fr\s*;/);
+  });
+
+  test("chaque page de manches se lit seule : titre, rang des manches et legende", () => {
+    const pages = construisLesPages(session(manches(MANCHES_PAR_PAGE + 2)));
+    const total = MANCHES_PAR_PAGE + 2;
+
+    for (const page of pages) {
+      expect(page.html).toContain("Intra du 04/08 — Équipe O");
+      expect(page.html.match(/class="planche__legende"/g)).toHaveLength(1);
+    }
+    expect(pages[1]!.html).toContain(`Manches ${MANCHES_PAR_PAGE + 1} à ${total} sur ${total}`);
+  });
+
+  test("avec l'en-tete, une page de synthese large ouvre la serie, sans carte", () => {
+    const pages = construisLesPages(session(manches(2)), { entete: { sections: [] } });
+
+    expect(pages.map((page) => page.nom)).toEqual(["00-synthese", "01-manches-1-2"]);
+    const [synthese, suivante] = pages;
+    expect(synthese!.largeur).toBe(LARGEUR_PLANCHE);
+    expect(synthese!.html).toContain('<section class="entete">');
+    expect(synthese!.html).not.toContain('class="manche manche--');
+    expect(synthese!.html).toContain("font-src data:");
+    // Les polices du jeu ne servent qu'a l'en-tete : les pages de manches ne
+    // les embarquent pas.
+    expect(suivante!.html).not.toContain('class="entete"');
+    expect(suivante!.html).not.toContain("font-src");
+  });
+
+  test("chaque page n'embarque que les pictos qu'elle montre", () => {
+    const pictos = (categorie: string, cle: string) => `data:image/png;base64,${categorie}-${cle}`;
+    const autre = battle("b", "win", {
+      our_team_members: [
+        { me: true, name: "☆Gloup☆", kill: 1, assist: 0, death: 0, special: 1, inked: 10,
+          weapon: { key: "splatroller", name: { en_US: "Splat Roller" }, special: { key: "jetpack" } } },
+      ],
+      their_team_members: [],
+    } as unknown as Partial<StatinkBattle>);
+    const liste = [...manches(MANCHES_PAR_PAGE), autre];
+    const pages = construisLesPages(session(liste), { pictos });
+
+    expect(pages[0]!.html).toContain(".picto--speciales-greatbarrier {");
+    expect(pages[0]!.html).not.toContain(".picto--speciales-jetpack {");
+    expect(pages[1]!.html).toContain(".picto--speciales-jetpack {");
+  });
+
+  test("aucune page ne charge de ressource externe", () => {
+    const pages = construisLesPages(session(manches(4)), { entete: { sections: [] } });
+    for (const { html } of pages) {
+      expect(html).not.toMatch(/<script|<link|<img|@import|https?:/i);
+      expect(html).toContain('<meta http-equiv="Content-Security-Policy"');
+    }
+  });
+
+  test("une session vide donne une page, pour que la fabrication rende quelque chose", () => {
+    const pages = construisLesPages(session([]));
+    expect(pages).toHaveLength(1);
+    expect(pages[0]!.html).toContain("</html>");
+  });
+
+  test("est deterministe", () => {
+    const fichier = session(manches(5));
+    expect(construisLesPages(fichier)).toEqual(construisLesPages(fichier));
   });
 });

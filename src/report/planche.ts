@@ -58,6 +58,23 @@ import { MOTIF_SCOTCH } from "./texture.ts";
  */
 export const LARGEUR_PLANCHE = 1600;
 
+/**
+ * Largeur d'une page de manches, en pixels CSS : une colonne, la largeur d'une
+ * colonne de la planche entiere.
+ *
+ * L'application ne poste plus un ruban mais une serie d'images, parce qu'aucun
+ * ecran n'affichait le ruban a la bonne echelle : 1600 x 4835 px pour vingt et
+ * une manches, c'etait 3,7 px de texte sur un telephone ajuste a sa largeur, et
+ * 314 px de large dans la visionneuse de Discord, qui l'ajuste a la hauteur de
+ * l'ecran. Une page de trois manches fait environ 800 x 1150 : la visionneuse
+ * la montre presque a taille reelle sur PC, et un telephone la lit d'un seul
+ * pincement.
+ */
+export const LARGEUR_PAGE_MANCHES = 800;
+
+/** Trois cartes : au-dela, la page depasse la hauteur d'un ecran de PC. */
+export const MANCHES_PAR_PAGE = 3;
+
 /** Les couleurs de regle, en CSS. Une ligne par intensite, ancrable par le test. */
 const COULEURS_DE_REGLE = REGLES.flatMap(([cle, vive, matte]) => [
   `.manche--regle-${cle} { background: ${vive}; }`,
@@ -131,11 +148,11 @@ function couleurSure(couleur: string | undefined): string | undefined {
  * ce qui n'est pas acquis. Victoire et defaite passent par l'intensite de la
  * carte et par le mot.
  */
-const STYLE = `
+const style = (largeur: number) => `
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   position: relative;
-  width: ${LARGEUR_PLANCHE}px;
+  width: ${largeur}px;
   /*
    * Le bas est plus genereux que le reste : les cartes sont legerement
    * pivotees, et une rotation ne compte pas dans « scrollHeight ». Sans cette
@@ -201,6 +218,10 @@ body::before { background: #ffffff; opacity: 0.04; }
   color: #9aa0bb;
 }
 .planche__grille { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.planche__grille--colonne { grid-template-columns: 1fr; }
+/* Le titre d'une page de manches : 800 px ne tiennent pas le titre a 40 px. */
+.planche__entete--page h1 { font-size: 26px; }
+.planche__entete--page p { font-size: 14px; }
 /*
  * L'enveloppe porte ce que la carte ne peut pas porter elle-meme : une carte
  * est decoupee au « clip-path », et un « filter » pose sur l'element decoupe
@@ -568,8 +589,117 @@ export function construisLaPlanche(file: SessionFile, options: OptionsPlanche = 
   const legende = legendeEnHtml(details, registre);
   const entete =
     options.entete === undefined ? undefined : enteteEnHtml(file, analyse, options.entete, pictos, registre);
-  const stylePictos = entete === undefined ? registre.style() : "";
 
+  return documentEnHtml({
+    titre,
+    largeur: LARGEUR_PLANCHE,
+    polices: entete !== undefined,
+    styles: entete === undefined ? [registre.style()] : [entete.style],
+    corps: [
+      // Le bandeau de score de l'en-tete porte deja titre et bilan : les deux
+      // ensemble afficheraient la session deux fois.
+      entete === undefined
+        ? [
+            '<header class="planche__entete">',
+            `<h1>${echappe(titre)}</h1>`,
+            `<p>${echappe(bilanDeSession(analyse).join(" · "))}</p>`,
+            "</header>",
+          ].join("\n")
+        : entete.html,
+      legende,
+      '<main class="planche__grille">',
+      manches,
+      "</main>",
+    ],
+  });
+}
+
+/** Une image de la serie : son nom de fichier sans extension, et sa largeur CSS. */
+export type PagePlanche = { nom: string; html: string; largeur: number };
+
+/**
+ * Rend la planche en serie de pages, une image chacune : ce que l'application
+ * photographie. Voir `LARGEUR_PAGE_MANCHES` pour la raison du decoupage.
+ *
+ * Avec l'en-tete, une page de synthese l'ouvre, a la largeur de la planche
+ * entiere pour laquelle `entete.ts` est dessine. Viennent ensuite les manches,
+ * `MANCHES_PAR_PAGE` par page. Chaque page porte le titre et la legende : dans
+ * une galerie Discord, elle peut etre vue seule. Chacune a aussi son propre
+ * registre de pictos, pour n'embarquer que ceux qu'elle montre.
+ *
+ * Les noms commencent par un rang a deux chiffres : l'explorateur les range
+ * dans l'ordre, et le nettoyage des pages perimees (`plancheHandler.ts`) les
+ * reconnait a ce motif.
+ */
+export function construisLesPages(file: SessionFile, options: OptionsPlanche = {}): PagePlanche[] {
+  const analyse = analyseSession(file);
+  const titre = titreDeSession(file, analyse);
+  const pictos = options.pictos ?? aucunPicto;
+  const details = file.battles.map((battle) => toBattleDetail(battle));
+  const pages: PagePlanche[] = [];
+
+  if (options.entete !== undefined) {
+    const entete = enteteEnHtml(file, analyse, options.entete, pictos, new Registre(pictos));
+    pages.push({
+      nom: "00-synthese",
+      largeur: LARGEUR_PLANCHE,
+      html: documentEnHtml({ titre, largeur: LARGEUR_PLANCHE, polices: true, styles: [entete.style], corps: [entete.html] }),
+    });
+  }
+
+  // Au moins une page, meme vide : une fabrication qui ne rendrait aucune
+  // image n'aurait rien a copier ni a montrer.
+  const nombre = Math.max(1, Math.ceil(details.length / MANCHES_PAR_PAGE));
+  for (let rang = 0; rang < nombre; rang++) {
+    const debut = rang * MANCHES_PAR_PAGE;
+    const lot = details.slice(debut, debut + MANCHES_PAR_PAGE);
+    const registre = new Registre(pictos);
+    const manches = lot.map((detail, index) => mancheEnHtml(detail, debut + index + 1, registre)).join("\n");
+    const legende = legendeEnHtml(lot, registre);
+    const premiere = debut + 1;
+    const derniere = debut + lot.length;
+    const portee =
+      lot.length === 0
+        ? "Aucune manche"
+        : `${premiere === derniere ? `Manche ${premiere}` : `Manches ${premiere} à ${derniere}`} sur ${details.length}`;
+
+    pages.push({
+      nom: `${String(rang + 1).padStart(2, "0")}-manches-${premiere}-${Math.max(premiere, derniere)}`,
+      largeur: LARGEUR_PAGE_MANCHES,
+      html: documentEnHtml({
+        titre,
+        largeur: LARGEUR_PAGE_MANCHES,
+        polices: false,
+        styles: [registre.style()],
+        corps: [
+          '<header class="planche__entete planche__entete--page">',
+          `<h1>${echappe(titre)}</h1>`,
+          `<p>${echappe(portee)}</p>`,
+          "</header>",
+          legende,
+          '<main class="planche__grille planche__grille--colonne">',
+          manches,
+          "</main>",
+        ],
+      }),
+    });
+  }
+
+  return pages;
+}
+
+/**
+ * Le document autour d'un corps : la feuille commune a la largeur voulue, les
+ * feuilles propres a la page, et la CSP.
+ */
+function documentEnHtml(page: {
+  titre: string;
+  largeur: number;
+  /** L'en-tete embarque les polices du jeu : la CSP doit alors les admettre. */
+  polices: boolean;
+  styles: string[];
+  corps: string[];
+}): string {
   return [
     "<!doctype html>",
     '<html lang="fr">',
@@ -581,29 +711,15 @@ export function construisLaPlanche(file: SessionFile, options: OptionsPlanche = 
     // qui ne connait pas cette regle sans la CSP.
     // L'en-tete embarque les polices du jeu en `data:` : sans `font-src`, la
     // CSP les refuserait et l'en-tete retomberait en silence sur Lato.
-    entete === undefined
-      ? '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:">'
-      : '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:; font-src data:">',
-    `<title>${echappe(titre)}</title>`,
-    `<style>\n${STYLE}\n</style>`,
-    ...(entete === undefined ? [] : [`<style>\n${entete.style}\n</style>`]),
-    ...(stylePictos === "" ? [] : [`<style>\n${stylePictos}\n</style>`]),
+    page.polices
+      ? '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:; font-src data:">'
+      : '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:">',
+    `<title>${echappe(page.titre)}</title>`,
+    `<style>\n${style(page.largeur)}\n</style>`,
+    ...page.styles.filter((feuille) => feuille !== "").map((feuille) => `<style>\n${feuille}\n</style>`),
     "</head>",
     "<body>",
-    // Le bandeau de score de l'en-tete porte deja titre et bilan : les deux
-    // ensemble afficheraient la session deux fois.
-    ...(entete === undefined
-      ? [
-          '<header class="planche__entete">',
-          `<h1>${echappe(titre)}</h1>`,
-          `<p>${echappe(bilanDeSession(analyse).join(" · "))}</p>`,
-          "</header>",
-        ]
-      : [entete.html]),
-    legende,
-    '<main class="planche__grille">',
-    manches,
-    "</main>",
+    ...page.corps,
     "</body>",
     "</html>",
     "",

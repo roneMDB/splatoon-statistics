@@ -148,9 +148,10 @@ export type SplatoonApi = {
   /** Rend le compte rendu en Markdown, pret a etre colle. */
   buildReport: (input: BuildReportInput) => Promise<string>;
   /**
-   * Fabrique la planche de la session et rend ou elle a ete ecrite.
-   * `pressePapier` vaut `"indisponible"` quand le systeme n'a pas accepte
-   * l'image - le cas sous WSLg : le fichier, lui, est toujours ecrit.
+   * Fabrique les images de la planche de la session et rend ou elles ont ete
+   * ecrites. `pressePapier` vaut `"indisponible"` quand le systeme n'a pas
+   * accepte la premiere image - le cas sous WSLg : les fichiers, eux, sont
+   * toujours ecrits.
    */
   buildPlanche: (
     input: BuildPlancheInput,

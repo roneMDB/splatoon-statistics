@@ -11,12 +11,12 @@
  * outils.
  */
 
-import { mkdir, realpath, writeFile } from "node:fs/promises";
+import { mkdir, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve, sep } from "node:path";
 import { DEFAULT_PLANCHE_DIR } from "../config.ts";
 import type { OptionsEntete } from "../report/entete.ts";
 import { aucunPicto, type Pictos } from "../report/pictos.ts";
-import { construisLaPlanche, LARGEUR_PLANCHE } from "../report/planche.ts";
+import { construisLesPages, type PagePlanche } from "../report/planche.ts";
 import type { SessionFile } from "../store.ts";
 
 /**
@@ -24,37 +24,48 @@ import type { SessionFile } from "../store.ts";
  * celle d'un bitmap reel, en pixels de l'ecran, pas celle du document en
  * pixels CSS : c'est pourquoi le garde-fou ci-dessous la compare a la hauteur
  * **projetee a l'echelle de l'ecran**, pas a la seule hauteur mesuree. A
- * ~320 px la carte (plus 14 px d'ecart entre les lignes) et deux manches par
- * ligne depuis le passage a deux colonnes, 16 000 px de bitmap fait
- * environ 95 manches a l'echelle 1 : hors d'atteinte pour une soiree, mais un
- * refus explicite vaut mieux qu'un PNG noir de 400 Ko.
+ * Depuis le decoupage en pages (voir `construisLesPages`), chaque capture ne
+ * porte que quelques manches : environ 2300 px de bitmap en x2, loin de la
+ * limite. Le garde-fou reste, page par page : un refus explicite vaut mieux
+ * qu'un PNG noir de 400 Ko.
  */
 export const HAUTEUR_MAXIMALE_PLANCHE = 16_000;
 
-/** Ce que la fabrication rend a la fenetre. */
-export type ResultatPlanche = {
-  /** Chemin absolu du PNG ecrit. Toujours renseigne : le fichier est le chemin fiable. */
+/** Une image ecrite, telle qu'elle a ete constatee. */
+export type ImagePlanche = {
+  /** Chemin absolu du PNG. */
   chemin: string;
-  /**
-   * Equivalent Windows de `chemin`, pour un utilisateur sous WSL qui va
-   * chercher le fichier dans l'explorateur Windows. Renseigne seulement sous
-   * WSL, et seulement quand la conversion aboutit (`WSL_DISTRO_NAME` present)
-   * - voir `versCheminWindows` dans `wsl.ts`. Absent partout ailleurs :
-   * `chemin` reste la reference que le reste du code emploie.
-   */
-  cheminWindows?: string;
   /** Largeur reellement capturee, en pixels — pas l'intention. Voir `capture`. */
   largeur: number;
   /** Hauteur reellement capturee, en pixels — pas l'intention. Voir `capture`. */
   hauteur: number;
   octets: number;
+};
+
+/** Ce que la fabrication rend a la fenetre. */
+export type ResultatPlanche = {
   /**
-   * `copie` seulement quand le presse-papier a **reellement** recu l'image,
-   * verification faite. Voir `planchePhotographe.ts`.
+   * Chemin absolu du dossier de la session, ou sont les images. Toujours
+   * renseigne : les fichiers sont le chemin fiable.
+   */
+  dossier: string;
+  /**
+   * Equivalent Windows de `dossier`, pour un utilisateur sous WSL qui va
+   * chercher les fichiers dans l'explorateur Windows. Renseigne seulement sous
+   * WSL, et seulement quand la conversion aboutit (`WSL_DISTRO_NAME` present)
+   * - voir `versCheminWindows` dans `wsl.ts`. Absent partout ailleurs :
+   * `dossier` reste la reference que le reste du code emploie.
+   */
+  dossierWindows?: string;
+  /** Les images, dans l'ordre ou les poster. Jamais vide. */
+  images: ImagePlanche[];
+  /**
+   * `copie` seulement quand le presse-papier a **reellement** recu la premiere
+   * image, verification faite. Voir `planchePhotographe.ts`.
    */
   pressePapier: "copie" | "indisponible";
   /**
-   * Present seulement quand la capture n'a pas rendu les dimensions
+   * Present seulement quand une capture n'a pas rendu les dimensions
    * demandees : la fenetre hors ecran a ete bornee par le compositeur ou par
    * une limite de surface, et le PNG peut donc etre tronque. Le fichier est
    * ecrit quand meme - a toi de decider si tu le gardes - mais l'application
@@ -68,10 +79,11 @@ export type MesurePlanche = {
   /** Hauteur du contenu, en pixels CSS. */
   hauteur: number;
   /**
-   * Facteur d'echelle de l'ecran (`devicePixelRatio`) : 1 pour un ecran
-   * standard, 1.25 ou 2 pour un ecran HiDPI ou avec
-   * `--force-device-scale-factor`. Necessaire pour projeter la hauteur en
-   * pixels **reels** que Chromium va produire - voir `HAUTEUR_MAXIMALE_PLANCHE`.
+   * Pixels de bitmap par pixel CSS (`devicePixelRatio`) : le zoom de capture
+   * (voir `ECHELLE_CAPTURE` dans `planchePhotographe.ts`), multiplie par
+   * l'echelle d'un ecran HiDPI ou de `--force-device-scale-factor`.
+   * Necessaire pour projeter les dimensions en pixels **reels** que Chromium
+   * va produire - voir `HAUTEUR_MAXIMALE_PLANCHE`.
    */
   echelle: number;
 };
@@ -123,10 +135,21 @@ export type OptionsDeFabrication = {
   entete?: OptionsEntete;
 };
 
-/** `…/Gloup_20260804-2100_20260804-2359.json` -> `Gloup_20260804-2100_20260804-2359.png`. */
-export function nomDePlanche(cheminDeSession: string): string {
-  return `${basename(cheminDeSession, ".json")}.png`;
+/**
+ * `…/Gloup_20260804-2100_20260804-2359.json` -> `Gloup_20260804-2100_20260804-2359` :
+ * le sous-dossier des images de la session, dans le dossier des planches.
+ */
+export function dossierDePlanche(cheminDeSession: string): string {
+  return basename(cheminDeSession, ".json");
 }
+
+/**
+ * Ce qu'une fabrication ecrit, et donc tout ce qu'une fabrication suivante a
+ * le droit d'effacer : le rang a deux chiffres de `construisLesPages`, puis
+ * `.png` ou `.html`. Un fichier depose a la main dans le dossier n'a aucune
+ * raison de porter ce nom, et il est laisse en place.
+ */
+const PAGE_ECRITE = /^\d{2}-[a-z0-9-]+\.(?:png|html)$/;
 
 /**
  * Refuse tout chemin qui sort du dossier des planches, ou qui n'est pas un
@@ -187,49 +210,30 @@ export async function cheminDePlanche(
   return resolu;
 }
 
-/**
- * Fabrique la planche d'une session et l'ecrit sur disque.
- *
- * L'ordre voulu : on mesure avant de capturer pour pouvoir refuser une planche
- * trop haute, et on ferme la fenetre avant d'ecrire - une fenetre ouverte
- * pendant une ecriture disque ne sert a rien. Le `finally` garantit que la
- * fenetre se ferme meme si la mesure ou la capture echoue ; en revanche,
- * `writeFile` n'etant pas injecte, rien ne verifie par test qu'il s'execute
- * bien apres `ferme()` - c'est l'ordre du code ci-dessous qui en decide.
- *
- * Le HTML photographie est ecrit a cote, sous le meme nom en `.html`.
- *
- * Le PNG est toujours ecrit, meme quand le presse-papier a fonctionne : c'est
- * le chemin fiable, le presse-papier n'est que le raccourci. Et le
- * presse-papier ne doit jamais faire echouer la fabrication : un rejet de
- * `copie` (implementation defaillante, presse-papier indisponible) vaut
- * "indisponible", jamais une exception - le fichier est deja ecrit, il ne
- * doit pas etre perdu pour un raccourci qui n'a jamais ete la partie fiable.
- */
-export async function fabriqueLaPlanche(
-  path: string,
-  outils: OutilsDePlanche,
-  plancheDir: string = DEFAULT_PLANCHE_DIR,
-  options: OptionsDeFabrication = {},
-): Promise<ResultatPlanche> {
-  const file = await outils.lisLaSession(path);
-  const pictos = (await outils.chargeLesPictos?.(file)) ?? aucunPicto;
-  const html =
-    options.entete === undefined
-      ? construisLaPlanche(file, { pictos })
-      : construisLaPlanche(file, { entete: options.entete, pictos });
+/** Une page photographiee : sa capture, et le bitmap qu'on en attendait. */
+type PagePhotographiee = {
+  page: PagePlanche;
+  capture: CapturePlanche;
+  largeurAttendue: number;
+  hauteurAttendue: number;
+};
 
-  let capture: CapturePlanche;
-  let hauteurDemandee: number;
+/**
+ * Photographie une page dans sa propre fenetre hors ecran.
+ *
+ * L'ordre voulu : on mesure avant de capturer pour pouvoir refuser une page
+ * trop haute. Le `finally` garantit que la fenetre se ferme meme si la mesure
+ * ou la capture echoue.
+ */
+async function photographie(page: PagePlanche, outils: OutilsDePlanche): Promise<PagePhotographiee> {
   let enErreur = false;
   try {
-    const { hauteur, echelle } = await outils.mesure(html, LARGEUR_PLANCHE);
-    hauteurDemandee = hauteur;
+    const { hauteur, echelle } = await outils.mesure(page.html, page.largeur);
 
     // Le bitmap que Chromium va produire fait hauteur x echelle pixels, pas
-    // hauteur pixels : sans la projection, un ecran HiDPI laisserait passer
-    // une planche qui depasse la vraie limite, precisement le PNG noir que ce
-    // garde-fou existe pour empecher.
+    // hauteur pixels : sans la projection, un zoom de capture ou un ecran
+    // HiDPI laisserait passer une page qui depasse la vraie limite,
+    // precisement le PNG noir que ce garde-fou existe pour empecher.
     const hauteurReelleProjetee = Math.ceil(hauteur * echelle);
     if (hauteurReelleProjetee > HAUTEUR_MAXIMALE_PLANCHE) {
       throw new Error(
@@ -239,7 +243,13 @@ export async function fabriqueLaPlanche(
           `rendrait une image noire sans le dire.`,
       );
     }
-    capture = await outils.capture(hauteur);
+    const capture = await outils.capture(hauteur);
+    return {
+      page,
+      capture,
+      largeurAttendue: Math.round(page.largeur * echelle),
+      hauteurAttendue: Math.round(hauteur * echelle),
+    };
   } catch (erreur) {
     enErreur = true;
     throw erreur;
@@ -256,43 +266,94 @@ export async function fabriqueLaPlanche(
       console.error("Fermeture de la fenêtre de planche en échec :", erreurFermeture);
     }
   }
+}
 
-  await mkdir(plancheDir, { recursive: true });
+/**
+ * Fabrique les images de la planche d'une session et les ecrit sur disque,
+ * dans le sous-dossier de la session.
+ *
+ * Toutes les pages sont photographiees **avant** d'ecrire quoi que ce soit :
+ * une page en echec laisse intactes les images de la fabrication precedente,
+ * plutot qu'un melange des deux. Viennent ensuite le nettoyage des pages
+ * perimees - une session refaite avec moins de manches ne doit pas garder sa
+ * derniere page d'avant - puis l'ecriture.
+ *
+ * Le HTML photographie est ecrit a cote de chaque PNG, sous le meme nom en
+ * `.html`.
+ *
+ * Les PNG sont toujours ecrits, meme quand le presse-papier a fonctionne :
+ * c'est le chemin fiable, le presse-papier n'est que le raccourci, et il ne
+ * porte qu'une image - la premiere, la synthese quand il y en a une. Il ne
+ * doit jamais faire echouer la fabrication : un rejet de `copie`
+ * (implementation defaillante, presse-papier indisponible) vaut
+ * "indisponible", jamais une exception - les fichiers sont deja ecrits, ils ne
+ * doivent pas etre perdus pour un raccourci qui n'a jamais ete la partie
+ * fiable.
+ */
+export async function fabriqueLaPlanche(
+  path: string,
+  outils: OutilsDePlanche,
+  plancheDir: string = DEFAULT_PLANCHE_DIR,
+  options: OptionsDeFabrication = {},
+): Promise<ResultatPlanche> {
+  const file = await outils.lisLaSession(path);
+  const pictos = (await outils.chargeLesPictos?.(file)) ?? aucunPicto;
+  const pages =
+    options.entete === undefined
+      ? construisLesPages(file, { pictos })
+      : construisLesPages(file, { entete: options.entete, pictos });
+
+  const photos: PagePhotographiee[] = [];
+  for (const page of pages) photos.push(await photographie(page, outils));
+
   // Chemin absolu : c'est le produit principal, celui que l'utilisateur doit
   // pouvoir coller dans un explorateur sans savoir d'ou l'application a ete
   // lancee.
-  const chemin = resolve(join(plancheDir, nomDePlanche(path)));
-  await writeFile(chemin, capture.png);
-  // Le document photographie, garde a cote du PNG sous le meme nom. Il est
-  // autonome (polices, pictos et motif en `data:`) : il s'ouvre tel quel
-  // dans un navigateur, pour retoucher ou comparer sans refaire la capture.
-  await writeFile(chemin.replace(/\.png$/, ".html"), html, "utf8");
+  const dossier = resolve(join(plancheDir, dossierDePlanche(path)));
+  await mkdir(dossier, { recursive: true });
+  for (const entree of await readdir(dossier, { withFileTypes: true })) {
+    if (entree.isFile() && PAGE_ECRITE.test(entree.name)) {
+      await rm(join(dossier, entree.name), { force: true });
+    }
+  }
+
+  const images: ImagePlanche[] = [];
+  for (const { page, capture } of photos) {
+    const chemin = join(dossier, `${page.nom}.png`);
+    await writeFile(chemin, capture.png);
+    // Le document photographie, garde a cote du PNG sous le meme nom. Il est
+    // autonome (polices, pictos et motif en `data:`) : il s'ouvre tel quel
+    // dans un navigateur, pour retoucher ou comparer sans refaire la capture.
+    await writeFile(join(dossier, `${page.nom}.html`), page.html, "utf8");
+    images.push({ chemin, largeur: capture.largeur, hauteur: capture.hauteur, octets: capture.png.byteLength });
+  }
 
   let pressePapier: "copie" | "indisponible";
   try {
-    pressePapier = (await outils.copie(capture.png)) ? "copie" : "indisponible";
+    pressePapier = (await outils.copie(photos[0]!.capture.png)) ? "copie" : "indisponible";
   } catch {
     // Voir le commentaire de tete : le presse-papier n'est que le raccourci.
     pressePapier = "indisponible";
   }
 
-  // On annonce ce qu'on a constate, jamais l'intention : si la capture n'a
-  // pas rendu les dimensions demandees, on le dit plutot que de le taire.
-  const tronquee = capture.largeur !== LARGEUR_PLANCHE || capture.hauteur !== hauteurDemandee;
+  // On annonce ce qu'on a constate, jamais l'intention : si une capture n'a
+  // pas rendu le bitmap attendu, on le dit plutot que de le taire.
+  const avertissements = photos
+    .filter(
+      ({ capture, largeurAttendue, hauteurAttendue }) =>
+        capture.largeur !== largeurAttendue || capture.hauteur !== hauteurAttendue,
+    )
+    .map(
+      ({ page, capture, largeurAttendue, hauteurAttendue }) =>
+        `Image ${page.nom} capturée à ${capture.largeur} × ${capture.hauteur} px au lieu de ` +
+        `${largeurAttendue} × ${hauteurAttendue} px demandés : elle peut être tronquée.`,
+    );
 
   return {
-    chemin,
-    largeur: capture.largeur,
-    hauteur: capture.hauteur,
-    octets: capture.png.byteLength,
+    dossier,
+    images,
     pressePapier,
-    ...(tronquee
-      ? {
-          avertissement:
-            `Planche capturée à ${capture.largeur} × ${capture.hauteur} px au lieu de ` +
-            `${LARGEUR_PLANCHE} × ${hauteurDemandee} px demandés : l'image peut être tronquée.`,
-        }
-      : {}),
+    ...(avertissements.length > 0 ? { avertissement: avertissements.join("\n") } : {}),
   };
 }
 
