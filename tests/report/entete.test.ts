@@ -126,6 +126,42 @@ describe("enteteEnHtml — blocs", () => {
     expect([...html.matchAll(/tuile__ko/g)]).toHaveLength(1);
   });
 
+  test("detaille chaque tuile : numero, score et mes eliminations / morts", () => {
+    const { html } = rends(
+      session([
+        battle("win", { our_team_count: 100, their_team_count: 0 }),
+        battle("lose", {
+          rule: { key: "nawabari" },
+          our_team_count: null,
+          their_team_count: null,
+          our_team_percent: "47.6",
+          their_team_percent: "50.2",
+        } as Partial<StatinkBattle>),
+      ]),
+    );
+
+    expect([...html.matchAll(/tuile__numero">(\d+)</g)].map((m) => m[1])).toEqual(["1", "2"]);
+    // Le pourcentage est arrondi : la tuile n'a pas la place des decimales.
+    expect([...html.matchAll(/tuile__score">([^<]*)</g)].map((m) => m[1])).toEqual(["100-0", "48-50"]);
+    expect([...html.matchAll(/tuile__moi">([^<]*)</g)].map((m) => m[1])).toEqual(["5/3", "5/3"]);
+  });
+
+  test("n'invente ni score ni chiffres quand la manche n'en a pas", () => {
+    const { html } = rends(
+      session([
+        battle("win", {
+          our_team_count: null,
+          their_team_count: null,
+          our_team_members: [],
+        } as Partial<StatinkBattle>),
+      ]),
+    );
+
+    expect(html).toContain("tuile__numero");
+    expect(html).not.toContain("tuile__score");
+    expect(html).not.toContain("tuile__moi");
+  });
+
   test("nomme les adversaires par leur pseudo, avec leur arme", () => {
     const { html } = rends(fichier);
     expect(html).toContain('<span class="adversaire__nom">PseudoAdverse</span>');
