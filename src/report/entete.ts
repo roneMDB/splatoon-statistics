@@ -239,7 +239,7 @@ ${[...Array(TUILES_MAX - TUILES_MIN + 1).keys()].map((i) => `.courbe--${i + TUIL
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  height: 128px;
+  height: 108px;
   padding: 7px 0 6px;
   color: #0e0f18;
   clip-path: polygon(0 8px, 8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
@@ -248,9 +248,8 @@ ${[...Array(TUILES_MAX - TUILES_MIN + 1).keys()].map((i) => `.courbe--${i + TUIL
 .tuile__verdict { font-family: ${TITRE}; font-size: 24px; line-height: 1; }
 .tuile__ko { position: absolute; top: 3px; right: 4px; font-family: ${TITRE}; font-size: 11px; }
 .tuile__numero { position: absolute; top: 3px; left: 5px; font-family: ${TITRE}; font-size: 11px; }
-.tuile__detail { display: flex; flex-direction: column; align-items: center; gap: 1px; min-height: 30px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+.tuile__detail { display: flex; flex-direction: column; align-items: center; gap: 1px; min-height: 14px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
 .tuile__score { font-size: 12px; }
-.tuile__moi { font-family: ${TITRE}; font-size: 14px; }
 .courbe__legende { margin-top: 8px; font-size: 13px; text-align: right; }
 ${COULEURS_DE_TUILE}
 
@@ -382,8 +381,8 @@ function scoreDeTuile(manche: Manche): string {
 /**
  * Une tuile par manche, couleur de la regle : vive si gagnee, matte sinon.
  *
- * Sous le verdict, le score et mes eliminations / morts : de quoi voir d'un
- * coup d'oeil si une defaite etait serree, et si je l'ai portee. Le numero
+ * Sous le verdict, le score : de quoi voir d'un coup d'oeil si une defaite
+ * etait serree. Le numero
  * renvoie a la carte de la manche, plus bas dans la planche.
  */
 function blocCourbe(analyse: AnalyseSession, registre: Registre): string {
@@ -404,7 +403,6 @@ function blocCourbe(analyse: AnalyseSession, registre: Registre): string {
       `<span class="tuile__verdict">${VERDICTS[manche.resultat] ?? "?"}</span>` +
       `<span class="tuile__detail">` +
       scoreDeTuile(manche) +
-      (manche.moi === undefined ? "" : `<span class="tuile__moi">${manche.moi.kill}/${manche.moi.death}</span>`) +
       `</span>` +
       (manche.ko ? `<span class="tuile__ko">KO</span>` : "") +
       `</li>`
@@ -415,7 +413,7 @@ function blocCourbe(analyse: AnalyseSession, registre: Registre): string {
     `<p class="courbe__heures secondaire"><span>${echappe(premiere?.heure ?? "—")}</span>` +
       `<span>${echappe(derniere?.heure ?? "—")}</span></p>` +
       `<ol class="courbe courbe--${Math.min(Math.max(tuiles.length, TUILES_MIN), TUILES_MAX)}">${tuiles.join("")}</ol>` +
-      `<p class="courbe__legende secondaire">Sous chaque manche : le score, puis mes éliminations / morts</p>`,
+      `<p class="courbe__legende secondaire">Sous chaque manche : son score final</p>`,
     { etiquette: "Courbe de session", plein: true },
   );
 }
