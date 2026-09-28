@@ -448,7 +448,7 @@ function blocBulletin(analyse: AnalyseSession, registre: Registre, plein: boolea
   );
 
   // Une ligne par arme qui a des objectifs : le compte de manches tenues sur
-  // les manches jouees avec elle et allees au bout, borne par borne.
+  // les manches jouees avec elle, borne par borne.
   const objectifs = analyse.objectifs.map((bilan) => {
     const sur = (tenues: number) => `<span class="objectif__valeur">${tenues}/${bilan.manches}</span>`;
     const bornes = [
@@ -463,7 +463,11 @@ function blocBulletin(analyse: AnalyseSession, registre: Registre, plein: boolea
     return (
       `<ul class="objectifs">` +
       `<li class="objectifs__arme">${registre.picto("armes", bilan.cle, "", "s")}` +
-      `<span>Objectifs ${echappe(bilan.nom)} <span class="secondaire">hors KO</span></span></li>` +
+      `<span>Objectifs ${echappe(bilan.nom)}` +
+      (bilan.auProrata === 0
+        ? ""
+        : ` <span class="secondaire">${bilan.auProrata} au prorata du temps</span>`) +
+      `</span></li>` +
       bornes.map((borne) => `<li class="objectif">${borne}</li>`).join("") +
       `</ul>`
     );

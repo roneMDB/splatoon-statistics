@@ -365,10 +365,21 @@ describe("enteteEnHtml — objectifs d'arme", () => {
     const analyse = analyseSession(fichier, { nzap89: { mortsMax: 5, speciauxMin: 6 } });
     const { html } = enteteEnHtml(fichier, analyse, tout, pictosFactices);
 
-    expect(html).toContain("Objectifs N-ZAP 89 <span class=\"secondaire\">hors KO</span>");
+    // Manches de 5:00 pile : rien au prorata, rien a signaler.
+    expect(html).toContain("<span>Objectifs N-ZAP 89</span>");
     expect(html).toContain('<li class="objectif"><span class="objectif__valeur">2/2</span>5 morts max</li>');
     expect(html).toContain('<li class="objectif"><span class="objectif__valeur">0/2</span>6 spé. min</li>');
     expect(html).toContain('<span class="objectif__valeur">0/2</span>les deux');
+  });
+
+  test("signale les manches jugees au prorata", () => {
+    // Deux minutes de jeu au lieu de cinq.
+    const courte = battle("lose", { knockout: true });
+    const debut = Date.parse(courte.start_at?.iso8601 ?? "");
+    courte.end_at = { time: 0, iso8601: new Date(debut + 120_000).toISOString() };
+    const fichier = session([battle("win"), courte]);
+    const { html } = enteteEnHtml(fichier, analyseSession(fichier, { nzap89: { mortsMax: 5 } }), tout, pictosFactices);
+    expect(html).toContain('<span class="secondaire">1 au prorata du temps</span>');
   });
 
   test("n'en dit rien sans objectif", () => {

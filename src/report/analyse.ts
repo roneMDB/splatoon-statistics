@@ -99,8 +99,10 @@ export type BilanObjectifs = {
   cle: string;
   /** Nom francais, ou anglais a defaut. */
   nom: string;
-  /** Manches jouees avec l'arme et allees au bout, sans KO : le denominateur de chaque borne. */
+  /** Manches jouees avec l'arme et jugees : le denominateur de chaque borne. */
   manches: number;
+  /** Parmi elles, les manches ecourtees, jugees au prorata du temps joue. */
+  auProrata: number;
   mortsMax?: BorneTenue;
   speciauxMin?: BorneTenue;
   /** Manches ou toutes les bornes posees sont tenues a la fois. */
@@ -302,7 +304,8 @@ export function reguliers(joueurs: StatsJoueur[], manchesDeLaSession: number): S
 
 /**
  * Confronte mes manches aux objectifs de leur arme. Une manche sans arme
- * connue ne compte pour aucune ; une manche terminee par KO non plus (voir
+ * connue ne compte pour aucune ; une manche de moins d'une minute non plus.
+ * Une manche ecourtee est jugee au prorata de son temps de jeu (voir
  * `objectifs.ts`).
  */
 function bilanDesObjectifs(
@@ -314,20 +317,27 @@ function bilanDesObjectifs(
   for (const manche of manches) {
     const cle = manche.moi?.arme;
     const objectifs = cle === undefined ? undefined : objectifsParArme[cle];
-    if (manche.moi === undefined || cle === undefined || objectifs === undefined || manche.ko) continue;
+    if (manche.moi === undefined || cle === undefined || objectifs === undefined) continue;
+    const jugement = jugeLaManche(objectifs, {
+      ...manche.moi,
+      ...(manche.dureeSecondes !== undefined ? { dureeSecondes: manche.dureeSecondes } : {}),
+    });
+    if (jugement === undefined) continue;
 
     const bilan = bilans.get(cle) ?? {
       cle,
       nom: nomDeLArme(cle, nomEnAnglais.get(cle)),
       manches: 0,
+      auProrata: 0,
       ...(objectifs.mortsMax !== undefined ? { mortsMax: { seuil: objectifs.mortsMax, tenues: 0 } } : {}),
       ...(objectifs.speciauxMin !== undefined
         ? { speciauxMin: { seuil: objectifs.speciauxMin, tenues: 0 } }
         : {}),
       toutesTenues: 0,
     };
-    const verdicts = jugeLaManche(objectifs, { ...manche.moi, ko: manche.ko });
+    const { verdicts } = jugement;
     bilan.manches += 1;
+    if (jugement.ajuste) bilan.auProrata += 1;
     if (verdicts.morts === true && bilan.mortsMax !== undefined) bilan.mortsMax.tenues += 1;
     if (verdicts.speciaux === true && bilan.speciauxMin !== undefined) bilan.speciauxMin.tenues += 1;
     if (Object.values(verdicts).every((tenu) => tenu)) bilan.toutesTenues += 1;

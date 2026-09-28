@@ -460,6 +460,7 @@ describe("analyseSession — objectifs par arme", () => {
         cle: "test_n_zap_85",
         nom: "N-ZAP 85",
         manches: 3,
+        auProrata: 0,
         mortsMax: { seuil: 5, tenues: 2 },
         speciauxMin: { seuil: 6, tenues: 2 },
         toutesTenues: 1,
@@ -479,30 +480,39 @@ describe("analyseSession — objectifs par arme", () => {
     expect(analyse.objectifs[0]).not.toHaveProperty("mortsMax");
   });
 
-  test("ne juge pas une manche terminee par KO, subi ou inflige", () => {
-    const ko = (resultat: "win" | "lose") =>
-      match({
-        debut: "2026-09-11T19:40:00Z",
-        resultat,
-        ko: true,
-        nous: [joueur({ nom: "Moi", moi: true, arme: "N-ZAP 85", death: 0, special: 9 })],
-      });
-    const analyse = analyseSession(session([nzap(5, 6), ko("win"), ko("lose")]), objectifs);
-    expect(analyse.objectifs[0]).toMatchObject({
-      manches: 1,
-      mortsMax: { tenues: 1 },
-      speciauxMin: { tenues: 1 },
+  const ecourtee = (minutes: number, death: number, special: number) =>
+    match({
+      debut: "2026-09-11T19:40:00Z",
+      minutes,
+      ko: true,
+      nous: [joueur({ nom: "Moi", moi: true, arme: "N-ZAP 85", death, special })],
+    });
+
+  test("juge une manche ecourtee au prorata, morts vers le bas, speciaux vers le haut", () => {
+    // 2 min sur 5 : 40 % de 5 morts = 2, de 6 speciaux = 2,4 -> 3.
+    const tenue = analyseSession(session([ecourtee(2, 2, 3)]), objectifs).objectifs[0];
+    expect(tenue).toMatchObject({ manches: 1, auProrata: 1, mortsMax: { tenues: 1 }, speciauxMin: { tenues: 1 } });
+
+    const manquee = analyseSession(session([ecourtee(2, 3, 2)]), objectifs).objectifs[0];
+    expect(manquee).toMatchObject({ mortsMax: { tenues: 0 }, speciauxMin: { tenues: 0 }, toutesTenues: 0 });
+  });
+
+  test("ne remonte pas les objectifs d'une prolongation", () => {
+    const longue = match({
+      debut: "2026-09-11T19:40:00Z",
+      minutes: 6,
+      nous: [joueur({ nom: "Moi", moi: true, arme: "N-ZAP 85", death: 5, special: 6 })],
+    });
+    expect(analyseSession(session([longue]), objectifs).objectifs[0]).toMatchObject({
+      auProrata: 0,
       toutesTenues: 1,
     });
   });
 
-  test("n'a rien a dire quand toutes les manches de l'arme ont fini par KO", () => {
-    const ko = match({
-      debut: "2026-09-11T19:40:00Z",
-      ko: true,
-      nous: [joueur({ nom: "Moi", moi: true, arme: "N-ZAP 85" })],
-    });
-    expect(analyseSession(session([ko]), objectifs).objectifs).toEqual([]);
+  test("ne juge pas une manche de moins d'une minute", () => {
+    const eclair = ecourtee(0.5, 0, 0);
+    expect(analyseSession(session([eclair]), objectifs).objectifs).toEqual([]);
+    expect(analyseSession(session([eclair, nzap(5, 6)]), objectifs).objectifs[0]).toMatchObject({ manches: 1 });
   });
 
   test("retient l'arme de chaque manche dans mes chiffres", () => {

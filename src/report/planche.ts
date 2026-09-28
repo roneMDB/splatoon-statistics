@@ -365,6 +365,8 @@ ${COULEURS_DE_REGLE}
  */
 .stat--tenu { color: #eaff3d; font-weight: 900; }
 .stat--manque { color: #ff7a9c; font-weight: 900; text-decoration: underline 2px; text-underline-offset: 3px; }
+/* La borne ajustee d'une manche ecourtee, en retrait du chiffre qu'elle juge. */
+.stat__objectif { margin-left: 2px; font-size: 10px; font-weight: 700; color: #e6e8f4; text-decoration: none; display: inline-block; }
 .planche__legende {
   position: relative;
   display: flex;
@@ -423,16 +425,24 @@ function chiffresEnHtml(
   joueur: JoueurDeManche,
   registre: Registre,
   objectifs: ObjectifsDArme,
-  ko: boolean,
+  dureeSecondes: number | undefined,
 ): string {
   // Mes objectifs seulement, et pour l'arme de cette manche : ceux d'un autre
   // joueur ne sont pas les miens.
   const miens = joueur.moi && joueur.armeCle !== undefined ? objectifs[joueur.armeCle] : undefined;
-  const verdicts = miens === undefined ? {} : jugeLaManche(miens, { ...joueur, ko });
+  const jugement =
+    miens === undefined
+      ? undefined
+      : jugeLaManche(miens, { ...joueur, ...(dureeSecondes !== undefined ? { dureeSecondes } : {}) });
+  const verdicts = jugement?.verdicts ?? {};
   const marque = (tenu: boolean | undefined) =>
     tenu === undefined ? "" : tenu ? " stat--tenu" : " stat--manque";
-  const stat = (modificateur: string, picto: string, valeur: string, tenu?: boolean) =>
-    `<span class="stat stat--${modificateur}${marque(tenu)}">${picto}${valeur}</span>`;
+  // Sur une manche ecourtee, la borne appliquee suit le chiffre : sans elle,
+  // 3 morts en rose sur une manche de 1:52 contredirait « 5 morts max ».
+  const borne = (texte: string) =>
+    jugement?.ajuste === true ? `<span class="stat__objectif">${texte}</span>` : "";
+  const stat = (modificateur: string, picto: string, valeur: string, tenu?: boolean, suite = "") =>
+    `<span class="stat stat--${modificateur}${marque(tenu)}">${picto}${valeur}${tenu === undefined ? "" : suite}</span>`;
 
   return [
     stat(
@@ -440,12 +450,19 @@ function chiffresEnHtml(
       registre.picto("stats", "elimination", "é", "xs"),
       `${joueur.kill}<span class="stat__assist">+${joueur.assist}</span>`,
     ),
-    stat("mort", registre.picto("stats", "mort", "m", "xs"), String(joueur.death), verdicts.morts),
+    stat(
+      "mort",
+      registre.picto("stats", "mort", "m", "xs"),
+      String(joueur.death),
+      verdicts.morts,
+      borne(`≤${jugement?.bornes.mortsMax}`),
+    ),
     stat(
       "spe",
       registre.picto("speciales", joueur.speciale, "sp", "xs"),
       String(joueur.special),
       verdicts.speciaux,
+      borne(`≥${jugement?.bornes.speciauxMin}`),
     ),
     stat("encre", "", `${joueur.inked} p.`),
     ...(joueur.deconnecte ? [`<span class="stat">déconnecté</span>`] : []),
@@ -461,12 +478,12 @@ function joueurEnHtml(
   joueur: JoueurDeManche,
   registre: Registre,
   objectifs: ObjectifsDArme,
-  ko: boolean,
+  dureeSecondes: number | undefined,
 ): string {
   return (
     `<div class="${joueur.moi ? "joueur joueur--moi" : "joueur"}">` +
     `<span class="joueur__nom">${echappe(joueur.nom)}</span>` +
-    `<span class="joueur__chiffres">${chiffresEnHtml(joueur, registre, objectifs, ko)}</span>` +
+    `<span class="joueur__chiffres">${chiffresEnHtml(joueur, registre, objectifs, dureeSecondes)}</span>` +
     `<span class="joueur__arme">${echappe(joueur.arme)}</span>` +
     `</div>`
   );
@@ -485,7 +502,7 @@ function equipeEnHtml(
   joueurs: JoueurDeManche[],
   registre: Registre,
   objectifs: ObjectifsDArme,
-  ko: boolean,
+  dureeSecondes: number | undefined,
   encre?: string,
 ): string {
   const couleur = couleurSure(encre);
@@ -495,7 +512,7 @@ function equipeEnHtml(
     `<div class="equipe">` +
     `<p class="equipe__titre">${echappe(titre)}</p>` +
     lisere +
-    joueurs.map((joueur) => joueurEnHtml(joueur, registre, objectifs, ko)).join("") +
+    joueurs.map((joueur) => joueurEnHtml(joueur, registre, objectifs, dureeSecondes)).join("") +
     `</div>`
   );
 }
@@ -552,8 +569,8 @@ function mancheEnHtml(
     `<span class="manche__contexte">${echappe(contexte.join(" · "))}</span>` +
     `</div>` +
     `<div class="manche__equipes">` +
-    equipeEnHtml(camps.nous, detail.nous, registre, objectifs, detail.ko, detail.couleurNous) +
-    equipeEnHtml(camps.eux, detail.eux, registre, objectifs, detail.ko, detail.couleurEux) +
+    equipeEnHtml(camps.nous, detail.nous, registre, objectifs, detail.dureeSecondes, detail.couleurNous) +
+    equipeEnHtml(camps.eux, detail.eux, registre, objectifs, detail.dureeSecondes, detail.couleurEux) +
     `</div>` +
     medailles +
     `</article>` +
@@ -575,14 +592,17 @@ function campsDe(file: SessionFile): { nous: string; eux: string } {
 function legendeEnHtml(details: BattleDetail[], registre: Registre, objectifs: ObjectifsDArme): string {
   const joueurs = details.flatMap((detail) => [...detail.nous, ...detail.eux]);
   // L'entree des objectifs ne parait que sur une page ou l'un d'eux est juge :
-  // ma ligne, avec une arme a objectifs, dans une manche allee au bout.
-  const juges = details.some(
-    (detail) =>
-      !detail.ko &&
-      detail.nous.some(
-        (joueur) => joueur.moi && joueur.armeCle !== undefined && objectifs[joueur.armeCle] !== undefined,
-      ),
-  );
+  // ma ligne, avec une arme a objectifs, dans une manche assez longue.
+  const jugementDe = (detail: BattleDetail) => {
+    const moi = detail.nous.find((joueur) => joueur.moi);
+    const miens = moi?.armeCle === undefined ? undefined : objectifs[moi.armeCle];
+    return moi === undefined || miens === undefined
+      ? undefined
+      : jugeLaManche(miens, { ...moi, ...(detail.dureeSecondes !== undefined ? { dureeSecondes: detail.dureeSecondes } : {}) });
+  };
+  const jugements = details.map(jugementDe);
+  const juges = jugements.some((jugement) => jugement !== undefined);
+  const auProrata = jugements.some((jugement) => jugement?.ajuste === true);
   const avecSpeciale = joueurs.filter((joueur) => joueur.speciale !== undefined);
   const speciale = (avecSpeciale.find((joueur) => joueur.moi) ?? avecSpeciale[0])?.speciale;
 
@@ -606,6 +626,10 @@ function legendeEnHtml(details: BattleDetail[], registre: Registre, objectifs: O
     (juges
       ? `<span class="legende__entree"><span class="stat stat--tenu">3</span>` +
         `<span class="stat stat--manque">7</span>${echappe("mes objectifs d'arme : tenu, manqué")}</span>`
+      : "") +
+    (auProrata
+      ? `<span class="legende__entree"><span class="stat stat--manque">3<span class="stat__objectif">≤2</span></span>` +
+        `${echappe("manche écourtée : objectif au prorata du temps joué")}</span>`
       : "") +
     `</p>`
   );

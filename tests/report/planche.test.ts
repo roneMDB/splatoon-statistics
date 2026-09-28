@@ -597,19 +597,31 @@ describe("construisLesPages", () => {
 });
 
 describe("construisLaPlanche — objectifs d'arme", () => {
-  // Ma manche : Splat Roller, 7 morts, 7 speciaux.
+  // Ma manche : Splat Roller, 7 morts, 7 speciaux, 4:12 de jeu.
   const objectifs = { splatroller: { mortsMax: 5, speciauxMin: 6 }, sshooter: { mortsMax: 99 } };
+  const entiere = (uuid: string) =>
+    battle(uuid, "win", { end_at: { time: 0, iso8601: "2026-08-04T19:49:28.000Z" } } as Partial<StatinkBattle>);
 
-  test("marque mes morts manquees et mes speciaux tenus", () => {
-    const html = construisLaPlanche(session([battle("a", "win")]), { objectifsParArme: objectifs });
-    expect(html).toMatch(/<span class="stat stat--mort stat--manque">[^]*?7<\/span>/);
-    expect(html).toMatch(/<span class="stat stat--spe stat--tenu">[^]*?7<\/span>/);
+  test("marque mes morts manquees et mes speciaux tenus, sans borne sur une manche entiere", () => {
+    const html = construisLaPlanche(session([entiere("a")]), { objectifsParArme: objectifs });
+    // Sans pictos, chaque chiffre suit son abreviation de repli.
+    expect(html).toMatch(/<span class="stat stat--mort stat--manque"><span[^>]*>m<\/span>7<\/span>/);
+    expect(html).toMatch(/<span class="stat stat--spe stat--tenu"><span[^>]*>sp<\/span>7<\/span>/);
+    expect(html).not.toContain('<span class="stat__objectif">');
+    expect(html).not.toContain("au prorata");
   });
 
-  test("ne juge pas une manche terminee par KO", () => {
-    const html = construisLaPlanche(session([battle("a", "win", { knockout: true })]), {
-      objectifsParArme: objectifs,
-    });
+  test("montre la borne au prorata sur une manche ecourtee", () => {
+    // 4:12, soit 84 % : 5 morts -> 4, 6 speciaux -> 6.
+    const html = construisLaPlanche(session([battle("a", "win")]), { objectifsParArme: objectifs });
+    expect(html).toContain('7<span class="stat__objectif">≤4</span></span>');
+    expect(html).toContain('7<span class="stat__objectif">≥6</span></span>');
+    expect(html).toContain("manche écourtée : objectif au prorata du temps joué");
+  });
+
+  test("ne juge pas une manche de moins d'une minute", () => {
+    const eclair = battle("a", "win", { end_at: { time: 0, iso8601: "2026-08-04T19:44:58.000Z" } } as Partial<StatinkBattle>);
+    const html = construisLaPlanche(session([eclair]), { objectifsParArme: objectifs });
     expect(html).not.toMatch(/<span class="stat stat--(mort|spe) stat--(tenu|manque)">/);
     expect(html).not.toContain("mes objectifs");
   });

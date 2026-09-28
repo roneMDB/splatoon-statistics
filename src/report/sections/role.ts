@@ -24,8 +24,9 @@ function rang(equipe: StatsJoueur[], moi: StatsJoueur, valeur: (j: StatsJoueur) 
 }
 
 /**
- * « Objectifs N-ZAP 85 (9 manches sans KO) : **7/9** à 5 morts ou moins · ... ».
- * Les manches terminees par KO ne sont pas jugees : le compte le dit. Le
+ * « Objectifs N-ZAP 85 (9 manches, dont 2 écourtées jugées au prorata du
+ * temps joué) : **7/9** à 5 morts ou moins · ... ». Le prorata est dit : sans
+ * lui, 3 morts manquees sur une manche de 1:52 contrediraient « 5 morts ». Le
  * compte des deux bornes a la fois n'est dit que s'il y en a deux : avec une
  * seule, il la repeterait.
  */
@@ -43,8 +44,13 @@ function phraseDesObjectifs(bilan: BilanObjectifs): string {
       : []),
   ];
   if (parts.length > 1) parts.push(`${sur(bilan.toutesTenues)} les deux à la fois`);
+  const prorata =
+    bilan.auProrata === 0
+      ? ""
+      : `, dont ${bilan.auProrata} ${pluriel(bilan.auProrata, "écourtée")} ` +
+        `${pluriel(bilan.auProrata, "jugée", "jugées")} au prorata du temps joué`;
   return (
-    `Objectifs ${bilan.nom} (${bilan.manches} ${pluriel(bilan.manches, "manche")} sans KO) : ` +
+    `Objectifs ${bilan.nom} (${bilan.manches} ${pluriel(bilan.manches, "manche")}${prorata}) : ` +
     `${parts.join(" · ")}.`
   );
 }

@@ -125,6 +125,7 @@ describe("sectionRole", () => {
             cle: "nzap85",
             nom: "N-ZAP 85",
             manches: 9,
+            auProrata: 2,
             mortsMax: { seuil: 5, tenues: 7 },
             speciauxMin: { seuil: 6, tenues: 4 },
             toutesTenues: 3,
@@ -133,7 +134,7 @@ describe("sectionRole", () => {
       }),
     );
     expect(rendu).toContain(
-      "Objectifs N-ZAP 85 (9 manches sans KO) : **7/9** à 5 morts ou moins · " +
+      "Objectifs N-ZAP 85 (9 manches, dont 2 écourtées jugées au prorata du temps joué) : **7/9** à 5 morts ou moins · " +
         "**4/9** à 6 spéciaux ou plus · **3/9** les deux à la fois.",
     );
   });
@@ -142,10 +143,10 @@ describe("sectionRole", () => {
     const rendu = texte(
       sectionRole({
         ...session,
-        objectifs: [{ cle: "nzap85", nom: "N-ZAP 85", manches: 1, speciauxMin: { seuil: 6, tenues: 1 }, toutesTenues: 1 }],
+        objectifs: [{ cle: "nzap85", nom: "N-ZAP 85", manches: 1, auProrata: 0, speciauxMin: { seuil: 6, tenues: 1 }, toutesTenues: 1 }],
       }),
     );
-    expect(rendu).toContain("Objectifs N-ZAP 85 (1 manche sans KO) : **1/1** à 6 spéciaux ou plus.");
+    expect(rendu).toContain("Objectifs N-ZAP 85 (1 manche) : **1/1** à 6 spéciaux ou plus.");
     expect(rendu).not.toContain("les deux");
   });
 });
