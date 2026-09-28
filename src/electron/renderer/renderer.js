@@ -83,6 +83,8 @@ const elements = {
   reglageDossierPlanches: document.getElementById("reglage-dossier-planches"),
   reglageDossierPictos: document.getElementById("reglage-dossier-pictos"),
   reglagesSeuils: document.getElementById("reglages-seuils"),
+  reglagesObjectifs: document.getElementById("reglages-objectifs"),
+  boutonObjectifAjouter: document.getElementById("bouton-objectif-ajouter"),
   boutonReglagesDefauts: document.getElementById("bouton-reglages-defauts"),
   boutonReglagesRetour: document.getElementById("bouton-reglages-retour"),
   boutonReglagesRedemarrer: document.getElementById("bouton-reglages-redemarrer"),
@@ -993,6 +995,78 @@ function construisLEcranDesReglages(ecran) {
   );
 }
 
+/** Les bornes d'un objectif, dans l'ordre de l'ecran. */
+const BORNES_D_OBJECTIF = [
+  { cle: "mortsMax", libelle: "Morts max" },
+  { cle: "speciauxMin", libelle: "Spéciaux min" },
+];
+
+/** Nom d'une arme pour l'ecran, sa cle a defaut. */
+const nomDArme = (cle) => ecranDesReglages?.armes.find((arme) => arme.cle === cle)?.nom ?? cle;
+
+/**
+ * Une ligne d'objectif : l'arme, ses deux bornes, et de quoi la retirer. Une
+ * arme reglee dans le fichier mais absente de la liste (meme nom dans les deux
+ * langues) est ajoutee au choix, sous sa cle, plutot que perdue.
+ */
+function ligneDObjectif(cle, bornes = {}) {
+  const ligne = document.createElement("div");
+  ligne.className = "objectif";
+
+  const armes = ecranDesReglages?.armes ?? [];
+  const choix = document.createElement("select");
+  choix.setAttribute("aria-label", "Arme");
+  const inconnue = cle !== undefined && !armes.some((arme) => arme.cle === cle);
+  choix.append(
+    ...(inconnue ? [{ cle, nom: cle }] : []).concat(armes).map(({ cle: valeur, nom }) => new Option(nom, valeur)),
+  );
+  if (cle !== undefined) choix.value = cle;
+
+  const champs = BORNES_D_OBJECTIF.map(({ cle: borne, libelle }) => {
+    const etiquette = document.createElement("label");
+    etiquette.className = "objectif__borne";
+    const champ = document.createElement("input");
+    champ.type = "number";
+    champ.min = "0";
+    champ.step = "1";
+    champ.dataset.borne = borne;
+    if (bornes[borne] !== undefined) champ.value = String(bornes[borne]);
+    etiquette.append(document.createTextNode(libelle), champ);
+    return etiquette;
+  });
+
+  const retirer = document.createElement("button");
+  retirer.type = "button";
+  retirer.className = "bouton--discret";
+  retirer.textContent = "Retirer";
+  retirer.addEventListener("click", () => ligne.remove());
+
+  ligne.append(choix, ...champs, retirer);
+  return ligne;
+}
+
+/**
+ * Relit les objectifs. Un champ vide n'est pas une borne ; une ligne sans
+ * aucune part telle quelle, et le processus principal la refuse en la
+ * nommant. Deux lignes sur la meme arme ne tiendraient pas dans le fichier :
+ * la seconde effacerait la premiere sans rien dire, on refuse donc ici.
+ */
+function lisLesObjectifs() {
+  const objectifs = {};
+  for (const ligne of elements.reglagesObjectifs.querySelectorAll(".objectif")) {
+    const arme = ligne.querySelector("select").value;
+    if (objectifs[arme] !== undefined) {
+      throw new Error(`« ${nomDArme(arme)} » a deux lignes d'objectifs : n'en gardez qu'une.`);
+    }
+    const bornes = {};
+    for (const champ of ligne.querySelectorAll("input")) {
+      if (champ.value.trim() !== "") bornes[champ.dataset.borne] = champ.valueAsNumber;
+    }
+    objectifs[arme] = bornes;
+  }
+  return objectifs;
+}
+
 /** Remplit le formulaire avec des reglages complets. */
 function remplisLesReglages(reglages) {
   elements.reglageUtilisateur.value = reglages.utilisateur;
@@ -1008,6 +1082,9 @@ function remplisLesReglages(reglages) {
   for (const champ of elements.reglagesSeuils.querySelectorAll("input")) {
     champ.value = String(versLEcran(reglages.seuils[champ.dataset.cle], champ.dataset.unite));
   }
+  elements.reglagesObjectifs.replaceChildren(
+    ...Object.entries(reglages.objectifsParArme).map(([cle, bornes]) => ligneDObjectif(cle, bornes)),
+  );
 }
 
 /**
@@ -1037,6 +1114,7 @@ function lisLesReglages() {
       pictos: elements.reglageDossierPictos.value,
     },
     seuils,
+    objectifsParArme: lisLesObjectifs(),
   };
 }
 
@@ -1053,6 +1131,8 @@ function messageDeReglage(erreur) {
   const seuil = /"seuils"\.(\w+) : (.*)$/.exec(brut);
   const description = seuil && ecranDesReglages?.descriptions[seuil[1]];
   if (description) return `« ${description.libelle} » : ${seuil[2]}`;
+  const objectif = /"objectifsParArme"\.(\w+)(?:\.\w+)? : (.*)$/.exec(brut);
+  if (objectif) return `Objectifs « ${nomDArme(objectif[1])} » : ${objectif[2]}`;
   // Les autres messages commencent par le chemin du fichier : inutile a l'ecran.
   return brut.replace(/^[^"]*?, (?=")/, "");
 }
@@ -1101,6 +1181,10 @@ elements.formulaireReglages.addEventListener("submit", async (evenement) => {
   } catch (erreur) {
     bandeau(elements.erreur, `Réglages non enregistrés. ${messageDeReglage(erreur)}`);
   }
+});
+
+elements.boutonObjectifAjouter.addEventListener("click", () => {
+  elements.reglagesObjectifs.append(ligneDObjectif());
 });
 
 elements.boutonReglagesDefauts.addEventListener("click", () => {

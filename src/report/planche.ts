@@ -41,7 +41,10 @@ import { enteteEnHtml, Registre, type OptionsEntete } from "./entete.ts";
 import { bilanDeSession, rencontre, titreDeSession } from "./format.ts";
 import { echappe } from "./html.ts";
 import { aucunPicto, type Pictos } from "./pictos.ts";
+import type { ObjectifsArme } from "../reglages.ts";
+import { jugeLaManche } from "./objectifs.ts";
 import { REGLES, regleConnue } from "./regles.ts";
+import { OBJECTIFS_PAR_ARME } from "./seuils.ts";
 import { MOTIF_SCOTCH } from "./texture.ts";
 
 /**
@@ -354,6 +357,14 @@ ${COULEURS_DE_REGLE}
 .stat .picto-repli { font-size: 10px; font-weight: 700; color: #b9bdd6; }
 .stat__assist { font-size: 10px; color: #b9bdd6; align-self: flex-start; }
 .stat--encre { color: #b9bdd6; font-size: 12px; }
+/*
+ * Mes objectifs d'arme, tenus ou manques. Jaune du jeu contre rose : les deux
+ * se distinguent par leur clarte autant que par leur teinte, ce qui tient
+ * pour un lecteur qui ne separe pas le rouge du vert. Le trait sous le chiffre
+ * manque le redit sans couleur.
+ */
+.stat--tenu { color: #eaff3d; font-weight: 900; }
+.stat--manque { color: #ff7a9c; font-weight: 900; text-decoration: underline 2px; text-underline-offset: 3px; }
 .planche__legende {
   position: relative;
   display: flex;
@@ -408,9 +419,20 @@ function scoreDe(detail: BattleDetail): string | undefined {
  * sous le picto de la speciale du joueur. Sans picto, l'abreviation revient a
  * sa place, et la legende de la planche la traduit.
  */
-function chiffresEnHtml(joueur: JoueurDeManche, registre: Registre): string {
-  const stat = (modificateur: string, picto: string, valeur: string) =>
-    `<span class="stat stat--${modificateur}">${picto}${valeur}</span>`;
+function chiffresEnHtml(
+  joueur: JoueurDeManche,
+  registre: Registre,
+  objectifs: ObjectifsDArme,
+  ko: boolean,
+): string {
+  // Mes objectifs seulement, et pour l'arme de cette manche : ceux d'un autre
+  // joueur ne sont pas les miens.
+  const miens = joueur.moi && joueur.armeCle !== undefined ? objectifs[joueur.armeCle] : undefined;
+  const verdicts = miens === undefined ? {} : jugeLaManche(miens, { ...joueur, ko });
+  const marque = (tenu: boolean | undefined) =>
+    tenu === undefined ? "" : tenu ? " stat--tenu" : " stat--manque";
+  const stat = (modificateur: string, picto: string, valeur: string, tenu?: boolean) =>
+    `<span class="stat stat--${modificateur}${marque(tenu)}">${picto}${valeur}</span>`;
 
   return [
     stat(
@@ -418,8 +440,13 @@ function chiffresEnHtml(joueur: JoueurDeManche, registre: Registre): string {
       registre.picto("stats", "elimination", "é", "xs"),
       `${joueur.kill}<span class="stat__assist">+${joueur.assist}</span>`,
     ),
-    stat("mort", registre.picto("stats", "mort", "m", "xs"), String(joueur.death)),
-    stat("spe", registre.picto("speciales", joueur.speciale, "sp", "xs"), String(joueur.special)),
+    stat("mort", registre.picto("stats", "mort", "m", "xs"), String(joueur.death), verdicts.morts),
+    stat(
+      "spe",
+      registre.picto("speciales", joueur.speciale, "sp", "xs"),
+      String(joueur.special),
+      verdicts.speciaux,
+    ),
     stat("encre", "", `${joueur.inked} p.`),
     ...(joueur.deconnecte ? [`<span class="stat">déconnecté</span>`] : []),
   ].join("");
@@ -430,11 +457,16 @@ function chiffresEnHtml(joueur: JoueurDeManche, registre: Registre): string {
  * seconde. Les chiffres sont a chasse tabulaire pour que les colonnes
  * s'alignent d'une ligne a l'autre sans tableau.
  */
-function joueurEnHtml(joueur: JoueurDeManche, registre: Registre): string {
+function joueurEnHtml(
+  joueur: JoueurDeManche,
+  registre: Registre,
+  objectifs: ObjectifsDArme,
+  ko: boolean,
+): string {
   return (
     `<div class="${joueur.moi ? "joueur joueur--moi" : "joueur"}">` +
     `<span class="joueur__nom">${echappe(joueur.nom)}</span>` +
-    `<span class="joueur__chiffres">${chiffresEnHtml(joueur, registre)}</span>` +
+    `<span class="joueur__chiffres">${chiffresEnHtml(joueur, registre, objectifs, ko)}</span>` +
     `<span class="joueur__arme">${echappe(joueur.arme)}</span>` +
     `</div>`
   );
@@ -452,6 +484,8 @@ function equipeEnHtml(
   titre: string,
   joueurs: JoueurDeManche[],
   registre: Registre,
+  objectifs: ObjectifsDArme,
+  ko: boolean,
   encre?: string,
 ): string {
   const couleur = couleurSure(encre);
@@ -461,7 +495,7 @@ function equipeEnHtml(
     `<div class="equipe">` +
     `<p class="equipe__titre">${echappe(titre)}</p>` +
     lisere +
-    joueurs.map((joueur) => joueurEnHtml(joueur, registre)).join("") +
+    joueurs.map((joueur) => joueurEnHtml(joueur, registre, objectifs, ko)).join("") +
     `</div>`
   );
 }
@@ -482,6 +516,7 @@ function mancheEnHtml(
   numero: number,
   registre: Registre,
   camps: { nous: string; eux: string },
+  objectifs: ObjectifsDArme,
 ): string {
   const contexte = [
     heureDe(detail.startedAt),
@@ -517,8 +552,8 @@ function mancheEnHtml(
     `<span class="manche__contexte">${echappe(contexte.join(" · "))}</span>` +
     `</div>` +
     `<div class="manche__equipes">` +
-    equipeEnHtml(camps.nous, detail.nous, registre, detail.couleurNous) +
-    equipeEnHtml(camps.eux, detail.eux, registre, detail.couleurEux) +
+    equipeEnHtml(camps.nous, detail.nous, registre, objectifs, detail.ko, detail.couleurNous) +
+    equipeEnHtml(camps.eux, detail.eux, registre, objectifs, detail.ko, detail.couleurEux) +
     `</div>` +
     medailles +
     `</article>` +
@@ -537,8 +572,17 @@ function campsDe(file: SessionFile): { nous: string; eux: string } {
  * la session : c'est celui que le lecteur du club connait le mieux sur la
  * planche.
  */
-function legendeEnHtml(details: BattleDetail[], registre: Registre): string {
+function legendeEnHtml(details: BattleDetail[], registre: Registre, objectifs: ObjectifsDArme): string {
   const joueurs = details.flatMap((detail) => [...detail.nous, ...detail.eux]);
+  // L'entree des objectifs ne parait que sur une page ou l'un d'eux est juge :
+  // ma ligne, avec une arme a objectifs, dans une manche allee au bout.
+  const juges = details.some(
+    (detail) =>
+      !detail.ko &&
+      detail.nous.some(
+        (joueur) => joueur.moi && joueur.armeCle !== undefined && objectifs[joueur.armeCle] !== undefined,
+      ),
+  );
   const avecSpeciale = joueurs.filter((joueur) => joueur.speciale !== undefined);
   const speciale = (avecSpeciale.find((joueur) => joueur.moi) ?? avecSpeciale[0])?.speciale;
 
@@ -559,6 +603,10 @@ function legendeEnHtml(details: BattleDetail[], registre: Registre): string {
       "spéciales déclenchées (picto de la spéciale du joueur)",
     ) +
     entree("encre", "1200 p.", "points d'encrage") +
+    (juges
+      ? `<span class="legende__entree"><span class="stat stat--tenu">3</span>` +
+        `<span class="stat stat--manque">7</span>${echappe("mes objectifs d'arme : tenu, manqué")}</span>`
+      : "") +
     `</p>`
   );
 }
@@ -584,10 +632,16 @@ export type OptionsPlanche = {
    * et les autres retombent sur le texte.
    */
   pictos?: Pictos;
+  /** Mes objectifs par arme ; ceux des reglages par defaut. */
+  objectifsParArme?: ObjectifsDArme;
 };
 
+/** Mes objectifs, indexes par cle d'arme stat.ink. */
+type ObjectifsDArme = Record<string, ObjectifsArme>;
+
 export function construisLaPlanche(file: SessionFile, options: OptionsPlanche = {}): string {
-  const analyse = analyseSession(file);
+  const objectifs = options.objectifsParArme ?? OBJECTIFS_PAR_ARME;
+  const analyse = analyseSession(file, objectifs);
   const titre = titreDeSession(file, analyse);
   const pictos = options.pictos ?? aucunPicto;
   const registre = new Registre(pictos);
@@ -596,8 +650,8 @@ export function construisLaPlanche(file: SessionFile, options: OptionsPlanche = 
   // deja connaitre tous les pictos des cartes.
   const details = file.battles.map((battle) => toBattleDetail(battle));
   const camps = campsDe(file);
-  const manches = details.map((detail, index) => mancheEnHtml(detail, index + 1, registre, camps)).join("\n");
-  const legende = legendeEnHtml(details, registre);
+  const manches = details.map((detail, index) => mancheEnHtml(detail, index + 1, registre, camps, objectifs)).join("\n");
+  const legende = legendeEnHtml(details, registre, objectifs);
   const entete =
     options.entete === undefined ? undefined : enteteEnHtml(file, analyse, options.entete, pictos, registre);
 
@@ -643,7 +697,8 @@ export type PagePlanche = { nom: string; html: string; largeur: number };
  * reconnait a ce motif.
  */
 export function construisLesPages(file: SessionFile, options: OptionsPlanche = {}): PagePlanche[] {
-  const analyse = analyseSession(file);
+  const objectifs = options.objectifsParArme ?? OBJECTIFS_PAR_ARME;
+  const analyse = analyseSession(file, objectifs);
   const titre = titreDeSession(file, analyse);
   const pictos = options.pictos ?? aucunPicto;
   const details = file.battles.map((battle) => toBattleDetail(battle));
@@ -666,9 +721,9 @@ export function construisLesPages(file: SessionFile, options: OptionsPlanche = {
     const lot = details.slice(debut, debut + MANCHES_PAR_PAGE);
     const registre = new Registre(pictos);
     const manches = lot
-      .map((detail, index) => mancheEnHtml(detail, debut + index + 1, registre, campsDe(file)))
+      .map((detail, index) => mancheEnHtml(detail, debut + index + 1, registre, campsDe(file), objectifs))
       .join("\n");
-    const legende = legendeEnHtml(lot, registre);
+    const legende = legendeEnHtml(lot, registre, objectifs);
     const premiere = debut + 1;
     const derniere = debut + lot.length;
     const portee =

@@ -170,3 +170,31 @@ test("chaque seuil a sa description a l'ecran", () => {
     expect(description.explication.length).toBeGreaterThan(40);
   }
 });
+
+describe("objectifsParArme", () => {
+  test("accepte une borne seule ou les deux", () => {
+    const reglages = valideLesReglages({
+      objectifsParArme: { nzap85: { mortsMax: 5, speciauxMin: 6 }, "52gal": { mortsMax: 0 } },
+    });
+    expect(reglages.objectifsParArme).toEqual({
+      nzap85: { mortsMax: 5, speciauxMin: 6 },
+      "52gal": { mortsMax: 0 },
+    });
+  });
+
+  test.each([
+    [{ nzap85: { mortsMax: 5, elimMin: 3 } }, /clé inconnue "elimMin"/],
+    [{ nzap85: { mortsMax: -1 } }, /"objectifsParArme"\.nzap85\.mortsMax : entier positif ou nul/],
+    [{ nzap85: { speciauxMin: 2.5 } }, /speciauxMin : entier positif ou nul/],
+    [{ nzap85: {} }, /nzap85 : au moins un objectif attendu/],
+    [{ "N-ZAP 85": { mortsMax: 5 } }, /n'est pas une clé d'arme/],
+    [[], /objet attendu/],
+  ])("refuse %j", (objectifsParArme, message) => {
+    expect(() => valideLesReglages({ objectifsParArme })).toThrow(message);
+  });
+
+  test("s'ecrit en entier, meme si le defaut est vide", () => {
+    const reglages = valideLesReglages({ objectifsParArme: { nzap85: { speciauxMin: 6 } } });
+    expect(ecartAuxDefauts(reglages)).toEqual({ objectifsParArme: { nzap85: { speciauxMin: 6 } } });
+  });
+});

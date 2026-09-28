@@ -8,7 +8,7 @@
  */
 
 import { reguliers } from "../analyse.ts";
-import type { AnalyseSession, StatsJoueur } from "../analyse.ts";
+import type { AnalyseSession, BilanObjectifs, StatsJoueur } from "../analyse.ts";
 import { moyenne, ordinal, pluriel, pourcent, ratio, tableau } from "../format.ts";
 import { MEDAILLES_CITEES } from "../seuils.ts";
 
@@ -20,6 +20,32 @@ const totalEquipe = (equipe: StatsJoueur[], champ: "kill" | "assist" | "death" |
 function rang(equipe: StatsJoueur[], moi: StatsJoueur, valeur: (j: StatsJoueur) => number): number {
   return (
     [...equipe].sort((a, b) => valeur(b) - valeur(a)).findIndex((joueur) => joueur === moi) + 1
+  );
+}
+
+/**
+ * « Objectifs N-ZAP 85 (9 manches sans KO) : **7/9** à 5 morts ou moins · ... ».
+ * Les manches terminees par KO ne sont pas jugees : le compte le dit. Le
+ * compte des deux bornes a la fois n'est dit que s'il y en a deux : avec une
+ * seule, il la repeterait.
+ */
+function phraseDesObjectifs(bilan: BilanObjectifs): string {
+  const sur = (tenues: number) => `**${tenues}/${bilan.manches}**`;
+  const parts = [
+    ...(bilan.mortsMax !== undefined
+      ? [`${sur(bilan.mortsMax.tenues)} à ${bilan.mortsMax.seuil} ${pluriel(bilan.mortsMax.seuil, "mort")} ou moins`]
+      : []),
+    ...(bilan.speciauxMin !== undefined
+      ? [
+          `${sur(bilan.speciauxMin.tenues)} à ${bilan.speciauxMin.seuil} ` +
+            `${pluriel(bilan.speciauxMin.seuil, "spécial", "spéciaux")} ou plus`,
+        ]
+      : []),
+  ];
+  if (parts.length > 1) parts.push(`${sur(bilan.toutesTenues)} les deux à la fois`);
+  return (
+    `Objectifs ${bilan.nom} (${bilan.manches} ${pluriel(bilan.manches, "manche")} sans KO) : ` +
+    `${parts.join(" · ")}.`
   );
 }
 
@@ -91,6 +117,8 @@ export function sectionRole(analyse: AnalyseSession): string[] {
       );
     }
   }
+
+  faits.push(...analyse.objectifs.map(phraseDesObjectifs));
 
   const citees = analyse.medailles.slice(0, MEDAILLES_CITEES);
   if (citees.length > 0) {

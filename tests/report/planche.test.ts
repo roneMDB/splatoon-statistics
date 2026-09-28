@@ -595,3 +595,46 @@ describe("construisLesPages", () => {
     expect(construisLesPages(fichier)).toEqual(construisLesPages(fichier));
   });
 });
+
+describe("construisLaPlanche — objectifs d'arme", () => {
+  // Ma manche : Splat Roller, 7 morts, 7 speciaux.
+  const objectifs = { splatroller: { mortsMax: 5, speciauxMin: 6 }, sshooter: { mortsMax: 99 } };
+
+  test("marque mes morts manquees et mes speciaux tenus", () => {
+    const html = construisLaPlanche(session([battle("a", "win")]), { objectifsParArme: objectifs });
+    expect(html).toMatch(/<span class="stat stat--mort stat--manque">[^]*?7<\/span>/);
+    expect(html).toMatch(/<span class="stat stat--spe stat--tenu">[^]*?7<\/span>/);
+  });
+
+  test("ne juge pas une manche terminee par KO", () => {
+    const html = construisLaPlanche(session([battle("a", "win", { knockout: true })]), {
+      objectifsParArme: objectifs,
+    });
+    expect(html).not.toMatch(/<span class="stat stat--(mort|spe) stat--(tenu|manque)">/);
+    expect(html).not.toContain("mes objectifs");
+  });
+
+  test("ne juge que moi, pas un coequipier qui porte une arme a objectifs", () => {
+    const html = construisLaPlanche(session([battle("a", "win")]), { objectifsParArme: objectifs });
+    // Une seule ligne jugee : la mienne, deux bornes.
+    expect(html.match(/<span class="stat stat--(mort|spe) stat--(tenu|manque)">/g)).toHaveLength(2);
+  });
+
+  test("n'ajoute l'entree de legende que si un objectif est juge", () => {
+    const avec = construisLaPlanche(session([battle("a", "win")]), { objectifsParArme: objectifs });
+    const sans = construisLaPlanche(session([battle("a", "win")]), { objectifsParArme: {} });
+    expect(avec).toContain("mes objectifs d&#39;arme : tenu, manqué");
+    expect(sans).not.toContain("stat--tenu\">");
+    expect(sans).not.toContain("mes objectifs");
+  });
+
+  test("garde le jaune et le rose lisibles sur ma ligne", () => {
+    const html = construisLaPlanche(session([battle("a", "win")]), { objectifsParArme: objectifs });
+    for (const modificateur of ["tenu", "manque"]) {
+      const couleur = declaration(html, `.stat--${modificateur} {`, "color");
+      // Ma ligne est la seule jugee : son fond est celui de `.joueur--moi`.
+      expect(contraste(couleur, "#232741")).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});
+

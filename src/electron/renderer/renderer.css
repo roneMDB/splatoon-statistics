@@ -1021,3 +1021,39 @@ h3.apercu__titre {
 .seuil .reglages__aide {
   grid-column: 1 / -1;
 }
+
+/* Une ligne par arme : l'arme, ses deux bornes, et de quoi la retirer. */
+.objectif {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 8px 14px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid var(--trait);
+}
+
+.objectif:first-child {
+  border-top: none;
+}
+
+.objectif select {
+  min-width: 0;
+}
+
+.objectif__borne {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  color: var(--texte-doux);
+  font-size: 12.5px;
+}
+
+.objectif__borne input {
+  width: 64px;
+  text-align: right;
+}
+
+#bouton-objectif-ajouter {
+  margin-top: 10px;
+}

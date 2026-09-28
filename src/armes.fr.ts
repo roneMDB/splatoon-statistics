@@ -193,3 +193,14 @@ const ARMES: Record<string, string> = {
 export function nomFrancaisDeLArme(cle: string | undefined): string | undefined {
   return cle === undefined ? undefined : ARMES[cle];
 }
+
+/**
+ * Les armes de la table, par nom francais : ce que l'ecran des reglages
+ * propose pour y attacher un objectif. Une arme au meme nom dans les deux
+ * langues n'y est pas ; elle se regle dans `settings.json`, par sa cle.
+ */
+export function armesConnues(): { cle: string; nom: string }[] {
+  return Object.entries(ARMES)
+    .map(([cle, nom]) => ({ cle, nom }))
+    .sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+}

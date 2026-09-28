@@ -357,3 +357,23 @@ describe("construisLaPlanche — avec l'en-tete", () => {
     expect(sans).toContain('<header class="planche__entete">');
   });
 });
+
+describe("enteteEnHtml — objectifs d'arme", () => {
+  test("compte dans le bulletin les manches ou mes objectifs sont tenus", () => {
+    // Deux manches au N-ZAP 89 : 3 morts et 2 speciaux chacune.
+    const fichier = session([battle("win"), battle("lose")]);
+    const analyse = analyseSession(fichier, { nzap89: { mortsMax: 5, speciauxMin: 6 } });
+    const { html } = enteteEnHtml(fichier, analyse, tout, pictosFactices);
+
+    expect(html).toContain("Objectifs N-ZAP 89 <span class=\"secondaire\">hors KO</span>");
+    expect(html).toContain('<li class="objectif"><span class="objectif__valeur">2/2</span>5 morts max</li>');
+    expect(html).toContain('<li class="objectif"><span class="objectif__valeur">0/2</span>6 spé. min</li>');
+    expect(html).toContain('<span class="objectif__valeur">0/2</span>les deux');
+  });
+
+  test("n'en dit rien sans objectif", () => {
+    const fichier = session([battle("win")]);
+    expect(enteteEnHtml(fichier, analyseSession(fichier, {}), tout, pictosFactices).html).not.toContain("Objectifs");
+  });
+});
+

@@ -16,7 +16,9 @@ import {
   libelleDuStage,
   nomDeLArme,
 } from "../libelles.fr.ts";
-import { PART_DE_SESSION_REGULIERE } from "./seuils.ts";
+import type { ObjectifsArme } from "../reglages.ts";
+import { jugeLaManche } from "./objectifs.ts";
+import { OBJECTIFS_PAR_ARME, PART_DE_SESSION_REGULIERE } from "./seuils.ts";
 
 /**
  * Une arme jouee par quelqu'un, et sur combien de manches.
@@ -76,8 +78,33 @@ export type Manche = {
   stage: string;
   score?: ScoreManche;
   /** Mes chiffres sur cette manche, absents si je n'y figure pas. */
-  moi?: { kill: number; assist: number; death: number; special: number; inked: number };
+  moi?: {
+    kill: number;
+    assist: number;
+    death: number;
+    special: number;
+    inked: number;
+    /** Cle stat.ink de mon arme sur la manche (`nzap85`). */
+    arme?: string;
+  };
   medailles: string[];
+};
+
+/** Une borne d'objectif et le nombre de manches ou elle a ete tenue. */
+export type BorneTenue = { seuil: number; tenues: number };
+
+/** Mes objectifs d'une arme, confrontes aux manches jouees avec elle. */
+export type BilanObjectifs = {
+  /** Cle stat.ink de l'arme. */
+  cle: string;
+  /** Nom francais, ou anglais a defaut. */
+  nom: string;
+  /** Manches jouees avec l'arme et allees au bout, sans KO : le denominateur de chaque borne. */
+  manches: number;
+  mortsMax?: BorneTenue;
+  speciauxMin?: BorneTenue;
+  /** Manches ou toutes les bornes posees sont tenues a la fois. */
+  toutesTenues: number;
 };
 
 /** Bilan d'un mode sur la session, tous stages confondus. */
@@ -140,6 +167,11 @@ export type AnalyseSession = {
   serieFinaleDefaites: number;
   /** Victoires consecutives en ouverture. 0 si la premiere manche est perdue. */
   serieInitialeVictoires: number;
+  /**
+   * Mes objectifs, pour chaque arme qui en a et que j'ai jouee, de la plus
+   * jouee a la moins. Vide sans objectif ou sans manche jouee avec.
+   */
+  objectifs: BilanObjectifs[];
 };
 
 /**
@@ -268,8 +300,50 @@ export function reguliers(joueurs: StatsJoueur[], manchesDeLaSession: number): S
   return joueurs.filter((joueur) => joueur.manches >= minimum);
 }
 
-/** Reduit une session a son analyse. Ne redige rien, ne juge rien. */
-export function analyseSession(file: SessionFile): AnalyseSession {
+/**
+ * Confronte mes manches aux objectifs de leur arme. Une manche sans arme
+ * connue ne compte pour aucune ; une manche terminee par KO non plus (voir
+ * `objectifs.ts`).
+ */
+function bilanDesObjectifs(
+  manches: Manche[],
+  objectifsParArme: Record<string, ObjectifsArme>,
+  nomEnAnglais: Map<string, string | undefined>,
+): BilanObjectifs[] {
+  const bilans = new Map<string, BilanObjectifs>();
+  for (const manche of manches) {
+    const cle = manche.moi?.arme;
+    const objectifs = cle === undefined ? undefined : objectifsParArme[cle];
+    if (manche.moi === undefined || cle === undefined || objectifs === undefined || manche.ko) continue;
+
+    const bilan = bilans.get(cle) ?? {
+      cle,
+      nom: nomDeLArme(cle, nomEnAnglais.get(cle)),
+      manches: 0,
+      ...(objectifs.mortsMax !== undefined ? { mortsMax: { seuil: objectifs.mortsMax, tenues: 0 } } : {}),
+      ...(objectifs.speciauxMin !== undefined
+        ? { speciauxMin: { seuil: objectifs.speciauxMin, tenues: 0 } }
+        : {}),
+      toutesTenues: 0,
+    };
+    const verdicts = jugeLaManche(objectifs, { ...manche.moi, ko: manche.ko });
+    bilan.manches += 1;
+    if (verdicts.morts === true && bilan.mortsMax !== undefined) bilan.mortsMax.tenues += 1;
+    if (verdicts.speciaux === true && bilan.speciauxMin !== undefined) bilan.speciauxMin.tenues += 1;
+    if (Object.values(verdicts).every((tenu) => tenu)) bilan.toutesTenues += 1;
+    bilans.set(cle, bilan);
+  }
+  return [...bilans.values()].sort((a, b) => b.manches - a.manches || a.nom.localeCompare(b.nom));
+}
+
+/**
+ * Reduit une session a son analyse. Ne redige rien, ne juge rien - sinon mes
+ * manches au regard des objectifs que je me suis fixes, qui sont un compte.
+ */
+export function analyseSession(
+  file: SessionFile,
+  objectifsParArme: Record<string, ObjectifsArme> = OBJECTIFS_PAR_ARME,
+): AnalyseSession {
   const manches: Manche[] = [];
   const bilan = { victoires: 0, defaites: 0, nuls: 0, total: 0 };
   const equipe = new Map<string, CumulJoueur>();
@@ -280,6 +354,7 @@ export function analyseSession(file: SessionFile): AnalyseSession {
   let koSubis = 0;
   let koInfliges = 0;
   let secondesDeJeu = 0;
+  const nomsAnglaisDesArmes = new Map<string, string | undefined>();
 
   for (const battle of file.battles) {
     const resultat =
@@ -332,11 +407,16 @@ export function analyseSession(file: SessionFile): AnalyseSession {
               death: nombre(moiDansLaManche.death),
               special: nombre(moiDansLaManche.special),
               inked: nombre(moiDansLaManche.inked),
+              ...(moiDansLaManche.weapon?.key != null ? { arme: moiDansLaManche.weapon.key } : {}),
             },
           }
         : {}),
       medailles: mesMedailles.map(libelleDeLaMedaille),
     });
+
+    if (moiDansLaManche?.weapon?.key != null) {
+      nomsAnglaisDesArmes.set(moiDansLaManche.weapon.key, moiDansLaManche.weapon.name?.en_US);
+    }
 
     for (const medaille of mesMedailles) {
       const libelle = libelleDeLaMedaille(medaille);
@@ -413,5 +493,6 @@ export function analyseSession(file: SessionFile): AnalyseSession {
     koInfliges,
     serieFinaleDefaites: serieDeTete([...resultats].reverse(), "lose"),
     serieInitialeVictoires: serieDeTete(resultats, "win"),
+    objectifs: bilanDesObjectifs(manches, objectifsParArme, nomsAnglaisDesArmes),
   };
 }

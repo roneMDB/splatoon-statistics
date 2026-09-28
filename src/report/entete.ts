@@ -259,6 +259,10 @@ ${COULEURS_DE_TUILE}
 .arme__kit { display: flex; flex-direction: column; gap: 4px; }
 .arme__nom { display: block; font-weight: 700; font-size: 15px; }
 .arme__manches { display: block; font-size: 13px; }
+.objectifs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 16px; list-style: none; }
+.objectifs__arme { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; text-transform: uppercase; }
+.objectif { font-size: 14px; font-weight: 700; }
+.objectif__valeur { font-family: ${TITRE}; font-size: 18px; color: #eaff3d; margin-right: 6px; }
 .medailles { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 16px; list-style: none; }
 .medaille { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; }
 .medaille__nombre { font-family: ${TITRE}; font-size: 18px; color: #eaff3d; }
@@ -443,6 +447,28 @@ function blocBulletin(analyse: AnalyseSession, registre: Registre, plein: boolea
       `</div>`,
   );
 
+  // Une ligne par arme qui a des objectifs : le compte de manches tenues sur
+  // les manches jouees avec elle et allees au bout, borne par borne.
+  const objectifs = analyse.objectifs.map((bilan) => {
+    const sur = (tenues: number) => `<span class="objectif__valeur">${tenues}/${bilan.manches}</span>`;
+    const bornes = [
+      ...(bilan.mortsMax !== undefined
+        ? [`${sur(bilan.mortsMax.tenues)}${bilan.mortsMax.seuil} ${pluriel(bilan.mortsMax.seuil, "mort")} max`]
+        : []),
+      ...(bilan.speciauxMin !== undefined
+        ? [`${sur(bilan.speciauxMin.tenues)}${bilan.speciauxMin.seuil} spé. min`]
+        : []),
+    ];
+    if (bornes.length > 1) bornes.push(`${sur(bilan.toutesTenues)}les deux`);
+    return (
+      `<ul class="objectifs">` +
+      `<li class="objectifs__arme">${registre.picto("armes", bilan.cle, "", "s")}` +
+      `<span>Objectifs ${echappe(bilan.nom)} <span class="secondaire">hors KO</span></span></li>` +
+      bornes.map((borne) => `<li class="objectif">${borne}</li>`).join("") +
+      `</ul>`
+    );
+  });
+
   const medailles = analyse.medailles.slice(0, MEDAILLES_CITEES).map(
     (medaille) =>
       `<li class="medaille">` +
@@ -454,6 +480,7 @@ function blocBulletin(analyse: AnalyseSession, registre: Registre, plein: boolea
   return sticker(
     `<div class="chiffres">${tuiles.join("")}</div>` +
       `<div class="armes">${armes.join("")}</div>` +
+      objectifs.join("") +
       (medailles.length === 0 ? "" : `<ul class="medailles">${medailles.join("")}</ul>`),
     { etiquette: "Bulletin", plein },
   );

@@ -115,4 +115,37 @@ describe("sectionRole", () => {
     expect(rendu).not.toContain("NaN");
     expect(rendu).not.toContain("Infinity");
   });
+
+  test("dit mes objectifs d'arme en manches tenues", () => {
+    const rendu = texte(
+      sectionRole({
+        ...session,
+        objectifs: [
+          {
+            cle: "nzap85",
+            nom: "N-ZAP 85",
+            manches: 9,
+            mortsMax: { seuil: 5, tenues: 7 },
+            speciauxMin: { seuil: 6, tenues: 4 },
+            toutesTenues: 3,
+          },
+        ],
+      }),
+    );
+    expect(rendu).toContain(
+      "Objectifs N-ZAP 85 (9 manches sans KO) : **7/9** à 5 morts ou moins · " +
+        "**4/9** à 6 spéciaux ou plus · **3/9** les deux à la fois.",
+    );
+  });
+
+  test("ne compte pas les deux a la fois quand une seule borne est posee", () => {
+    const rendu = texte(
+      sectionRole({
+        ...session,
+        objectifs: [{ cle: "nzap85", nom: "N-ZAP 85", manches: 1, speciauxMin: { seuil: 6, tenues: 1 }, toutesTenues: 1 }],
+      }),
+    );
+    expect(rendu).toContain("Objectifs N-ZAP 85 (1 manche sans KO) : **1/1** à 6 spéciaux ou plus.");
+    expect(rendu).not.toContain("les deux");
+  });
 });

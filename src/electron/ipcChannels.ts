@@ -69,6 +69,8 @@ export type EcranDesReglages = {
   defauts: import("../reglages.ts").Reglages;
   descriptions: typeof import("../reglages.ts").DESCRIPTION_DES_SEUILS;
   sections: readonly { cle: string; libelle: string }[];
+  /** Armes auxquelles l'ecran propose d'attacher un objectif, par nom francais. */
+  armes: readonly { cle: string; nom: string }[];
   /** Vrai quand le fichier differe de ce qui tourne : un redemarrage est attendu. */
   enAttente: boolean;
   /** Le fichier est illisible ou invalide ; `reglages` vaut alors `actifs`. */

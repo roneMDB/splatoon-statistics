@@ -55,6 +55,7 @@ export function analyse(partiel: Partial<AnalyseSession> = {}): AnalyseSession {
     koInfliges: 0,
     serieFinaleDefaites: 0,
     serieInitialeVictoires: 0,
+    objectifs: [],
     ...partiel,
   };
 }

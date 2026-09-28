@@ -332,7 +332,8 @@ Les valeurs par défaut se règlent dans un fichier `settings.json`, à la racin
   "typesDeSession": ["intra", "scrim", "compet", "open", "tournoi", "autre"],
   "sectionsParDefaut": ["courbe", "role"],
   "enteteParDefaut": true,
-  "seuils": { "medaillesCitees": 6 }
+  "seuils": { "medaillesCitees": 6 },
+  "objectifsParArme": { "nzap85": { "mortsMax": 5, "speciauxMin": 6 } }
 }
 ```
 
@@ -344,6 +345,7 @@ Les valeurs par défaut se règlent dans un fichier `settings.json`, à la racin
 | `enteteParDefaut` | Coche d'office la case « compte rendu en tête de la planche ». |
 | `dossiers` | `sessions`, `planches` et `pictos`. |
 | `seuils` | Les seuils de rédaction du compte rendu (voir `src/report/seuils.ts`). Les nombres de manches, secondes et médailles sont des entiers d'au moins 1. `partDeSessionReguliere` et `baisseDeRegimeRelative` sont des parts comprises entre 0 (exclu) et 1. |
+| `objectifsParArme` | Mes objectifs par arme, par clé stat.ink (`nzap85`) : `mortsMax` et/ou `speciauxMin`, entiers positifs ou nuls. Jugés manche par manche, sur les seules manches jouées avec l'arme et allées au bout — une manche terminée par KO, subi ou infligé, n'est pas jugée : le bulletin de rôle et l'en-tête comptent les manches tenues, et les cartes de la planche marquent mes morts et spéciaux en jaune (tenu) ou en rose souligné (manqué). |
 
 La lecture est stricte : une clé inconnue ou une valeur invalide arrête le programme avec un message qui la nomme, plutôt que d'être ignorée en silence. Retirer un type de la liste n'empêche pas de relire les sessions déjà enregistrées sous ce type. La variable `SPLATOON_SETTINGS` désigne un autre fichier ; vide, elle désactive la lecture (c'est ce que font les tests).
 

@@ -37,6 +37,17 @@ export type Seuils = {
   medaillesCitees: number;
 };
 
+/**
+ * Ce que je me fixe sur une manche jouee avec une arme donnee. Chaque borne
+ * est facultative : une arme peut n'avoir qu'un objectif.
+ */
+export type ObjectifsArme = {
+  /** Morts a ne pas depasser sur la manche. */
+  mortsMax?: number;
+  /** Speciaux a declencher au moins sur la manche. */
+  speciauxMin?: number;
+};
+
 export type Reglages = {
   /** Compte stat.ink interroge par defaut. */
   utilisateur: string;
@@ -55,6 +66,11 @@ export type Reglages = {
   fenetreSansBarres: boolean;
   dossiers: { sessions: string; planches: string; pictos: string };
   seuils: Seuils;
+  /**
+   * Mes objectifs par arme, indexes par cle stat.ink (`nzap85`). Ils sont
+   * verifies manche par manche, sur les seules manches jouees avec l'arme.
+   */
+  objectifsParArme: Record<string, ObjectifsArme>;
 };
 
 export const REGLAGES_PAR_DEFAUT: Reglages = {
@@ -82,6 +98,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
     partDeSessionReguliere: 0.5,
     medaillesCitees: 4,
   },
+  objectifsParArme: {},
 };
 
 /**
@@ -282,7 +299,45 @@ export function valideLesReglages(brut: unknown, source = "settings.json"): Regl
     }
   }
 
+  if (brut.objectifsParArme !== undefined) {
+    reglages.objectifsParArme = valideLesObjectifs(brut.objectifsParArme, `${source}, "objectifsParArme"`);
+  }
+
   return reglages;
+}
+
+const BORNES_D_OBJECTIF = ["mortsMax", "speciauxMin"] as const;
+
+/**
+ * Les objectifs par arme. Une cle d'arme se refuse sur sa forme seulement :
+ * la table des noms francais n'est pas exhaustive (les armes au meme nom dans
+ * les deux langues n'y sont pas), elle ne peut donc pas servir de liste.
+ */
+function valideLesObjectifs(brut: unknown, ou: string): Record<string, ObjectifsArme> {
+  if (!estUnObjet(brut)) throw new Error(`${ou} : objet attendu.`);
+  const objectifs: Record<string, ObjectifsArme> = {};
+  for (const [arme, bornes] of Object.entries(brut)) {
+    const ici = `${ou}.${arme}`;
+    if (!/^[a-z0-9_]{1,40}$/.test(arme)) {
+      throw new Error(`${ou} : "${arme}" n'est pas une clé d'arme stat.ink (minuscules, chiffres, soulignés).`);
+    }
+    if (!estUnObjet(bornes)) throw new Error(`${ici} : objet attendu.`);
+    refuseLesClesInconnues(bornes, BORNES_D_OBJECTIF, ici);
+    const retenu: ObjectifsArme = {};
+    for (const borne of BORNES_D_OBJECTIF) {
+      const valeur = bornes[borne];
+      if (valeur === undefined) continue;
+      if (typeof valeur !== "number" || !Number.isInteger(valeur) || valeur < 0) {
+        throw new Error(`${ici}.${borne} : entier positif ou nul attendu.`);
+      }
+      retenu[borne] = valeur;
+    }
+    if (Object.keys(retenu).length === 0) {
+      throw new Error(`${ici} : au moins un objectif attendu (${BORNES_D_OBJECTIF.join(", ")}).`);
+    }
+    objectifs[arme] = retenu;
+  }
+  return objectifs;
 }
 
 /**
@@ -331,8 +386,10 @@ export function ecartAuxDefauts(reglages: Reglages): Partial<Record<keyof Reglag
   for (const cle of Object.keys(REGLAGES_PAR_DEFAUT)) {
     const valeur = valeurs[cle];
     const defaut = defauts[cle];
-    // Les objets imbriques (dossiers, seuils) s'ecrivent eux aussi en partiel.
-    if (typeof defaut === "object" && defaut !== null && !Array.isArray(defaut)) {
+    // Les objets imbriques a cles fixes (dossiers, seuils) s'ecrivent eux
+    // aussi en partiel. Les objectifs, indexes par arme, s'ecrivent entiers :
+    // leur defaut est vide, un ecart cle par cle n'y trouverait rien.
+    if (cle !== "objectifsParArme" && typeof defaut === "object" && defaut !== null && !Array.isArray(defaut)) {
       const sous: Record<string, unknown> = {};
       for (const [souscle, sousdefaut] of Object.entries(defaut)) {
         const sousvaleur = (valeur as Record<string, unknown>)[souscle];

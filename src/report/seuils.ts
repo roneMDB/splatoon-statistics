@@ -13,7 +13,7 @@
 
 import { REGLAGES } from "../reglages.ts";
 
-const { seuils } = REGLAGES;
+const { seuils, objectifsParArme } = REGLAGES;
 
 /** Defaites consecutives en fin de session a partir desquelles on parle de decrochage. */
 export const SERIE_FINALE_MINIMALE = seuils.serieFinaleMinimale;
@@ -61,3 +61,6 @@ export const PART_DE_SESSION_REGULIERE = seuils.partDeSessionReguliere;
 
 /** Medailles les plus frequentes citees dans le bulletin de role. */
 export const MEDAILLES_CITEES = seuils.medaillesCitees;
+
+/** Mes objectifs par arme, verifies manche par manche. Voir `objectifs.ts`. */
+export const OBJECTIFS_PAR_ARME = objectifsParArme;

@@ -34,6 +34,8 @@ export type JoueurDeManche = {
   moi: boolean;
   /** Arme en francais, l'anglais entre parentheses. */
   arme: string;
+  /** Cle stat.ink de l'arme (`nzap85`) : c'est a elle que s'attachent mes objectifs. */
+  armeCle?: string;
   kill: number;
   assist: number;
   death: number;
@@ -139,6 +141,7 @@ function joueurDe(membre: StatinkTeamMember): JoueurDeManche {
     nom: membre.name ?? "(sans nom)",
     moi: membre.me === true,
     arme: libelleDeLArme(nom, weapon?.name?.en_US),
+    ...(weapon?.key == null ? {} : { armeCle: weapon.key }),
     kill: nombre(membre.kill),
     assist: nombre(membre.assist),
     death: nombre(membre.death),

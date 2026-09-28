@@ -29,6 +29,7 @@ import {
   summarizeSessionFile,
   updateSessionMeta,
 } from "../sessionList.ts";
+import { armesConnues } from "../armes.fr.ts";
 import { toBattleRows } from "../battleRows.ts";
 import { toBattleDetail } from "../battleDetail.ts";
 import { estUneUrlStatink, saitOuvrirUnLien } from "../lienExterne.ts";
@@ -440,6 +441,7 @@ ipcMain.handle(IPC.readSettings, (): EcranDesReglages => {
     defauts: REGLAGES_PAR_DEFAUT,
     descriptions: DESCRIPTION_DES_SEUILS,
     sections: SECTIONS.map((cle) => ({ cle, libelle: LIBELLES_SECTIONS[cle] })),
+    armes: armesConnues(),
   };
   try {
     const reglages = chargeLesReglages();
