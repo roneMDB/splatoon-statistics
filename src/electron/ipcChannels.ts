@@ -58,6 +58,12 @@ export const IPC = {
   relaunchApp: "app:relaunch",
   /** Polices du jeu, pictos de regle, motif et forme de la fenetre. */
   habillage: "app:habillage",
+  /** Destination, derniere sauvegarde reussie et echec eventuel. */
+  backupStatus: "backup:status",
+  /** Sauvegarde tout de suite, sans attendre la prochaine ecriture. */
+  runBackup: "backup:run",
+  /** Ouvre le dossier de sauvegarde dans le gestionnaire de fichiers du systeme. */
+  openBackupDir: "backup:open-dir",
 } as const;
 
 /** Ce que l'ecran des reglages recoit a l'ouverture. */
@@ -202,6 +208,11 @@ export type SplatoonApi = {
     brut: unknown,
   ) => Promise<{ reglages: import("../reglages.ts").Reglages; enAttente: boolean }>;
   relaunchApp: () => Promise<void>;
+  backupStatus: () => Promise<import("../sauvegarde.ts").EtatDeSauvegarde>;
+  /** Rend l'etat une fois la copie finie, reussie ou non : l'echec est dans `erreur`. */
+  runBackup: () => Promise<import("../sauvegarde.ts").EtatDeSauvegarde>;
+  /** Refuse tant qu'aucune sauvegarde n'a cree le dossier. Memes retours que `openPlancheDir`. */
+  openBackupDir: () => Promise<"ouvert" | "copie">;
   /**
    * De quoi habiller la fenetre aux couleurs du jeu. `sansBarres` dit si la
    * fenetre doit dessiner sa propre bande de titre, deplacable.

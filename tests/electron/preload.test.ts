@@ -46,6 +46,9 @@ const FONCTIONS = [
   ["readSettings", "readSettings"],
   ["saveSettings", "saveSettings"],
   ["relaunchApp", "relaunchApp"],
+  ["backupStatus", "backupStatus"],
+  ["runBackup", "runBackup"],
+  ["openBackupDir", "openBackupDir"],
   ["onFetchProgress", "fetchProgress"],
 ] as const satisfies ReadonlyArray<readonly [string, keyof typeof IPC]>;
 

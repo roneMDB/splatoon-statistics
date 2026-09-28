@@ -83,7 +83,54 @@ du dépôt en développement. Les pictos sont lus dans le paquet
 `src/electron/demarrage.ts`.
 
 Les deux mondes ne partagent pas leurs données : pour reprendre les sessions
-récupérées sous WSL, on copie `data/sessions` dans le dossier Documents.
+récupérées sous WSL, on copie `data/sessions` dans le dossier Documents, comme
+pour une restauration (voir « Sauvegarde et restauration » ci-dessous).
+
+### Sauvegarde et restauration
+
+L'application copie ses données dans `C:\Users\<nom>\Mon Drive\Splatoon Statistics`,
+le dossier que synchronise Google Drive pour ordinateur. Un Drive en anglais
+(`My Drive`) est reconnu aussi.
+
+- **Ce qui est copié :** `settings.json` (le compte, les objectifs, les seuils)
+  et `data\sessions`, rangés comme dans `Documents\Splatoon Statistics`. Les
+  planches se regénèrent depuis les sessions, et le cache `.resumes.json` se
+  reconstruit seul : ils ne sont pas copiés.
+- **Quand :** quelques secondes après chaque modification (session récupérée,
+  complétée ou éditée, réglages enregistrés), et au démarrage pour rattraper une
+  copie qui aurait échoué, Drive hors ligne par exemple. Une copie en attente
+  part avant la fermeture. Seuls les fichiers nouveaux ou modifiés sont recopiés.
+- **Ce qui n'est jamais fait :** la copie ne supprime rien. Une session effacée
+  dans l'application reste dans la sauvegarde, et Drive garde l'historique des
+  versions de chaque fichier.
+- **Où le voir :** l'écran Réglages, groupe Sauvegarde, montre la destination,
+  la date de la dernière copie réussie et le dernier échec. Il propose
+  « Sauvegarder maintenant » et « Ouvrir le dossier ». On y change aussi de
+  dossier (`sauvegarde.dossier`, un chemin absolu, par exemple
+  `G:\Mon Drive\Splatoon Statistics` si Drive est monté en lecteur) ou on coupe
+  la copie automatique (`sauvegarde.automatique: false`).
+
+Si `Mon Drive` n'existe pas, parce que Drive n'est pas installé, la sauvegarde
+échoue et l'écran le dit. Elle ne crée pas ce dossier : ce serait un dossier
+ordinaire, non synchronisé, qui ferait illusion.
+
+#### Réinstaller l'application et retrouver ses données
+
+1. Sur la nouvelle machine, installer Google Drive pour ordinateur, se connecter
+   et attendre que `Mon Drive\Splatoon Statistics` soit synchronisé.
+2. Installer l'application : dézipper `Splatoon Statistics-<version>-win.zip`
+   où l'on veut, ou lancer `npm run app:deploy` depuis WSL.
+3. La lancer une fois, puis la fermer. Elle crée `Documents\Splatoon Statistics`.
+4. Copier **le contenu** de `Mon Drive\Splatoon Statistics` (`settings.json` et
+   le dossier `data`) dans `Documents\Splatoon Statistics`, en remplaçant les
+   fichiers existants.
+5. Relancer l'application. Les sessions réapparaissent dans la liste, et la
+   sauvegarde reprend vers le même dossier.
+
+Un `settings.json` restauré qui fixe des dossiers ailleurs que `data\...`
+(`dossiers.sessions`, `dossiers.planches`) garde ces chemins. S'ils n'existent
+pas sur la nouvelle machine, on les corrige dans l'écran Réglages, ou on retire
+la clé `dossiers` du fichier.
 
 #### Ouvrir un lien sous WSL
 
@@ -350,6 +397,7 @@ Les valeurs par défaut se règlent dans un fichier `settings.json`, à la racin
 | `enteteParDefaut` | Coche d'office la case « compte rendu en tête de la planche ». |
 | `dossiers` | `sessions`, `planches` et `pictos`. |
 | `seuils` | Les seuils de rédaction du compte rendu (voir `src/report/seuils.ts`). Les nombres de manches, secondes et médailles sont des entiers d'au moins 1. `partDeSessionReguliere` et `baisseDeRegimeRelative` sont des parts comprises entre 0 (exclu) et 1. |
+| `sauvegarde` | `automatique` (vrai par défaut) : copie après chaque modification et au démarrage. `dossier` : destination, vide pour `Mon Drive\Splatoon Statistics`. Voir « Sauvegarde et restauration ». |
 | `objectifsParArme` | Mes objectifs par arme, par clé stat.ink (`nzap85`) : `mortsMax` et/ou `speciauxMin`, entiers positifs ou nuls. Jugés manche par manche, sur les seules manches jouées avec l'arme. Une manche écourtée (un KO) est jugée au prorata du temps joué sur 5 minutes, morts arrondies vers le bas et spéciaux vers le haut ; une prolongation ne remonte pas les objectifs ; une manche de moins d'une minute n'est pas jugée. Le bulletin de rôle et l'en-tête comptent les manches tenues, et les cartes de la planche marquent mes morts et spéciaux en jaune (tenu) ou en rose souligné (manqué), avec l'objectif ajusté à côté sur une manche écourtée.
 
 La lecture est stricte : une clé inconnue ou une valeur invalide arrête le programme avec un message qui la nomme, plutôt que d'être ignorée en silence. Retirer un type de la liste n'empêche pas de relire les sessions déjà enregistrées sous ce type. La variable `SPLATOON_SETTINGS` désigne un autre fichier ; vide, elle désactive la lecture (c'est ce que font les tests).
@@ -465,6 +513,7 @@ structure, types et valeurs dont le code dépend.
 | `src/report/index.ts` | Assemble le document Markdown |
 | `src/report/planche.ts` | Planche de manches en HTML, pure et testée sans navigateur |
 | `src/reportCli.ts` | `npm run report` : le même document sur la sortie standard |
+| `src/sauvegarde.ts` | Copie additive vers Google Drive, regroupée après chaque écriture |
 | `src/store.ts` | Écriture du fichier de session, et complétion d'une session déjà écrite |
 | `src/cli.ts` | Arguments, câblage, récapitulatif console |
 | `src/lanceApp.ts` | Lance Electron en processus fils, avec `--use-angle=swiftshader` sous WSL |

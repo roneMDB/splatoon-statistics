@@ -138,6 +138,41 @@
             </fieldset>
 
             <fieldset class="reglages__groupe">
+              <legend>Sauvegarde</legend>
+              <p class="reglages__aide">
+                Copie <code>settings.json</code> et les sessions dans un dossier synchronisé, par
+                défaut <code>Mon Drive\Splatoon Statistics</code> (Google Drive pour ordinateur).
+                La copie ne supprime jamais rien : une session effacée ici reste dans la
+                sauvegarde. Pour restaurer, voir « Sauvegarde et restauration » dans le README.
+              </p>
+              <label class="section">
+                <input type="checkbox" id="reglage-sauvegarde-auto" />
+                Sauvegarder après chaque modification, et au démarrage
+              </label>
+              <div class="champ">
+                <label for="reglage-sauvegarde-dossier">Dossier de sauvegarde</label>
+                <input
+                  type="text"
+                  id="reglage-sauvegarde-dossier"
+                  autocomplete="off"
+                  placeholder="Mon Drive\Splatoon Statistics"
+                />
+                <p class="reglages__aide">
+                  Vide : Google Drive. Sinon, un chemin absolu, créé s'il manque.
+                </p>
+              </div>
+              <p class="sauvegarde__etat" id="sauvegarde-etat" aria-live="polite"></p>
+              <div class="actions">
+                <button type="button" class="bouton--discret" id="bouton-sauvegarder">
+                  Sauvegarder maintenant
+                </button>
+                <button type="button" class="bouton--discret" id="bouton-sauvegarde-dossier">
+                  Ouvrir le dossier
+                </button>
+              </div>
+            </fieldset>
+
+            <fieldset class="reglages__groupe">
               <legend>Objectifs par arme</legend>
               <p class="reglages__aide">
                 Ce que je me fixe sur une manche entière (5 minutes) jouée avec une arme. Une

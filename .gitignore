@@ -6,6 +6,9 @@ data/*
 # Build de l application Electron
 dist-electron/
 
+# Date de la derniere sauvegarde vers Drive (voir src/sauvegarde.ts)
+.derniere-sauvegarde.json
+
 # Reglages personnels (compte stat.ink, dossiers) : voir settings.exemple.json
 settings.json
 

@@ -1014,6 +1014,23 @@ h3.apercu__titre {
   font-size: 12.5px;
 }
 
+/* Deux ou trois lignes : destination, derniere copie, echec eventuel. */
+.sauvegarde__etat {
+  margin: 12px 0 0;
+  white-space: pre-line;
+  color: var(--texte-doux);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.sauvegarde__etat--echec {
+  color: var(--erreur);
+}
+
+.reglages__groupe > .section + .champ {
+  margin-top: 12px;
+}
+
 .reglages__groupe .champ + .champ {
   margin-top: 12px;
 }

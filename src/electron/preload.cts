@@ -39,6 +39,9 @@ const CANAUX = {
   saveSettings: "settings:save",
   relaunchApp: "app:relaunch",
   habillage: "app:habillage",
+  backupStatus: "backup:status",
+  runBackup: "backup:run",
+  openBackupDir: "backup:open-dir",
 } as const;
 
 contextBridge.exposeInMainWorld("splatoonApi", {
@@ -86,6 +89,12 @@ contextBridge.exposeInMainWorld("splatoonApi", {
   relaunchApp: () => ipcRenderer.invoke(CANAUX.relaunchApp),
 
   habillage: () => ipcRenderer.invoke(CANAUX.habillage),
+
+  backupStatus: () => ipcRenderer.invoke(CANAUX.backupStatus),
+
+  runBackup: () => ipcRenderer.invoke(CANAUX.runBackup),
+
+  openBackupDir: () => ipcRenderer.invoke(CANAUX.openBackupDir),
 
   /** Ferme l'application : la fenetre ne peut pas quitter le processus seule. */
   quitApp: () => ipcRenderer.invoke(CANAUX.quitApp),

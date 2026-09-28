@@ -12,7 +12,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
-import { DEFAULT_PLANCHE_DIR, DEFAULT_USER } from "../config.ts";
+import { homedir } from "node:os";
+import { DEFAULT_OUT_DIR, DEFAULT_PLANCHE_DIR, DEFAULT_USER } from "../config.ts";
 import {
   chargeLesReglages,
   cheminDesReglages,
@@ -57,6 +58,7 @@ import { cheminDePlanche, fabriqueLaPlancheAvecReprise } from "./plancheHandler.
 import { outilsDePlanche } from "./planchePhotographe.ts";
 import { chargeLHabillage } from "../report/pictos.ts";
 import { MOTIF_SCOTCH } from "../report/texture.ts";
+import { creeLaSauvegarde, destinationDeSauvegarde } from "../sauvegarde.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -156,6 +158,28 @@ function createWindow(): BrowserWindow {
   return window;
 }
 
+/**
+ * Sauvegarde vers Google Drive (voir `src/sauvegarde.ts`). Chaque canal qui
+ * ecrit sur disque la demande une fois l'ecriture faite ; la suppression d'une
+ * session ne la demande pas : la sauvegarde ne supprime jamais rien.
+ *
+ * Reglages lus au demarrage, comme les autres : changer de dossier s'applique
+ * au prochain lancement.
+ */
+const sauvegarde = creeLaSauvegarde({
+  automatique: REGLAGES.sauvegarde.automatique,
+  destination: destinationDeSauvegarde(REGLAGES.sauvegarde.dossier, homedir()),
+  cheminReglages: cheminDesReglages(),
+  dossierSessions: DEFAULT_OUT_DIR,
+});
+
+/** Rend le resultat de `ecriture` tel quel, apres avoir demande une sauvegarde. */
+async function puisSauvegarde<T>(ecriture: Promise<T>): Promise<T> {
+  const resultat = await ecriture;
+  sauvegarde.demande();
+  return resultat;
+}
+
 ipcMain.handle(IPC.listSessions, () => listSessions());
 
 ipcMain.handle(IPC.habillage, async () => ({
@@ -191,17 +215,19 @@ ipcMain.handle(
 );
 
 ipcMain.handle(IPC.saveSession, (_event, previewId: string) =>
-  saveSession(previewId),
+  puisSauvegarde(saveSession(previewId)),
 );
 
 ipcMain.handle(IPC.completeSession, (event, path: string) =>
-  completeSession(path, {
-    onProgress: (progress) => {
-      if (!event.sender.isDestroyed()) {
-        event.sender.send(IPC.fetchProgress, progress);
-      }
-    },
-  }),
+  puisSauvegarde(
+    completeSession(path, {
+      onProgress: (progress) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send(IPC.fetchProgress, progress);
+        }
+      },
+    }),
+  ),
 );
 
 ipcMain.handle(IPC.readSession, async (_event, path: string) => {
@@ -223,14 +249,16 @@ ipcMain.handle(
       nomEquipeAdverse?: string;
     },
   ) =>
-    updateSessionMeta(input.path, {
-      name: input.name,
-      type: parseSessionType(input.type),
-      objectif: input.objectif,
-      ressenti: input.ressenti,
-      nomEquipe: input.nomEquipe,
-      nomEquipeAdverse: input.nomEquipeAdverse,
-    }),
+    puisSauvegarde(
+      updateSessionMeta(input.path, {
+        name: input.name,
+        type: parseSessionType(input.type),
+        objectif: input.objectif,
+        ressenti: input.ressenti,
+        nomEquipe: input.nomEquipe,
+        nomEquipeAdverse: input.nomEquipeAdverse,
+      }),
+    ),
 );
 
 ipcMain.handle(IPC.deleteSession, (_event, path: string) => deleteSession(path));
@@ -353,17 +381,10 @@ ipcMain.handle(IPC.revealPlanche, async (_event, path: unknown) => {
 });
 
 /**
- * Ouvre le dossier des planches, meme sans planche selectionnee.
- *
- * Aucun argument ne vient de la fenetre : le dossier est celui des reglages.
- * Il est cree s'il manque, pour que le bouton ouvre toujours quelque chose
- * avant la premiere planche. Sous WSL, meme detour par `explorer.exe` et meme
- * repli sur le presse-papier que `revealPlanche`.
+ * Ouvre un dossier dans le gestionnaire de fichiers. Sous WSL, meme detour
+ * par `explorer.exe` et meme repli sur le presse-papier que `revealPlanche`.
  */
-ipcMain.handle(IPC.openPlancheDir, async () => {
-  const dossier = resolve(DEFAULT_PLANCHE_DIR);
-  await mkdir(dossier, { recursive: true });
-
+async function ouvreLeDossier(dossier: string): Promise<"ouvert" | "copie"> {
   if (!sousWslActif) {
     // `openPath` ne rejette pas : il rend un message, vide en cas de reussite.
     const echec = await shell.openPath(dossier);
@@ -381,6 +402,39 @@ ipcMain.handle(IPC.openPlancheDir, async () => {
 
   await clipboard.writeText(cheminWindows ?? dossier);
   return "copie" as const;
+}
+
+/**
+ * Ouvre le dossier des planches, meme sans planche selectionnee.
+ *
+ * Aucun argument ne vient de la fenetre : le dossier est celui des reglages.
+ * Il est cree s'il manque, pour que le bouton ouvre toujours quelque chose
+ * avant la premiere planche.
+ */
+ipcMain.handle(IPC.openPlancheDir, async () => {
+  const dossier = resolve(DEFAULT_PLANCHE_DIR);
+  await mkdir(dossier, { recursive: true });
+  return ouvreLeDossier(dossier);
+});
+
+ipcMain.handle(IPC.backupStatus, () => sauvegarde.etat());
+
+ipcMain.handle(IPC.runBackup, async () => {
+  await sauvegarde.lanceMaintenant();
+  return sauvegarde.etat();
+});
+
+/**
+ * Pas de `mkdir` ici, a la difference des planches : creer le dossier de
+ * Drive a la main donnerait un dossier non synchronise. On attend qu'une
+ * sauvegarde l'ait cree.
+ */
+ipcMain.handle(IPC.openBackupDir, async () => {
+  const { destination } = await sauvegarde.etat();
+  if (!existsSync(destination)) {
+    throw new Error("Aucune sauvegarde pour l'instant : le dossier n'existe pas encore.");
+  }
+  return ouvreLeDossier(destination);
 });
 
 /**
@@ -469,7 +523,7 @@ ipcMain.handle(IPC.readSettings, (): EcranDesReglages => {
 });
 
 ipcMain.handle(IPC.saveSettings, async (_event, brut: unknown) => {
-  const reglages = await enregistreLesReglages(brut);
+  const reglages = await puisSauvegarde(enregistreLesReglages(brut));
   return { reglages, enAttente: !memesReglages(reglages, REGLAGES) };
 });
 
@@ -484,11 +538,24 @@ ipcMain.handle(IPC.relaunchApp, () => {
 
 void app.whenReady().then(() => {
   createWindow();
+  // Rattrapage : recopie ce qu'une session precedente n'aurait pas pu copier.
+  sauvegarde.demande();
 
   // Sous macOS, cliquer l'icone du dock rouvre une fenetre sans relancer l'appli.
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+/**
+ * Une sauvegarde programmee ou en cours part avant de quitter, plutot que
+ * d'attendre le prochain demarrage. Un echec ne retient pas la fermeture :
+ * `lanceMaintenant` ne rejette jamais.
+ */
+app.on("before-quit", (evenement) => {
+  if (!sauvegarde.enAttente()) return;
+  evenement.preventDefault();
+  void sauvegarde.lanceMaintenant().then(() => app.quit());
 });
 
 app.on("window-all-closed", () => {

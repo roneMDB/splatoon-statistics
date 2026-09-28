@@ -9,6 +9,7 @@ import { etat, montreLaVue } from "./etat.js";
 /** @typedef {import("../ipcChannels.ts").EcranDesReglages} EcranDesReglages */
 /** @typedef {import("../../reglages.ts").Reglages} Reglages */
 /** @typedef {import("./etat.js").Vue} Vue */
+/** @typedef {import("../../sauvegarde.ts").EtatDeSauvegarde} EtatDeSauvegarde */
 
 /** Ce que l'ecran a recu a l'ouverture : descriptions, valeurs par defaut. */
 /** @type {EcranDesReglages | undefined} */
@@ -187,6 +188,8 @@ function remplisLesReglages(reglages) {
   elements.reglageDossierSessions.value = reglages.dossiers.sessions;
   elements.reglageDossierPlanches.value = reglages.dossiers.planches;
   elements.reglageDossierPictos.value = reglages.dossiers.pictos;
+  elements.reglageSauvegardeAuto.checked = reglages.sauvegarde.automatique;
+  elements.reglageSauvegardeDossier.value = reglages.sauvegarde.dossier;
   for (const champ of elements.reglagesSeuils.querySelectorAll("input")) {
     const { cle = "", unite = "" } = champ.dataset;
     champ.value = String(versLEcran(parCle(reglages.seuils)[cle] ?? Number.NaN, unite));
@@ -226,6 +229,10 @@ function lisLesReglages() {
     },
     seuils,
     objectifsParArme: lisLesObjectifs(),
+    sauvegarde: {
+      automatique: elements.reglageSauvegardeAuto.checked,
+      dossier: elements.reglageSauvegardeDossier.value,
+    },
   };
 }
 
@@ -251,6 +258,28 @@ function messageDeReglage(erreur) {
   return brut.replace(/^[^"]*?, (?=")/, "");
 }
 
+/** @type {(copies: number) => string} */
+const bilanDeCopie = (copies) =>
+  copies === 0 ? "déjà à jour" : `${copies} fichier${copies > 1 ? "s" : ""} copié${copies > 1 ? "s" : ""}`;
+
+/**
+ * La ligne d'etat de la sauvegarde : ou, quand, et l'echec eventuel. La
+ * destination est celle en cours, pas celle du formulaire : un dossier
+ * enregistre ne sert qu'au prochain demarrage.
+ * @param {EtatDeSauvegarde} etatDeSauvegarde
+ */
+function montreLaSauvegarde(etatDeSauvegarde) {
+  const { derniere, erreur, destination, enCours } = etatDeSauvegarde;
+  const quand =
+    derniere === undefined
+      ? "Aucune sauvegarde pour l'instant."
+      : `Dernière sauvegarde : ${new Date(derniere.date).toLocaleString("fr-FR")} (${bilanDeCopie(derniere.copies)}).`;
+  const lignes = [`Vers ${destination}`, enCours ? "Sauvegarde en cours…" : quand];
+  if (erreur !== undefined) lignes.push(`Échec de la dernière tentative : ${erreur}`);
+  elements.sauvegardeEtat.textContent = lignes.join("\n");
+  elements.sauvegardeEtat.classList.toggle("sauvegarde__etat--echec", erreur !== undefined);
+}
+
 /** @param {boolean} enAttente */
 function signaleLAttente(enAttente) {
   elements.reglagesAttente.hidden = !enAttente;
@@ -266,6 +295,7 @@ elements.boutonReglages.addEventListener("click", async () => {
     elements.reglagesChemin.textContent = ecran.chemin;
     remplisLesReglages(ecran.reglages);
     signaleLAttente(ecran.enAttente);
+    montreLaSauvegarde(await api.backupStatus());
     if (etat.vueCourante !== "reglages") vueAvantReglages = etat.vueCourante;
     montreLaVue("reglages");
     if (ecran.erreur !== undefined) {
@@ -312,6 +342,33 @@ elements.boutonReglagesDefauts.addEventListener("click", () => {
 elements.boutonReglagesRetour.addEventListener("click", () => {
   cacheLesBandeaux();
   montreLaVue(vueAvantReglages);
+});
+
+elements.boutonSauvegarder.addEventListener("click", async () => {
+  cacheLesBandeaux();
+  elements.boutonSauvegarder.disabled = true;
+  elements.sauvegardeEtat.textContent = "Sauvegarde en cours…";
+  try {
+    const etatDeSauvegarde = await api.runBackup();
+    montreLaSauvegarde(etatDeSauvegarde);
+    if (etatDeSauvegarde.erreur === undefined) bandeau(elements.succes, "Sauvegarde faite.");
+    else bandeau(elements.erreur, `Sauvegarde impossible. ${etatDeSauvegarde.erreur}`);
+  } catch (erreur) {
+    bandeau(elements.erreur, messageDe(erreur));
+  } finally {
+    elements.boutonSauvegarder.disabled = false;
+  }
+});
+
+elements.boutonSauvegardeDossier.addEventListener("click", async () => {
+  cacheLesBandeaux();
+  try {
+    if ((await api.openBackupDir()) === "copie") {
+      bandeau(elements.succes, "Chemin du dossier de sauvegarde copié dans le presse-papier.");
+    }
+  } catch (erreur) {
+    bandeau(elements.erreur, messageDeReglage(erreur));
+  }
 });
 
 elements.boutonReglagesRedemarrer.addEventListener("click", async () => {

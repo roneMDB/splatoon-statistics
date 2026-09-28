@@ -71,6 +71,12 @@ export type Reglages = {
    * verifies manche par manche, sur les seules manches jouees avec l'arme.
    */
   objectifsParArme: Record<string, ObjectifsArme>;
+  /**
+   * Copie de `settings.json` et des sessions apres chaque ecriture, et au
+   * demarrage. `dossier` vide : `Mon Drive\Splatoon Statistics` sous le
+   * dossier personnel (voir `src/sauvegarde.ts`).
+   */
+  sauvegarde: { automatique: boolean; dossier: string };
 };
 
 export const REGLAGES_PAR_DEFAUT: Reglages = {
@@ -99,6 +105,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
     medaillesCitees: 4,
   },
   objectifsParArme: {},
+  sauvegarde: { automatique: true, dossier: "" },
 };
 
 /**
@@ -296,6 +303,22 @@ export function valideLesReglages(brut: unknown, source = "settings.json"): Regl
         );
       }
       reglages.seuils[cle] = valeur as number;
+    }
+  }
+
+  if (brut.sauvegarde !== undefined) {
+    const ou = `${source}, "sauvegarde"`;
+    if (!estUnObjet(brut.sauvegarde)) throw new Error(`${ou} : objet attendu.`);
+    refuseLesClesInconnues(brut.sauvegarde, Object.keys(REGLAGES_PAR_DEFAUT.sauvegarde), ou);
+    const { automatique, dossier } = brut.sauvegarde;
+    if (automatique !== undefined) {
+      if (typeof automatique !== "boolean") throw new Error(`${ou}.automatique : true ou false attendu.`);
+      reglages.sauvegarde.automatique = automatique;
+    }
+    if (dossier !== undefined) {
+      // Vide est permis : c'est la destination par defaut, Google Drive.
+      if (typeof dossier !== "string") throw new Error(`${ou}.dossier : texte attendu.`);
+      reglages.sauvegarde.dossier = dossier.trim();
     }
   }
 

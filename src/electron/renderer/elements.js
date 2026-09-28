@@ -91,6 +91,11 @@ export const elements = {
   boutonReglagesRetour: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-reglages-retour")),
   boutonReglagesRedemarrer: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-reglages-redemarrer")),
   reglageSansBarres: /** @type {HTMLInputElement} */ (document.getElementById("reglage-sans-barres")),
+  reglageSauvegardeAuto: /** @type {HTMLInputElement} */ (document.getElementById("reglage-sauvegarde-auto")),
+  reglageSauvegardeDossier: /** @type {HTMLInputElement} */ (document.getElementById("reglage-sauvegarde-dossier")),
+  sauvegardeEtat: /** @type {HTMLElement} */ (document.getElementById("sauvegarde-etat")),
+  boutonSauvegarder: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-sauvegarder")),
+  boutonSauvegardeDossier: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-sauvegarde-dossier")),
   bande: /** @type {HTMLElement} */ (document.getElementById("bande")),
 };
 

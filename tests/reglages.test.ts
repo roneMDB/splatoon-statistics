@@ -198,3 +198,27 @@ describe("objectifsParArme", () => {
     expect(ecartAuxDefauts(reglages)).toEqual({ objectifsParArme: { nzap85: { speciauxMin: 6 } } });
   });
 });
+
+describe("sauvegarde", () => {
+  test("accepte un dossier vide, qui vaut Google Drive, et nettoie les espaces", () => {
+    expect(valideLesReglages({ sauvegarde: { dossier: "" } }).sauvegarde).toEqual({ automatique: true, dossier: "" });
+    expect(valideLesReglages({ sauvegarde: { automatique: false, dossier: " D:\\Sauvegardes " } }).sauvegarde).toEqual({
+      automatique: false,
+      dossier: "D:\\Sauvegardes",
+    });
+  });
+
+  test.each([
+    [{ automatique: "oui" }, /"sauvegarde"\.automatique : true ou false/],
+    [{ dossier: 3 }, /"sauvegarde"\.dossier : texte attendu/],
+    [{ heure: "20:00" }, /clé inconnue "heure"/],
+    [true, /objet attendu/],
+  ])("refuse %j", (sauvegarde, message) => {
+    expect(() => valideLesReglages({ sauvegarde })).toThrow(message);
+  });
+
+  test("ne s'ecrit que si elle differe des defauts", () => {
+    const reglages = valideLesReglages({ sauvegarde: { automatique: false } });
+    expect(ecartAuxDefauts(reglages)).toEqual({ sauvegarde: { automatique: false } });
+  });
+});

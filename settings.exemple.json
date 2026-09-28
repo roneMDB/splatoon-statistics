@@ -32,5 +32,9 @@
     "partDeSessionReguliere": 0.5,
     "medaillesCitees": 4
   },
-  "objectifsParArme": {}
+  "objectifsParArme": {},
+  "sauvegarde": {
+    "automatique": true,
+    "dossier": ""
+  }
 }
