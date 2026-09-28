@@ -14,12 +14,12 @@
     "pictos": "tsx scripts/recuperePictos.ts",
     "icone": "tsx scripts/fabriqueIcone.ts",
     "app": "npm run app:build && tsx src/lanceApp.ts",
-    "app:build": "tsc -p tsconfig.electron.json && node -e \"const fs=require('fs');fs.cpSync('src/electron/renderer','dist-electron/electron/renderer',{recursive:true});fs.copyFileSync('build/icon.png','dist-electron/electron/renderer/icone.png')\"",
+    "app:build": "tsc -p tsconfig.electron.json && node -e \"const fs=require('fs');fs.cpSync('src/electron/renderer','dist-electron/electron/renderer',{recursive:true,filter:(s)=>!s.endsWith('.d.ts')});fs.copyFileSync('build/icon.png','dist-electron/electron/renderer/icone.png')\"",
     "app:package": "npm run app:build && electron-builder --win zip --x64",
     "app:deploy": "tsx scripts/deploieWindows.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.renderer.json"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

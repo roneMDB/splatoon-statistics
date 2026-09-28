@@ -416,10 +416,16 @@ Trois particularités vérifiées en direct, toutes traitées dans le code :
 ## Développement
 
 ```bash
-npm test                          # 399 tests unitaires, hors-ligne
+npm test                          # tests unitaires, hors-ligne
 STATINK_INTEGRATION=1 npm test    # + 3 tests contre le vrai stat.ink
-npm run typecheck
+npm run typecheck                 # le noyau, puis la fenêtre (tsconfig.renderer.json)
 ```
+
+La fenêtre n'est pas transpilée, mais elle est vérifiée : `tsconfig.renderer.json`
+passe ses modules `.js` au vérificateur, avec le DOM, à partir de leurs annotations
+JSDoc. `src/electron/renderer/api.d.ts` leur donne le type du pont
+(`SplatoonApi`, dans `ipcChannels.ts`) : une méthode appelée par la fenêtre mais
+absente du contrat, ou un champ mal nommé dans une réponse, y devient une erreur.
 
 `tests/fixtures/battles-page1.json` est un extrait **réel** de `index.json`.
 `tests/fixture.test.ts` vérifie contre lui les hypothèses du code sur le payload :
@@ -442,7 +448,7 @@ structure, types et valeurs dont le code dépend.
 | `src/statink/client.ts` | HTTP : User-Agent, reprises, messages d'erreur |
 | `src/fetchSession.ts` | Pagination, conditions d'arrêt, déduplication, tri |
 | `src/sessionMeta.ts` | Nom et type de session : liste fermée, validation, dialogue |
-| `src/sessionList.ts` | Inventaire des sessions écrites, résumé et bilan |
+| `src/sessionList.ts` | Inventaire des sessions écrites, résumé et bilan, index des résumés |
 | `src/libelles.fr.ts` | Modes, cartes, résultats et médailles en français |
 | `src/armes.fr.ts` | Les 172 armes en français, par clé stat.ink |
 | `src/abilites.fr.ts` | Les 26 capacités d'équipement en français |
@@ -459,7 +465,7 @@ structure, types et valeurs dont le code dépend.
 | `src/report/index.ts` | Assemble le document Markdown |
 | `src/report/planche.ts` | Planche de manches en HTML, pure et testée sans navigateur |
 | `src/reportCli.ts` | `npm run report` : le même document sur la sortie standard |
-| `src/store.ts` | Écriture du fichier de session |
+| `src/store.ts` | Écriture du fichier de session, et complétion d'une session déjà écrite |
 | `src/cli.ts` | Arguments, câblage, récapitulatif console |
 | `src/lanceApp.ts` | Lance Electron en processus fils, avec `--use-angle=swiftshader` sous WSL |
 | `src/electron/main.ts` | Fenêtre et câblage IPC. Aucune logique métier |
@@ -467,7 +473,16 @@ structure, types et valeurs dont le code dépend.
 | `src/electron/sessionFetchHandler.ts` | Récupération pilotée par le formulaire, sans Electron |
 | `src/electron/plancheHandler.ts` | Fabrique la planche : capture injectée, testable sans Chromium. Reprise jusqu'à 5 fois |
 | `src/electron/planchePhotographe.ts` | Capture Electron réelle : fenêtre hors écran, presse-papier |
-| `src/electron/renderer/` | La fenêtre : HTML, CSS, JavaScript simple, non transpilé |
+| `src/electron/renderer/` | La fenêtre : HTML, CSS, JavaScript simple, non transpilé mais vérifié |
+| `src/electron/renderer/renderer.js` | Point d'entrée : charge les modules, habille la fenêtre, remplit les listes |
+| `src/electron/renderer/elements.js` | Éléments du document, typés une fois, et bandeaux de message |
+| `src/electron/renderer/etat.js` | État partagé par les modules, et bascule entre les vues |
+| `src/electron/renderer/recuperation.js` | Formulaire de récupération et aperçu |
+| `src/electron/renderer/liste.js` | Colonne des sessions |
+| `src/electron/renderer/fiche.js` | Fiche d'une session : enregistrer, compléter, supprimer |
+| `src/electron/renderer/manche.js` | Détail d'une manche |
+| `src/electron/renderer/compteRendu.js` | Compte rendu et planche |
+| `src/electron/renderer/reglages.js` | Écran des réglages |
 | `src/electron/renderer/markdown.js` | Rendu de l'aperçu. Moitié pure testée, DOM sans `innerHTML` |
 
 Le noyau ignore laquelle des deux façades l'appelle. Les modules `src/electron/`

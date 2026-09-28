@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -12,7 +12,20 @@ const lis = (nom: string) =>
   readFile(fileURLToPath(new URL(`../../src/electron/renderer/${nom}`, import.meta.url)), "utf8");
 
 const html = await lis("index.html");
-const script = await lis("renderer.js");
+/** Tous les modules du rendu, lus comme un seul script : l'element et son ecouteur peuvent vivre dans deux fichiers. */
+const modules = (
+  await readdir(fileURLToPath(new URL("../../src/electron/renderer/", import.meta.url)))
+).filter((nom) => nom.endsWith(".js"));
+const script = (await Promise.all(modules.map(lis))).join("\n");
+
+/**
+ * `propriete: document.getElementById("id")`, avec ou sans le type JSDoc qui
+ * le precede (`/** @type {HTMLInputElement} *\/ (document.getElementById(...))`).
+ */
+const declarationDe = (id: string) =>
+  new RegExp(
+    `(\\w+):\\s*(?:\\/\\*\\*[^*]*\\*\\/\\s*\\()?document\\.getElementById\\("${id}"\\)`,
+  ).exec(script);
 
 /** Identifiants declares dans le document. */
 const idsDuDocument = new Set(
@@ -72,9 +85,7 @@ describe("cablage du rendu", () => {
 
     const corps = /function montreLaVue\([\s\S]*?\n\}/.exec(script)?.[0] ?? "";
     for (const id of vues) {
-      const propriete = new RegExp(`(\\w+):\\s*document\\.getElementById\\("${id}"\\)`).exec(
-        script,
-      )?.[1];
+      const propriete = declarationDe(id)?.[1];
       expect(propriete, `la vue "${id}" n'est jamais recuperee`).toBeDefined();
       expect(
         corps.includes(`elements.${propriete}`),
@@ -94,9 +105,7 @@ describe("cablage du rendu", () => {
     for (const id of boutons) {
       // Le script nomme ses elements en camelCase ; on remonte donc au
       // getElementById puis a la propriete qui le porte.
-      const declaration = new RegExp(`(\\w+):\\s*document\\.getElementById\\("${id}"\\)`).exec(
-        script,
-      );
+      const declaration = declarationDe(id);
       expect(declaration, `le bouton "${id}" n'est jamais recupere par renderer.js`).not.toBeNull();
 
       const propriete = declaration?.[1];

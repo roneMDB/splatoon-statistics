@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { analyseMarkdown } from "../src/electron/renderer/markdown.js";
+import { analyseMarkdown, type Bloc, type Segment } from "../src/electron/renderer/markdown.js";
+
+/** Les champs d'un bloc, lus sans distinguer son type : le test dit lequel il attend. */
+const champs = (bloc: Bloc | undefined) =>
+  bloc as { segments?: Segment[]; lignes?: unknown[] } | undefined;
 
 /**
  * Seule la moitie pure est testee ici : `analyseMarkdown` transforme le texte en
@@ -42,13 +46,13 @@ describe("analyseMarkdown — gras", () => {
   test("gere plusieurs passages en gras sur la meme ligne", () => {
     const blocs = analyseMarkdown("**a** et **b**");
 
-    expect(blocs[0]?.segments?.filter((s) => s.gras).map((s) => s.texte)).toEqual(["a", "b"]);
+    expect(champs(blocs[0])?.segments?.filter((s) => s.gras).map((s) => s.texte)).toEqual(["a", "b"]);
   });
 
   test("laisse tel quel un double asterisque non ferme", () => {
     const blocs = analyseMarkdown("2 ** 3 = 8");
 
-    expect(blocs[0]?.segments).toEqual([{ texte: "2 ** 3 = 8", gras: false }]);
+    expect(champs(blocs[0])?.segments).toEqual([{ texte: "2 ** 3 = 8", gras: false }]);
   });
 });
 
@@ -95,7 +99,7 @@ describe("analyseMarkdown — citations", () => {
   test("interprete le gras a l'interieur d'une citation", () => {
     const blocs = analyseMarkdown("> un **mot** important");
 
-    expect(blocs[0]?.lignes?.[0]).toEqual([
+    expect(champs(blocs[0])?.lignes?.[0]).toEqual([
       { texte: "un ", gras: false },
       { texte: "mot", gras: true },
       { texte: " important", gras: false },
@@ -108,7 +112,7 @@ describe("analyseMarkdown — structure", () => {
     const blocs = analyseMarkdown("ligne un\nligne deux");
 
     expect(blocs).toHaveLength(1);
-    expect(blocs[0]?.segments?.map((s) => s.texte)).toEqual(["ligne un\nligne deux"]);
+    expect(champs(blocs[0])?.segments?.map((s) => s.texte)).toEqual(["ligne un\nligne deux"]);
   });
 
   test("une ligne vide separe deux paragraphes", () => {

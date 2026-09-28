@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  // Le rendu n'est pas transpile : ses fichiers .js sont copies tels quels.
+  // Ils sont donc verifies ici, avec le DOM, a partir de leurs annotations
+  // JSDoc ; `api.d.ts` leur donne le type du pont expose par le preload.
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "checkJs": true
+  },
+  "include": ["src/electron/renderer"],
+  "exclude": []
+}

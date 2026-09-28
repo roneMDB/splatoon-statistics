@@ -17,8 +17,21 @@
  * saisi librement ; ni l'un ni l'autre ne doit pouvoir injecter du balisage.
  */
 
-/** `a **b** c` -> segments, en marquant ceux qui sont en gras. */
+/** @typedef {{ texte: string; gras: boolean }} Segment */
+/**
+ * @typedef {{ type: "titre"; niveau: number; segments: Segment[] }
+ *   | { type: "paragraphe"; segments: Segment[] }
+ *   | { type: "citation"; lignes: Segment[][] }
+ *   | { type: "code"; lignes: string[] }} Bloc
+ */
+
+/**
+ * `a **b** c` -> segments, en marquant ceux qui sont en gras.
+ * @param {string} ligne
+ * @returns {Segment[]}
+ */
 function segments(ligne) {
+  /** @type {Segment[]} */
   const morceaux = [];
   let reste = ligne;
 
@@ -44,12 +57,18 @@ function segments(ligne) {
  *
  * Types rendus : `titre` (avec `niveau`), `paragraphe`, `citation` (une entree
  * de `lignes` par ligne citee) et `code` (lignes brutes, non interpretees).
+ *
+ * @param {string | null | undefined} texte
+ * @returns {Bloc[]}
  */
 export function analyseMarkdown(texte) {
+  /** @type {Bloc[]} */
   const blocs = [];
   const lignes = String(texte ?? "").split("\n");
 
+  /** @type {string[]} */
   let paragraphe = [];
+  /** @type {string[]} */
   let citation = [];
 
   const fermeLeParagraphe = () => {
@@ -70,28 +89,29 @@ export function analyseMarkdown(texte) {
   };
 
   for (let index = 0; index < lignes.length; index += 1) {
-    const ligne = lignes[index];
+    const ligne = lignes[index] ?? "";
 
     if (ligne.startsWith("```")) {
       fermeTout();
+      /** @type {string[]} */
       const contenu = [];
       index += 1;
       // Un bloc laisse ouvert se ferme en fin de texte plutot que de tout avaler.
-      while (index < lignes.length && !lignes[index].startsWith("```")) {
-        contenu.push(lignes[index]);
+      while (index < lignes.length && !(lignes[index] ?? "").startsWith("```")) {
+        contenu.push(lignes[index] ?? "");
         index += 1;
       }
       blocs.push({ type: "code", lignes: contenu });
       continue;
     }
 
-    const titre = /^(#{2,3})\s+(.*)$/.exec(ligne);
-    if (titre !== null) {
+    const [, diese, intitule = ""] = /^(#{2,3})\s+(.*)$/.exec(ligne) ?? [];
+    if (diese !== undefined) {
       fermeTout();
       blocs.push({
         type: "titre",
-        niveau: titre[1].length,
-        segments: segments(titre[2]),
+        niveau: diese.length,
+        segments: segments(intitule),
       });
       continue;
     }
@@ -115,7 +135,12 @@ export function analyseMarkdown(texte) {
   return blocs;
 }
 
-/** Ajoute des segments a un element, en texte pur. */
+/**
+ * Ajoute des segments a un element, en texte pur.
+ * @param {HTMLElement} element
+ * @param {Segment[]} morceaux
+ * @param {Document} doc
+ */
 function poseLesSegments(element, morceaux, doc) {
   for (const morceau of morceaux) {
     if (morceau.gras) {
@@ -128,7 +153,11 @@ function poseLesSegments(element, morceaux, doc) {
   }
 }
 
-/** Construit le rendu d'un compte rendu, pret a etre insere dans la page. */
+/**
+ * Construit le rendu d'un compte rendu, pret a etre insere dans la page.
+ * @param {string} texte
+ * @param {Document} [doc]
+ */
 export function construisLeRendu(texte, doc = document) {
   const racine = doc.createElement("div");
   racine.className = "apercu";

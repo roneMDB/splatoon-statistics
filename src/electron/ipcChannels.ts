@@ -188,6 +188,14 @@ export type SplatoonApi = {
    */
   openExternal: (url: string) => Promise<"ouvert" | "copie">;
   copyToClipboard: (texte: string) => Promise<void>;
+  /**
+   * Ouvre le dossier des planches dans le gestionnaire de fichiers. Rend
+   * `"copie"` quand la machine ne sait pas le faire : son chemin est alors mis
+   * dans le presse-papier.
+   */
+  openPlancheDir: () => Promise<"ouvert" | "copie">;
+  /** Ferme l'application : la fenetre ne peut pas quitter le processus seule. */
+  quitApp: () => Promise<void>;
   readSettings: () => Promise<EcranDesReglages>;
   /** Rend les reglages tels qu'ils seront lus, et si un redemarrage est attendu. */
   saveSettings: (

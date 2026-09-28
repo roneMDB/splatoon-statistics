@@ -14,9 +14,9 @@
     "noImplicitOverride": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    // Le rendu n'est pas transpile : renderer.js et markdown.js sont copies tels
-    // quels. `allowJs` laisse TypeScript inferer leurs types pour les tests qui
-    // les importent, sans les verifier eux-memes (`checkJs` reste desactive).
+    // Le rendu n'est pas transpile : ses modules .js sont copies tels quels.
+    // `allowJs` laisse TypeScript lire leurs types JSDoc pour les tests qui les
+    // importent ; c'est `tsconfig.renderer.json`, avec le DOM, qui les verifie.
     "allowJs": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
