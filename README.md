@@ -393,6 +393,12 @@ reconstituer une session entière.
 
 `data/` est ignoré par git : les données de matchs ne sont pas versionnées.
 
+À côté des sessions, `.resumes.json` garde le résumé de chacune (nom, bilan,
+équipes), pour que la liste de gauche ne relise pas toute l'archive à chaque
+affichage. Il est valable tant qu'un fichier garde sa taille et sa date de
+modification. On peut le supprimer sans risque : il se reconstruit au prochain
+affichage.
+
 ## Ce qu'il faut savoir sur l'API stat.ink
 
 Trois particularités vérifiées en direct, toutes traitées dans le code :

@@ -5,7 +5,7 @@
  * session, sans garder les matchs en memoire une fois le bilan calcule.
  */
 
-import { readdir, readFile, realpath, rm } from "node:fs/promises";
+import { readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { DEFAULT_OUT_DIR } from "./config.ts";
 import type { SessionType } from "./sessionMeta.ts";
@@ -90,10 +90,45 @@ export function summarizeSessionFile(
 }
 
 /**
+ * Index des resumes, ecrit a cote des sessions. Un point en tete : il n'est
+ * pas une session, et l'inventaire ignore les fichiers caches.
+ */
+export const FICHIER_DES_RESUMES = ".resumes.json";
+
+/**
+ * Un resume par nom de fichier, valable tant que le fichier garde sa taille et
+ * sa date de modification. Une session pese de 600 Ko a 1 Mo : sans lui,
+ * chaque inventaire - au demarrage, et apres chaque enregistrement - relirait
+ * et analyserait toute l'archive pour n'en garder que quelques champs.
+ */
+type IndexDesResumes = {
+  version: 1;
+  fichiers: Record<string, { mtimeMs: number; size: number; resume: Omit<SessionSummary, "path"> }>;
+};
+
+/** L'index, ou un index vide s'il est absent ou illisible : il se reconstruit. */
+async function litLIndex(outDir: string): Promise<IndexDesResumes["fichiers"]> {
+  try {
+    const index = JSON.parse(await readFile(join(outDir, FICHIER_DES_RESUMES), "utf8")) as IndexDesResumes;
+    if (index?.version === 1 && index.fichiers !== null && typeof index.fichiers === "object") {
+      return index.fichiers;
+    }
+  } catch {
+    // Absent ou abime : on repart de zero.
+  }
+  return {};
+}
+
+/**
  * Lit les sessions ecrites dans `outDir`.
  *
  * Un dossier absent n'est pas une erreur : c'est l'etat normal avant la
  * premiere recuperation.
+ *
+ * Seules les sessions nouvelles ou modifiees depuis l'inventaire precedent
+ * sont relues ; les autres sortent de l'index (`FICHIER_DES_RESUMES`). Ne pas
+ * pouvoir l'ecrire n'empeche pas l'inventaire : il sera simplement refait en
+ * entier la prochaine fois.
  */
 export async function listSessions(
   outDir: string = DEFAULT_OUT_DIR,
@@ -105,21 +140,46 @@ export async function listSessions(
     return { sessions: [], errors: [] };
   }
 
+  const ancien = await litLIndex(outDir);
+  const index: IndexDesResumes["fichiers"] = {};
+  let indexChange = false;
   const sessions: SessionSummary[] = [];
   const errors: { path: string; message: string }[] = [];
 
   for (const fileName of fileNames.sort()) {
-    if (!fileName.endsWith(".json")) continue;
+    if (!fileName.endsWith(".json") || fileName.startsWith(".")) continue;
     const path = join(outDir, fileName);
     try {
-      const raw = await readFile(path, "utf8");
-      sessions.push(summarizeSessionFile(parseSessionFile(raw), path));
+      const infos = await stat(path);
+      // A la milliseconde : certains systemes de fichiers ne gardent pas mieux.
+      const mtimeMs = Math.floor(infos.mtimeMs);
+      const size = infos.size;
+      const connu = ancien[fileName];
+      if (connu !== undefined && connu.mtimeMs === mtimeMs && connu.size === size) {
+        index[fileName] = connu;
+        sessions.push({ path, ...connu.resume });
+        continue;
+      }
+      const { path: _path, ...resume } = summarizeSessionFile(
+        parseSessionFile(await readFile(path, "utf8")),
+        path,
+      );
+      index[fileName] = { mtimeMs, size, resume };
+      indexChange = true;
+      sessions.push({ path, ...resume });
     } catch (error) {
       errors.push({
         path,
         message: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  if (indexChange || Object.keys(ancien).length !== Object.keys(index).length) {
+    const contenu: IndexDesResumes = { version: 1, fichiers: index };
+    await writeFile(join(outDir, FICHIER_DES_RESUMES), `${JSON.stringify(contenu)}\n`, "utf8").catch(
+      () => {},
+    );
   }
 
   sessions.sort((a, b) => Date.parse(b.window.from) - Date.parse(a.window.from));

@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
   deleteSession,
+  FICHIER_DES_RESUMES,
   listSessions,
   readSession,
   summarizeSessionFile,
@@ -539,5 +540,81 @@ describe("deleteSession", () => {
     const dir = await tempDir();
 
     await expect(deleteSession(join(dir, "jamais-ecrit.json"), dir)).rejects.toThrow();
+  });
+});
+
+describe("listSessions, index des resumes", () => {
+  const soiree = { name: "Intra", from: "2026-08-19 20:00", to: "2026-08-19 22:00" };
+
+  test("ne relit pas une session inchangee depuis l'inventaire precedent", async () => {
+    const dir = await tempDir();
+    const path = await ecrisSession(dir, { ...soiree, battles: [battle("a", "win")] });
+    await listSessions(dir);
+
+    // Meme taille, contenu illisible, et l'index recale sur la nouvelle date de
+    // modification (`utimes` ne la restaure pas a la milliseconde pres) : seul
+    // l'index peut encore donner le resume.
+    const { size } = await stat(path);
+    await writeFile(path, "x".repeat(size), "utf8");
+    const cheminIndex = join(dir, FICHIER_DES_RESUMES);
+    const index = JSON.parse(await readFile(cheminIndex, "utf8"));
+    index.fichiers[basename(path)].mtimeMs = Math.floor((await stat(path)).mtimeMs);
+    await writeFile(cheminIndex, JSON.stringify(index), "utf8");
+
+    const { sessions, errors } = await listSessions(dir);
+    expect(errors).toEqual([]);
+    expect(sessions[0]).toMatchObject({ path, name: "Intra", battleCount: 1 });
+  });
+
+  test("relit une session modifiee", async () => {
+    const dir = await tempDir();
+    const path = await ecrisSession(dir, soiree);
+    await listSessions(dir);
+    await updateSessionMeta(path, { name: "Scrim contre Les Corsaires" }, dir);
+
+    const { sessions } = await listSessions(dir);
+    expect(sessions[0]?.name).toBe("Scrim contre Les Corsaires");
+  });
+
+  test("oublie une session supprimee", async () => {
+    const dir = await tempDir();
+    const path = await ecrisSession(dir, soiree);
+    await listSessions(dir);
+    await deleteSession(path, dir);
+
+    expect((await listSessions(dir)).sessions).toEqual([]);
+    const index = JSON.parse(await readFile(join(dir, FICHIER_DES_RESUMES), "utf8"));
+    expect(Object.keys(index.fichiers)).toEqual([]);
+  });
+
+  test("n'inventorie pas l'index comme une session", async () => {
+    const dir = await tempDir();
+    await ecrisSession(dir, soiree);
+    await listSessions(dir);
+
+    expect(await readdir(dir)).toContain(FICHIER_DES_RESUMES);
+    const { sessions, errors } = await listSessions(dir);
+    expect(sessions).toHaveLength(1);
+    expect(errors).toEqual([]);
+  });
+
+  test("un index abime est ignore, puis reconstruit", async () => {
+    const dir = await tempDir();
+    await ecrisSession(dir, soiree);
+    await writeFile(join(dir, FICHIER_DES_RESUMES), "{ abime", "utf8");
+
+    const { sessions, errors } = await listSessions(dir);
+    expect(errors).toEqual([]);
+    expect(sessions).toHaveLength(1);
+    const index = JSON.parse(await readFile(join(dir, FICHIER_DES_RESUMES), "utf8"));
+    expect(Object.keys(index.fichiers)).toHaveLength(1);
+  });
+
+  test("ne retient pas un fichier illisible dans l'index", async () => {
+    const dir = await tempDir();
+    await writeFile(join(dir, "abime.json"), "{", "utf8");
+
+    expect((await listSessions(dir)).errors).toHaveLength(1);
+    expect((await listSessions(dir)).errors).toHaveLength(1);
   });
 });
