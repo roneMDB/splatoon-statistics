@@ -67,6 +67,7 @@ const elements = {
   ficheResume: document.getElementById("fiche-resume"),
   ficheMatchs: document.getElementById("fiche-matchs"),
   boutonFicheEnregistrer: document.getElementById("bouton-fiche-enregistrer"),
+  boutonCompleter: document.getElementById("bouton-completer"),
   boutonSupprimer: document.getElementById("bouton-supprimer"),
   boutonRetour: document.getElementById("bouton-retour"),
   titreRecuperation: document.getElementById("titre-recuperation"),
@@ -311,15 +312,30 @@ async function ouvreLaFiche(session) {
     // precedente : on les vide.
     cacheLeCompteRendu();
     cacheLaPlanche();
-    elements.ficheResume.textContent =
-      `${formateLaDate(summary.window.from)} → ${formateLaDate(summary.window.to)}\n` +
-      `${summary.battleCount} match(s) — ${summary.results.win}V - ${summary.results.lose}D`;
-    manchesCourantes = rows;
-    elements.ficheMatchs.replaceChildren(...construisLesMatchs(rows, true));
+    afficheLesManchesDeLaFiche(summary, rows);
     montreLaVue("fiche");
   } catch (erreur) {
     bandeau(elements.erreur, String(erreur?.message ?? erreur));
   }
+}
+
+/**
+ * Resume et manches de la fiche. L'heure de la derniere manche recue dit, sans
+ * ouvrir stat.ink, s'il en manque peut-etre encore : stat.ink recoit souvent
+ * les dernieres avec retard, et « Completer la session » les rattrape.
+ */
+function afficheLesManchesDeLaFiche(summary, rows) {
+  const derniere = rows.at(-1)?.startedAt;
+  elements.ficheResume.textContent =
+    `${formateLaDate(summary.window.from)} → ${formateLaDate(summary.window.to)}\n` +
+    `${summary.battleCount} match(s) — ${summary.results.win}V - ${summary.results.lose}D` +
+    (derniere ? ` · dernière manche reçue à ${formateLHeure(derniere)}` : "");
+  manchesCourantes = rows;
+  elements.ficheMatchs.replaceChildren(...construisLesMatchs(rows, true));
+}
+
+function formateLHeure(iso) {
+  return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
 
 function construisLaLigne(session) {
@@ -505,7 +521,11 @@ elements.boutonEnregistrer.addEventListener("click", async () => {
     elements.nom.value = "";
     bandeau(
       elements.succes,
-      `${resume.battleCount} match(s) enregistré(s). Écrit dans ${resume.path}`,
+      resume.ajoutees === undefined
+        ? `${resume.battleCount} match(s) enregistré(s). Écrit dans ${resume.path}`
+        : // Le fichier existait : il a ete complete, pas remplace.
+          `Session déjà enregistrée, complétée : ${resume.ajoutees} nouvelle(s) manche(s), ` +
+            `${resume.battleCount} au total. Objectif, ressenti et équipes conservés.`,
     );
     await rafraichisLaListe();
     montreLaVue("formulaire");
@@ -545,6 +565,47 @@ elements.boutonFicheEnregistrer.addEventListener("click", async () => {
     bandeau(elements.erreur, String(erreur?.message ?? erreur));
   } finally {
     elements.boutonFicheEnregistrer.disabled = false;
+  }
+});
+
+/*
+ * Les champs de la fiche ne sont pas touches : une saisie en cours, pas encore
+ * enregistree, survit au rattrapage. Seuls le resume et les manches changent.
+ */
+elements.boutonCompleter.addEventListener("click", async () => {
+  if (ficheCourante === undefined) return;
+  cacheLesBandeaux();
+  elements.boutonCompleter.disabled = true;
+  bandeau(elements.progression, "Interrogation de stat.ink…");
+  const desabonne = api.onFetchProgress((avancement) => {
+    bandeau(
+      elements.progression,
+      `Page ${avancement.page} lue, ${avancement.totalKeptSoFar} match(s) retenu(s).`,
+    );
+  });
+  try {
+    const { summary, rows, ajoutees } = await api.completeSession(ficheCourante.path);
+    ficheCourante = summary;
+    afficheLesManchesDeLaFiche(summary, rows);
+    // Un compte rendu ou une planche affiches ne comptent pas les manches ajoutees.
+    if (ajoutees > 0) {
+      cacheLeCompteRendu();
+      cacheLaPlanche();
+    }
+    bandeau(elements.progression, "");
+    bandeau(
+      elements.succes,
+      ajoutees === 0
+        ? "Aucune nouvelle manche sur stat.ink."
+        : `${ajoutees} nouvelle(s) manche(s) ajoutée(s).`,
+    );
+    await rafraichisLaListe();
+  } catch (erreur) {
+    bandeau(elements.progression, "");
+    bandeau(elements.erreur, String(erreur?.message ?? erreur));
+  } finally {
+    desabonne();
+    elements.boutonCompleter.disabled = false;
   }
 });
 

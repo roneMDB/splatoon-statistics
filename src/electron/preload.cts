@@ -21,6 +21,7 @@ const CANAUX = {
   listSessions: "sessions:list",
   previewSession: "session:preview",
   saveSession: "session:save",
+  completeSession: "session:complete",
   readSession: "session:read",
   updateSession: "session:update",
   deleteSession: "session:delete",
@@ -48,6 +49,9 @@ contextBridge.exposeInMainWorld("splatoonApi", {
 
   saveSession: (previewId: string) =>
     ipcRenderer.invoke(CANAUX.saveSession, previewId),
+
+  completeSession: (path: string) =>
+    ipcRenderer.invoke(CANAUX.completeSession, path),
 
   readSession: (path: string) => ipcRenderer.invoke(CANAUX.readSession, path),
 

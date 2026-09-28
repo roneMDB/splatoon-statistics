@@ -23,6 +23,7 @@ import {
 } from "../fetchSession.ts";
 import { parseSessionType, type SessionType } from "../sessionMeta.ts";
 import {
+  readSession,
   summarizeSessionFile,
   tallyResults,
   type SessionResults,
@@ -31,8 +32,15 @@ import {
 import { isKnownLobby, KNOWN_LOBBIES } from "../statink/url.ts";
 import type { StatinkBattle } from "../statink/types.ts";
 import type { BattleFilters } from "../statink/url.ts";
-import { buildSessionFile, writeSession } from "../store.ts";
-import { buildWindow, type SessionWindow } from "../window.ts";
+import {
+  buildSessionFile,
+  completeLaSession,
+  sessionWindowOf,
+  writeSession,
+  writeSessionAt,
+  type EcritureDeSession,
+} from "../store.ts";
+import { buildWindow, windowFromBounds, type SessionWindow } from "../window.ts";
 import type { FetchSessionFormInput } from "./ipcChannels.ts";
 
 export type SessionFetchHandlerDeps = {
@@ -169,7 +177,7 @@ export async function previewSession(
 export async function saveSession(
   previewId: string,
   deps: SessionFetchHandlerDeps = {},
-): Promise<SessionSummary> {
+): Promise<SessionSummary & { ajoutees?: number }> {
   if (apercuRetenu === undefined || apercuRetenu.id !== previewId) {
     throw new Error(APERCU_PERDU);
   }
@@ -189,9 +197,9 @@ export async function saveSession(
     fetchedAt: contenu.fetchedAt,
   });
 
-  let path: string;
+  let ecrit: EcritureDeSession;
   try {
-    path = await writeSession(file, deps.outDir ?? DEFAULT_OUT_DIR);
+    ecrit = await writeSession(file, deps.outDir ?? DEFAULT_OUT_DIR);
   } catch (erreur) {
     // Rien n'a ete ecrit : on restitue l'apercu, mais seulement si le
     // creneau n'a pas change de main depuis sa reclamation (ni nouvel
@@ -204,7 +212,54 @@ export async function saveSession(
     throw erreur;
   }
 
-  return summarizeSessionFile(file, path);
+  return {
+    ...summarizeSessionFile(ecrit.file, ecrit.path),
+    ...(ecrit.ajoutees !== undefined ? { ajoutees: ecrit.ajoutees } : {}),
+  };
+}
+
+/** Ce que la fiche recoit apres avoir complete une session. */
+export type SessionCompletee = {
+  summary: SessionSummary;
+  rows: BattleRow[];
+  /** Manches que stat.ink n'avait pas encore lors de la recuperation precedente. */
+  ajoutees: number;
+};
+
+/**
+ * Recupere a nouveau la fenetre d'une session ecrite et la complete.
+ *
+ * Meme compte, memes bornes, memes filtres que le fichier : c'est le rattrapage
+ * des manches que stat.ink n'avait pas encore recues. Les saisies du fichier
+ * restent (`completeLaSession`). Le chemin vient de la fenetre : `readSession`
+ * refuse tout fichier hors du dossier des sessions, et l'ecriture vise ce
+ * meme fichier, quel que soit son nom.
+ */
+export async function completeSession(
+  path: string,
+  deps: SessionFetchHandlerDeps = {},
+): Promise<SessionCompletee> {
+  const outDir = deps.outDir ?? DEFAULT_OUT_DIR;
+  const existant = await readSession(path, outDir);
+  const bornes = sessionWindowOf(existant);
+  const window = windowFromBounds(bornes.fromMs, bornes.toMs);
+  const filters = existant.filters as BattleFilters;
+
+  const result = await fetchSession(
+    { user: existant.user, window, filters },
+    { fetchPage: deps.fetchPage, onPage: deps.onProgress },
+  );
+  const recupere = buildSessionFile({
+    user: existant.user,
+    window,
+    filters,
+    battles: result.battles,
+    fetchedAt: deps.now?.() ?? new Date(),
+  });
+
+  const { file, ajoutees } = completeLaSession(existant, recupere);
+  await writeSessionAt(file, path);
+  return { summary: summarizeSessionFile(file, path), rows: toBattleRows(file.battles), ajoutees };
 }
 
 /** Meme refus, meme message que `--lobby`. */

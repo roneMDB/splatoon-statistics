@@ -21,7 +21,7 @@ import {
   REGLAGES,
   REGLAGES_PAR_DEFAUT,
 } from "../reglages.ts";
-import { previewSession, saveSession } from "./sessionFetchHandler.ts";
+import { completeSession, previewSession, saveSession } from "./sessionFetchHandler.ts";
 import {
   deleteSession,
   listSessions,
@@ -192,6 +192,16 @@ ipcMain.handle(
 
 ipcMain.handle(IPC.saveSession, (_event, previewId: string) =>
   saveSession(previewId),
+);
+
+ipcMain.handle(IPC.completeSession, (event, path: string) =>
+  completeSession(path, {
+    onProgress: (progress) => {
+      if (!event.sender.isDestroyed()) {
+        event.sender.send(IPC.fetchProgress, progress);
+      }
+    },
+  }),
 );
 
 ipcMain.handle(IPC.readSession, async (_event, path: string) => {

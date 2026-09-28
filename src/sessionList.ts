@@ -10,7 +10,7 @@ import { join, resolve, sep } from "node:path";
 import { DEFAULT_OUT_DIR } from "./config.ts";
 import type { SessionType } from "./sessionMeta.ts";
 import type { StatinkBattle } from "./statink/types.ts";
-import { buildSessionFile, sessionWindowOf, writeSessionAt } from "./store.ts";
+import { buildSessionFile, parseSessionFile, sessionWindowOf, writeSessionAt } from "./store.ts";
 import type { SessionFile } from "./store.ts";
 import type { BattleFilters } from "./statink/url.ts";
 
@@ -125,31 +125,6 @@ export async function listSessions(
   sessions.sort((a, b) => Date.parse(b.window.from) - Date.parse(a.window.from));
 
   return { sessions, errors };
-}
-
-/**
- * Analyse un fichier de session, en refusant ce qui n'en est pas un. Le dossier
- * de sortie peut contenir n'importe quel `.json` depose a la main.
- */
-function parseSessionFile(raw: string): SessionFile {
-  const parsed: unknown = JSON.parse(raw);
-  if (parsed === null || typeof parsed !== "object") {
-    throw new Error("Ce fichier ne contient pas un objet JSON.");
-  }
-
-  const file = parsed as Partial<SessionFile>;
-  if (
-    typeof file.user !== "string" ||
-    typeof file.battleCount !== "number" ||
-    !Array.isArray(file.battles) ||
-    typeof file.fetchedAt !== "string" ||
-    typeof file.window?.from !== "string" ||
-    typeof file.window?.to !== "string"
-  ) {
-    throw new Error("Ce fichier n'est pas une session stat.ink.");
-  }
-
-  return file as SessionFile;
 }
 
 /**

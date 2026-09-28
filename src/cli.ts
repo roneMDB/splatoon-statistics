@@ -158,11 +158,6 @@ export async function main(argv: string[]): Promise<void> {
   // ramene. Fournir --name vaut "je donne tout en ligne de commande" et
   // n'ouvre aucun dialogue, meme si --type manque.
   const meta = await resolveSessionMetaOrFallback(options);
-  if (meta.name === undefined) {
-    console.warn(
-      "\nSession enregistree sans nom. Relancer avec --name pour la nommer.",
-    );
-  }
 
   const file = buildSessionFile({
     user: options.user,
@@ -173,13 +168,25 @@ export async function main(argv: string[]): Promise<void> {
     battles: result.battles,
     fetchedAt,
   });
-  const path = await writeSession(file, options.outDir);
+  const ecrit = await writeSession(file, options.outDir);
 
-  if (meta.name !== undefined) {
-    const type = meta.type === undefined ? "" : ` (${meta.type})`;
-    console.log(`\nSession : ${meta.name}${type}`);
+  // Juge sur le fichier ecrit : une session deja enregistree garde son nom.
+  if (ecrit.file.name === undefined) {
+    console.warn(
+      "\nSession enregistree sans nom. Relancer avec --name pour la nommer.",
+    );
+  } else {
+    const type = ecrit.file.type === undefined ? "" : ` (${ecrit.file.type})`;
+    console.log(`\nSession : ${ecrit.file.name}${type}`);
   }
-  console.log(`Ecrit dans ${path}`);
+  if (ecrit.ajoutees !== undefined) {
+    // Le fichier existait : il a ete complete, saisies a la main comprises.
+    console.log(
+      `Session deja enregistree, completee : ${ecrit.ajoutees} nouveau(x) match(s), ` +
+        `${ecrit.file.battleCount} au total.`,
+    );
+  }
+  console.log(`Ecrit dans ${ecrit.path}`);
 }
 
 /**

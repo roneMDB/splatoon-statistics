@@ -35,6 +35,11 @@ Cliquer une session ouvre sa fiche : ses matchs, son nom, son type, les noms d'�
 qu'on s'était fixé et son ressenti, tous modifiables. On peut aussi l'y supprimer,
 après confirmation.
 
+stat.ink reçoit souvent les dernières manches avec retard : la fiche affiche l'heure
+de la dernière manche reçue, et **Compléter la session** récupère à nouveau la même
+fenêtre (même compte, mêmes filtres) pour ajouter celles arrivées depuis. Ce que vous
+avez saisi (nom, type, objectif, ressenti, équipes) n'est pas touché.
+
 Cliquer une **manche** ouvre son détail : les huit joueurs avec leur arme, leurs
 statistiques et leurs trois pièces d'équipement, les médailles, le score et la durée.
 On passe d'une manche à l'autre sans revenir en arrière, et un bouton ouvre la page
@@ -367,7 +372,16 @@ La lecture est stricte : une clé inconnue ou une valeur invalide arrête le pro
 
 > `name` et `type` sont absents du fichier quand ils n'ont pas été fournis. Le
 > nom de fichier, lui, ne dépend que du compte et de la fenêtre : relancer la
-> même fenêtre avec un nom corrigé réécrit le même fichier.
+> même fenêtre vise le même fichier.
+>
+> Ce fichier est alors **complété, pas écrasé** (`completeLaSession` dans
+> `src/store.ts`), que la récupération vienne de l'application ou de la ligne de
+> commande. Les manches sont réunies par `uuid`, et une manche déjà connue prend sa
+> version la plus récente. Un nom ou un type fourni remplace l'ancien ; sinon, comme
+> pour l'objectif, le ressenti et les équipes, la valeur déjà enregistrée reste.
+> Si les filtres ont changé (`--lobby`), les manches récupérées remplacent les
+> anciennes au lieu de s'y ajouter. Un fichier illisible au même emplacement bloque
+> l'écriture au lieu d'être écrasé.
 
 Les matchs sont réordonnés chronologiquement mais leur contenu n'est **pas
 modifié** : tout champ que stat.ink ajoutera à l'avenir traversera intact.

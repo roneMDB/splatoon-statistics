@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { StatinkBattle } from "./statink/types.ts";
 import type { BattleFilters } from "./statink/url.ts";
@@ -145,15 +145,143 @@ export function buildSessionFileName(
   return `${safeUser}_${stamp(window.fromMs)}_${stamp(window.toMs)}.json`;
 }
 
-/** Ecrit le fichier de session dans `outDir` et renvoie son chemin. */
+/** Ce que rend l'ecriture d'une session. */
+export type EcritureDeSession = {
+  path: string;
+  /** Le contenu reellement ecrit : complete, si le fichier existait deja. */
+  file: SessionFile;
+  /**
+   * Manches ajoutees a une session deja ecrite. Absent quand le fichier
+   * n'existait pas : c'est une premiere ecriture, pas une completion.
+   */
+  ajoutees?: number;
+};
+
+/**
+ * Ecrit le fichier de session dans `outDir`.
+ *
+ * Le nom de fichier ne dependant que du compte et de la fenetre, recuperer a
+ * nouveau la meme fenetre vise le meme fichier - le cas courant, stat.ink
+ * recevant souvent les dernieres manches avec retard. Le fichier deja la est
+ * alors complete (`completeLaSession`) plutot qu'ecrase : l'objectif, le
+ * ressenti et les noms d'equipe saisis a la main ne se perdent pas.
+ *
+ * Un fichier illisible a cet emplacement arrete l'ecriture : il n'est pas a
+ * nous de decider qu'il ne vaut rien.
+ */
 export async function writeSession(
   file: SessionFile,
   outDir: string,
-): Promise<string> {
+): Promise<EcritureDeSession> {
   await mkdir(outDir, { recursive: true });
   const path = join(outDir, buildSessionFileName(file.user, sessionWindowOf(file)));
-  await writeSessionAt(file, path);
-  return path;
+  const existant = await litSiPresent(path);
+  if (existant === undefined) {
+    await writeSessionAt(file, path);
+    return { path, file };
+  }
+  const { file: complete, ajoutees } = completeLaSession(existant, file);
+  await writeSessionAt(complete, path);
+  return { path, file: complete, ajoutees };
+}
+
+/** La session ecrite a `path`, ou `undefined` s'il n'y a pas de fichier. */
+async function litSiPresent(path: string): Promise<SessionFile | undefined> {
+  let brut: string;
+  try {
+    brut = await readFile(path, "utf8");
+  } catch (erreur) {
+    if ((erreur as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw erreur;
+  }
+  try {
+    return parseSessionFile(brut);
+  } catch (erreur) {
+    throw new Error(
+      `Un fichier illisible occupe deja ${path} (${(erreur as Error).message}) : ` +
+        "deplacez-le ou supprimez-le avant de recuperer cette session a nouveau.",
+    );
+  }
+}
+
+/** Champs saisis par le joueur, qu'une nouvelle recuperation ne doit pas effacer. */
+const SAISIES = ["name", "type", "objectif", "ressenti", "nomEquipe", "nomEquipeAdverse"] as const;
+
+/**
+ * Complete une session deja ecrite avec une nouvelle recuperation de la meme
+ * fenetre.
+ *
+ * - Les manches sont reunies par `uuid` : une manche que stat.ink n'a pas
+ *   ramenee cette fois reste, une manche deja connue prend sa version
+ *   recuperee, plus fraiche. Sauf si les filtres different : les deux
+ *   recuperations ne portent alors pas sur les memes manches, et la nouvelle
+ *   remplace l'ancienne plutot que de s'y melanger.
+ * - Chaque saisie (nom, type, objectif, ressenti, equipes) prend la valeur
+ *   fournie par la recuperation, et garde celle du fichier sinon.
+ * - `fetchedAt` est celui de la recuperation.
+ */
+export function completeLaSession(
+  existant: SessionFile,
+  recupere: SessionFile,
+): { file: SessionFile; ajoutees: number } {
+  const connues = new Set(existant.battles.map((manche) => manche.uuid));
+  const ajoutees = recupere.battles.filter((manche) => !connues.has(manche.uuid)).length;
+
+  let battles = recupere.battles;
+  if (memesFiltres(existant.filters, recupere.filters)) {
+    const parUuid = new Map(existant.battles.map((manche) => [manche.uuid, manche]));
+    for (const manche of recupere.battles) parUuid.set(manche.uuid, manche);
+    battles = [...parUuid.values()].sort(
+      (a, b) => (a.start_at?.time ?? 0) - (b.start_at?.time ?? 0),
+    );
+  }
+
+  const saisies: Partial<Pick<SessionFile, (typeof SAISIES)[number]>> = {};
+  for (const cle of SAISIES) {
+    const valeur = recupere[cle] ?? existant[cle];
+    if (valeur !== undefined) (saisies as Record<string, string>)[cle] = valeur;
+  }
+
+  const file = buildSessionFile({
+    user: recupere.user,
+    ...saisies,
+    window: sessionWindowOf(recupere),
+    // Le fichier stocke les filtres a plat ; ils repartent tels quels.
+    filters: recupere.filters as BattleFilters,
+    battles,
+    fetchedAt: new Date(recupere.fetchedAt),
+  });
+  return { file, ajoutees };
+}
+
+function memesFiltres(a: Record<string, string>, b: Record<string, string>): boolean {
+  const cles = Object.keys(a);
+  return cles.length === Object.keys(b).length && cles.every((cle) => a[cle] === b[cle]);
+}
+
+/**
+ * Analyse un fichier de session, en refusant ce qui n'en est pas un. Le dossier
+ * de sortie peut contenir n'importe quel `.json` depose a la main.
+ */
+export function parseSessionFile(raw: string): SessionFile {
+  const parsed: unknown = JSON.parse(raw);
+  if (parsed === null || typeof parsed !== "object") {
+    throw new Error("Ce fichier ne contient pas un objet JSON.");
+  }
+
+  const file = parsed as Partial<SessionFile>;
+  if (
+    typeof file.user !== "string" ||
+    typeof file.battleCount !== "number" ||
+    !Array.isArray(file.battles) ||
+    typeof file.fetchedAt !== "string" ||
+    typeof file.window?.from !== "string" ||
+    typeof file.window?.to !== "string"
+  ) {
+    throw new Error("Ce fichier n'est pas une session stat.ink.");
+  }
+
+  return file as SessionFile;
 }
 
 /**

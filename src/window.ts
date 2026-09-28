@@ -93,6 +93,15 @@ export function buildWindow(from: string, to: string | undefined): SessionWindow
     throw new Error("La fin de la fenetre doit etre apres son debut.");
   }
 
+  return windowFromBounds(fromMs, toMs);
+}
+
+/**
+ * Fenetre a interroger pour des bornes deja connues - celles d'une session
+ * ecrite, qu'on recupere a nouveau. Elargie comme `buildWindow` : stat.ink lit
+ * ses bornes dans le fuseau du profil.
+ */
+export function windowFromBounds(fromMs: number, toMs: number): SessionWindow {
   return {
     fromMs,
     toMs,

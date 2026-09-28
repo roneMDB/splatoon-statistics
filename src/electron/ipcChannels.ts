@@ -15,6 +15,8 @@ export const IPC = {
   previewSession: "session:preview",
   /** Ecrit l'apercu retenu. */
   saveSession: "session:save",
+  /** Recupere a nouveau la fenetre d'une session ecrite, et la complete. */
+  completeSession: "session:complete",
   /** Relit une session ecrite, matchs compris. */
   readSession: "session:read",
   /** Change le nom et le type d'une session ecrite. */
@@ -134,9 +136,14 @@ export type SplatoonApi = {
   previewSession: (
     input: FetchSessionFormInput,
   ) => Promise<import("./sessionFetchHandler.ts").SessionPreview>;
+  /** `ajoutees` n'est present que si la session existait deja et a ete completee. */
   saveSession: (
     previewId: string,
-  ) => Promise<import("../sessionList.ts").SessionSummary>;
+  ) => Promise<import("../sessionList.ts").SessionSummary & { ajoutees?: number }>;
+  /** Rattrape les manches que stat.ink a recues depuis, sans toucher aux saisies. */
+  completeSession: (
+    path: string,
+  ) => Promise<import("./sessionFetchHandler.ts").SessionCompletee>;
   readSession: (path: string) => Promise<{
     summary: import("../sessionList.ts").SessionSummary;
     rows: import("../battleRows.ts").BattleRow[];

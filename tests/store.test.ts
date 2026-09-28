@@ -1,8 +1,14 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { avecLesEquipes, buildSessionFile, buildSessionFileName, writeSession } from "../src/store.ts";
+import {
+  avecLesEquipes,
+  buildSessionFile,
+  buildSessionFileName,
+  completeLaSession,
+  writeSession,
+} from "../src/store.ts";
 import { buildWindow } from "../src/window.ts";
 import type { StatinkBattle } from "../src/statink/types.ts";
 
@@ -93,7 +99,7 @@ describe("writeSession", () => {
       battles: [battle("a", "2026-08-19T15:00:00Z")],
       fetchedAt: new Date("2026-08-19T17:34:00Z"),
     });
-    const path = await writeSession(file, dir);
+    const { path } = await writeSession(file, dir);
     expect(path).toBe(join(dir, "Gloup_20260819-1600_20260819-1800.json"));
     const written = JSON.parse(await readFile(path, "utf8"));
     expect(written.battleCount).toBe(1);
@@ -108,7 +114,7 @@ describe("writeSession", () => {
       battles: [],
       fetchedAt: new Date("2026-08-19T17:34:00Z"),
     });
-    const path = await writeSession(file, dir);
+    const { path } = await writeSession(file, dir);
     await expect(readFile(path, "utf8")).resolves.toContain('"battleCount": 0');
   });
 
@@ -120,7 +126,7 @@ describe("writeSession", () => {
       battles: [],
       fetchedAt: new Date("2026-08-19T17:34:00Z"),
     });
-    const content = await readFile(await writeSession(file, dir), "utf8");
+    const content = await readFile((await writeSession(file, dir)).path, "utf8");
     expect(content).toContain('\n  "user": "Gloup"');
     expect(content.endsWith("\n")).toBe(true);
   });
@@ -164,7 +170,7 @@ describe("buildSessionFile, nom et type de session", () => {
 
   test("place le nom juste apres le pseudo dans le JSON ecrit", async () => {
     const dir = await tempDir();
-    const path = await writeSession(
+    const { path } = await writeSession(
       buildSessionFile({ ...base, name: "Match EBTV", type: "compet" }),
       dir,
     );
@@ -197,5 +203,135 @@ describe("avecLesEquipes", () => {
     expect(resultat).not.toHaveProperty("nomEquipe");
     expect(resultat).not.toHaveProperty("nomEquipeAdverse");
     expect(file.nomEquipe).toBe("Ancienne");
+  });
+});
+
+describe("completeLaSession", () => {
+  const recuperation = (
+    battles: StatinkBattle[],
+    meta: Partial<Parameters<typeof buildSessionFile>[0]> = {},
+  ) =>
+    buildSessionFile({
+      user: "Gloup",
+      window,
+      filters: { lobby: "private" },
+      battles,
+      fetchedAt: new Date("2026-08-19T18:30:00Z"),
+      ...meta,
+    });
+
+  const existante = {
+    ...recuperation([battle("a", "2026-08-19T15:00:00Z"), battle("b", "2026-08-19T15:10:00Z")], {
+      name: "Intra du mardi",
+      type: "intra",
+      objectif: "Tenir le support",
+      ressenti: "Bonne soiree",
+      nomEquipe: "Gloup Squad",
+      nomEquipeAdverse: "Les Calamars",
+      fetchedAt: new Date("2026-08-19T17:00:00Z"),
+    }),
+  };
+
+  test("ajoute les manches arrivees depuis, dans l'ordre chronologique", () => {
+    const { file, ajoutees } = completeLaSession(
+      existante,
+      recuperation([
+        battle("c", "2026-08-19T15:20:00Z"),
+        battle("a", "2026-08-19T15:00:00Z"),
+        battle("b", "2026-08-19T15:10:00Z"),
+      ]),
+    );
+    expect(ajoutees).toBe(1);
+    expect(file.battles.map((manche) => manche.uuid)).toEqual(["a", "b", "c"]);
+    expect(file.battleCount).toBe(3);
+  });
+
+  test("garde une manche que la nouvelle recuperation n'a pas ramenee", () => {
+    const { file, ajoutees } = completeLaSession(existante, recuperation([battle("b", "2026-08-19T15:10:00Z")]));
+    expect(ajoutees).toBe(0);
+    expect(file.battles.map((manche) => manche.uuid)).toEqual(["a", "b"]);
+  });
+
+  test("prend la version recuperee d'une manche deja connue", () => {
+    const fraiche = { ...battle("a", "2026-08-19T15:00:00Z"), champ_inconnu: { profond: 7 } } as unknown as StatinkBattle;
+    const { file } = completeLaSession(existante, recuperation([fraiche]));
+    expect((file.battles[0] as unknown as { champ_inconnu: { profond: number } }).champ_inconnu.profond).toBe(7);
+  });
+
+  test("garde les saisies que la recuperation ne fournit pas", () => {
+    const { file } = completeLaSession(existante, recuperation([]));
+    expect(file).toMatchObject({
+      name: "Intra du mardi",
+      type: "intra",
+      objectif: "Tenir le support",
+      ressenti: "Bonne soiree",
+      nomEquipe: "Gloup Squad",
+      nomEquipeAdverse: "Les Calamars",
+    });
+  });
+
+  test("un nom ou un type fourni a la recuperation prime", () => {
+    const { file } = completeLaSession(existante, recuperation([], { name: "Scrim", type: "scrim" }));
+    expect(file.name).toBe("Scrim");
+    expect(file.type).toBe("scrim");
+    expect(file.objectif).toBe("Tenir le support");
+  });
+
+  test("date le fichier de la nouvelle recuperation", () => {
+    const { file } = completeLaSession(existante, recuperation([]));
+    expect(file.fetchedAt).toBe("2026-08-19T18:30:00.000Z");
+  });
+
+  test("avec d'autres filtres, ne melange pas les manches des deux recuperations", () => {
+    const { file, ajoutees } = completeLaSession(
+      existante,
+      recuperation([battle("c", "2026-08-19T15:20:00Z")], { filters: {} }),
+    );
+    expect(file.battles.map((manche) => manche.uuid)).toEqual(["c"]);
+    expect(ajoutees).toBe(1);
+    expect(file.filters).toEqual({});
+    expect(file.objectif).toBe("Tenir le support");
+  });
+});
+
+describe("writeSession sur une session deja ecrite", () => {
+  test("complete le fichier au lieu d'effacer les saisies", async () => {
+    const dir = await tempDir();
+    const premiere = await writeSession(
+      buildSessionFile({
+        user: "Gloup",
+        objectif: "Tenir le support",
+        window,
+        battles: [battle("a", "2026-08-19T15:00:00Z")],
+        fetchedAt: new Date("2026-08-19T17:00:00Z"),
+      }),
+      dir,
+    );
+    expect(premiere.ajoutees).toBeUndefined();
+
+    const seconde = await writeSession(
+      buildSessionFile({
+        user: "Gloup",
+        window,
+        battles: [battle("a", "2026-08-19T15:00:00Z"), battle("b", "2026-08-19T15:10:00Z")],
+        fetchedAt: new Date("2026-08-19T18:00:00Z"),
+      }),
+      dir,
+    );
+    expect(seconde.path).toBe(premiere.path);
+    expect(seconde.ajoutees).toBe(1);
+    const ecrit = JSON.parse(await readFile(seconde.path, "utf8"));
+    expect(ecrit.objectif).toBe("Tenir le support");
+    expect(ecrit.battleCount).toBe(2);
+    expect(seconde.file.objectif).toBe("Tenir le support");
+  });
+
+  test("refuse d'ecraser un fichier illisible qui occupe deja la place", async () => {
+    const dir = await tempDir();
+    const file = buildSessionFile({ user: "Gloup", window, battles: [], fetchedAt: new Date(0) });
+    const path = join(dir, buildSessionFileName("Gloup", window));
+    await writeFile(path, "{ abime", "utf8");
+    await expect(writeSession(file, dir)).rejects.toThrow(/illisible/);
+    await expect(readFile(path, "utf8")).resolves.toBe("{ abime");
   });
 });

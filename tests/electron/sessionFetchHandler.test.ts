@@ -3,10 +3,11 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  completeSession,
   previewSession,
   saveSession,
 } from "../../src/electron/sessionFetchHandler.ts";
-import { listSessions } from "../../src/sessionList.ts";
+import { listSessions, updateSessionMeta } from "../../src/sessionList.ts";
 import type { StatinkBattle } from "../../src/statink/types.ts";
 
 /** Match minimal : seuls uuid, start_at et result comptent ici. */
@@ -311,5 +312,95 @@ describe("saveSession", () => {
     await expect(saveSession(premier.previewId, { outDir })).rejects.toThrow(
       /previsualisation/i,
     );
+  });
+});
+
+describe("completeSession", () => {
+  /** Une session enregistree avec une manche, puis annotee a la main. */
+  async function sessionAnnotee(outDir: string) {
+    const apercu = await previewSession(
+      { user: "Gloup", name: "Intra", type: "intra", lobby: "private", ...fenetre },
+      { fetchPage: stubPages([[battle("a", "2026-08-19T20:30:00Z")]]).fetchPage, outDir },
+    );
+    const { path } = await saveSession(apercu.previewId, { outDir });
+    await updateSessionMeta(
+      path,
+      { name: "Intra", type: "intra", objectif: "Tenir le support", nomEquipe: "Gloup Squad" },
+      outDir,
+    );
+    return path;
+  }
+
+  test("ajoute les manches arrivees depuis, en gardant les saisies", async () => {
+    const outDir = await tempDir();
+    const path = await sessionAnnotee(outDir);
+    const filtresDemandes: unknown[] = [];
+    const fetchPage = async (request: { page: number; filters?: unknown }) => {
+      filtresDemandes.push(request.filters);
+      return request.page === 1
+        ? [battle("a", "2026-08-19T20:30:00Z"), battle("b", "2026-08-19T21:00:00Z", "lose")]
+        : [];
+    };
+
+    const resultat = await completeSession(path, { fetchPage, outDir });
+
+    expect(resultat.ajoutees).toBe(1);
+    expect(resultat.rows.map((row) => row.uuid)).toEqual(["a", "b"]);
+    expect(resultat.summary).toMatchObject({
+      path,
+      name: "Intra",
+      objectif: "Tenir le support",
+      nomEquipe: "Gloup Squad",
+      battleCount: 2,
+      results: { win: 1, lose: 1, draw: 0 },
+    });
+    // Memes filtres que la premiere recuperation.
+    expect(filtresDemandes[0]).toMatchObject({ lobby: "private" });
+    const ecrit = JSON.parse(await readFile(path, "utf8"));
+    expect(ecrit.objectif).toBe("Tenir le support");
+    expect(ecrit.battleCount).toBe(2);
+  });
+
+  test("dit zero quand stat.ink n'a rien de nouveau", async () => {
+    const outDir = await tempDir();
+    const path = await sessionAnnotee(outDir);
+    const resultat = await completeSession(path, {
+      fetchPage: stubPages([[battle("a", "2026-08-19T20:30:00Z")]]).fetchPage,
+      outDir,
+    });
+    expect(resultat.ajoutees).toBe(0);
+    expect(resultat.summary.battleCount).toBe(1);
+  });
+
+  test("refuse un chemin hors du dossier des sessions", async () => {
+    const outDir = await tempDir();
+    await expect(
+      completeSession(join(await tempDir(), "ailleurs.json"), { fetchPage: stubPages([[]]).fetchPage, outDir }),
+    ).rejects.toThrow(/refuse/);
+  });
+});
+
+describe("saveSession sur une session deja enregistree", () => {
+  test("complete le fichier et dit combien de manches il gagne", async () => {
+    const outDir = await tempDir();
+    const premier = await previewSession(
+      { user: "Gloup", name: "Intra", ...fenetre },
+      { fetchPage: stubPages([[battle("a", "2026-08-19T20:30:00Z")]]).fetchPage, outDir },
+    );
+    const { path } = await saveSession(premier.previewId, { outDir });
+    await updateSessionMeta(path, { name: "Intra", ressenti: "Solide" }, outDir);
+
+    const second = await previewSession(
+      { user: "Gloup", ...fenetre },
+      {
+        fetchPage: stubPages([[battle("a", "2026-08-19T20:30:00Z"), battle("b", "2026-08-19T21:00:00Z")]]).fetchPage,
+        outDir,
+      },
+    );
+    const resume = await saveSession(second.previewId, { outDir });
+
+    expect(resume.path).toBe(path);
+    expect(resume.ajoutees).toBe(1);
+    expect(resume).toMatchObject({ name: "Intra", ressenti: "Solide", battleCount: 2 });
   });
 });

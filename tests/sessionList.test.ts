@@ -49,7 +49,7 @@ async function ecrisSession(
     battles?: StatinkBattle[];
   },
 ) {
-  return writeSession(
+  const { path } = await writeSession(
     buildSessionFile({
       user: options.user ?? "Gloup",
       name: options.name,
@@ -62,6 +62,7 @@ async function ecrisSession(
     }),
     dir,
   );
+  return path;
 }
 
 describe("tallyResults", () => {
