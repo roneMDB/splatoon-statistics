@@ -379,6 +379,22 @@ function scoreDeTuile(manche: Manche): string {
 }
 
 /**
+ * Ce que disent les chiffres des tuiles. L'unite depend du mode : un 47-53 de
+ * guerre de territoire n'est pas un 47-53 de defense de zone. On ne nomme que
+ * les unites presentes dans la session.
+ */
+function legendeDeCourbe(manches: readonly Manche[]): string {
+  const unites = new Set(manches.flatMap((manche) => (manche.score === undefined ? [] : [manche.score.unite])));
+  const precisions = [
+    ...(unites.has("%") ? ["en % de terrain encré (guerre de territoire)"] : []),
+    ...(unites.has("pts") ? ["en points de compteur, 100 = KO (modes objectif)"] : []),
+  ];
+  return precisions.length === 0
+    ? "Sous chaque manche : son score final"
+    : `Sous chaque manche : son score final, nous-eux, ${precisions.join(" ; ")}`;
+}
+
+/**
  * Une tuile par manche, couleur de la regle : vive si gagnee, matte sinon.
  *
  * Sous le verdict, le score : de quoi voir d'un coup d'oeil si une defaite
@@ -413,7 +429,7 @@ function blocCourbe(analyse: AnalyseSession, registre: Registre): string {
     `<p class="courbe__heures secondaire"><span>${echappe(premiere?.heure ?? "—")}</span>` +
       `<span>${echappe(derniere?.heure ?? "—")}</span></p>` +
       `<ol class="courbe courbe--${Math.min(Math.max(tuiles.length, TUILES_MIN), TUILES_MAX)}">${tuiles.join("")}</ol>` +
-      `<p class="courbe__legende secondaire">Sous chaque manche : son score final</p>`,
+      `<p class="courbe__legende secondaire">${legendeDeCourbe(analyse.manches)}</p>`,
     { etiquette: "Courbe de session", plein: true },
   );
 }

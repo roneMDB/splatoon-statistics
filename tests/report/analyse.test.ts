@@ -497,6 +497,19 @@ describe("analyseSession — objectifs par arme", () => {
     expect(manquee).toMatchObject({ mortsMax: { tenues: 0 }, speciauxMin: { tenues: 0 }, toutesTenues: 0 });
   });
 
+  test("juge une guerre de territoire de trois minutes comme une manche entiere", () => {
+    const territoire = match({
+      debut: "2026-09-11T19:40:00Z",
+      minutes: 3,
+      mode: "nawabari",
+      nous: [joueur({ nom: "Moi", moi: true, arme: "N-ZAP 85", death: 5, special: 6 })],
+    });
+    expect(analyseSession(session([territoire]), objectifs).objectifs[0]).toMatchObject({
+      auProrata: 0,
+      toutesTenues: 1,
+    });
+  });
+
   test("ne remonte pas les objectifs d'une prolongation", () => {
     const longue = match({
       debut: "2026-09-11T19:40:00Z",

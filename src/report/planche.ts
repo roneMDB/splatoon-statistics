@@ -425,7 +425,7 @@ function chiffresEnHtml(
   joueur: JoueurDeManche,
   registre: Registre,
   objectifs: ObjectifsDArme,
-  dureeSecondes: number | undefined,
+  manche: CadreDeJugement,
 ): string {
   // Mes objectifs seulement, et pour l'arme de cette manche : ceux d'un autre
   // joueur ne sont pas les miens.
@@ -433,7 +433,7 @@ function chiffresEnHtml(
   const jugement =
     miens === undefined
       ? undefined
-      : jugeLaManche(miens, { ...joueur, ...(dureeSecondes !== undefined ? { dureeSecondes } : {}) });
+      : jugeLaManche(miens, { ...joueur, ...cadreDe(manche) });
   const verdicts = jugement?.verdicts ?? {};
   const marque = (tenu: boolean | undefined) =>
     tenu === undefined ? "" : tenu ? " stat--tenu" : " stat--manque";
@@ -469,6 +469,16 @@ function chiffresEnHtml(
   ].join("");
 }
 
+/** Ce qu'il faut d'une manche pour y juger mes objectifs : sa duree et sa regle. */
+type CadreDeJugement = Pick<BattleDetail, "dureeSecondes" | "ruleKey">;
+
+function cadreDe(manche: CadreDeJugement): { dureeSecondes?: number; regle?: string } {
+  return {
+    ...(manche.dureeSecondes !== undefined ? { dureeSecondes: manche.dureeSecondes } : {}),
+    ...(manche.ruleKey !== undefined ? { regle: manche.ruleKey } : {}),
+  };
+}
+
 /**
  * Une ligne de joueur : pseudo et chiffres sur la premiere ligne, arme sur la
  * seconde. Les chiffres sont a chasse tabulaire pour que les colonnes
@@ -478,12 +488,12 @@ function joueurEnHtml(
   joueur: JoueurDeManche,
   registre: Registre,
   objectifs: ObjectifsDArme,
-  dureeSecondes: number | undefined,
+  manche: CadreDeJugement,
 ): string {
   return (
     `<div class="${joueur.moi ? "joueur joueur--moi" : "joueur"}">` +
     `<span class="joueur__nom">${echappe(joueur.nom)}</span>` +
-    `<span class="joueur__chiffres">${chiffresEnHtml(joueur, registre, objectifs, dureeSecondes)}</span>` +
+    `<span class="joueur__chiffres">${chiffresEnHtml(joueur, registre, objectifs, manche)}</span>` +
     `<span class="joueur__arme">${echappe(joueur.arme)}</span>` +
     `</div>`
   );
@@ -502,7 +512,7 @@ function equipeEnHtml(
   joueurs: JoueurDeManche[],
   registre: Registre,
   objectifs: ObjectifsDArme,
-  dureeSecondes: number | undefined,
+  manche: CadreDeJugement,
   encre?: string,
 ): string {
   const couleur = couleurSure(encre);
@@ -512,7 +522,7 @@ function equipeEnHtml(
     `<div class="equipe">` +
     `<p class="equipe__titre">${echappe(titre)}</p>` +
     lisere +
-    joueurs.map((joueur) => joueurEnHtml(joueur, registre, objectifs, dureeSecondes)).join("") +
+    joueurs.map((joueur) => joueurEnHtml(joueur, registre, objectifs, manche)).join("") +
     `</div>`
   );
 }
@@ -569,8 +579,8 @@ function mancheEnHtml(
     `<span class="manche__contexte">${echappe(contexte.join(" · "))}</span>` +
     `</div>` +
     `<div class="manche__equipes">` +
-    equipeEnHtml(camps.nous, detail.nous, registre, objectifs, detail.dureeSecondes, detail.couleurNous) +
-    equipeEnHtml(camps.eux, detail.eux, registre, objectifs, detail.dureeSecondes, detail.couleurEux) +
+    equipeEnHtml(camps.nous, detail.nous, registre, objectifs, detail, detail.couleurNous) +
+    equipeEnHtml(camps.eux, detail.eux, registre, objectifs, detail, detail.couleurEux) +
     `</div>` +
     medailles +
     `</article>` +
@@ -598,7 +608,7 @@ function legendeEnHtml(details: BattleDetail[], registre: Registre, objectifs: O
     const miens = moi?.armeCle === undefined ? undefined : objectifs[moi.armeCle];
     return moi === undefined || miens === undefined
       ? undefined
-      : jugeLaManche(miens, { ...moi, ...(detail.dureeSecondes !== undefined ? { dureeSecondes: detail.dureeSecondes } : {}) });
+      : jugeLaManche(miens, { ...moi, ...cadreDe(detail) });
   };
   const jugements = details.map(jugementDe);
   const juges = jugements.some((jugement) => jugement !== undefined);

@@ -147,6 +147,24 @@ describe("enteteEnHtml — blocs", () => {
     expect(html).not.toContain("tuile__moi");
   });
 
+  test("dit dans quelle unite se lisent les scores de la courbe", () => {
+    const legende = (battles: StatinkBattle[]) =>
+      rends(session(battles)).html.match(/courbe__legende secondaire">([^<]*)</)?.[1];
+    const territoire = battle("lose", {
+      rule: { key: "nawabari" },
+      our_team_count: null,
+      their_team_count: null,
+      our_team_percent: "47.6",
+      their_team_percent: "50.2",
+    } as Partial<StatinkBattle>);
+
+    expect(legende([territoire])).toContain("en % de terrain encré");
+    expect(legende([territoire])).not.toContain("points");
+    expect(legende([battle("win")])).toContain("en points de compteur, 100 = KO");
+    expect(legende([battle("win")])).not.toContain("%");
+    expect(legende([battle("win"), territoire])).toMatch(/%.*points/);
+  });
+
   test("n'invente pas de score quand la manche n'en a pas", () => {
     const { html } = rends(
       session([

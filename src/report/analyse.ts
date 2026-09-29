@@ -321,6 +321,7 @@ function bilanDesObjectifs(
     const jugement = jugeLaManche(objectifs, {
       ...manche.moi,
       ...(manche.dureeSecondes !== undefined ? { dureeSecondes: manche.dureeSecondes } : {}),
+      ...(manche.regle !== undefined ? { regle: manche.regle } : {}),
     });
     if (jugement === undefined) continue;
 
