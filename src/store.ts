@@ -36,6 +36,13 @@ export type SessionFile = {
   nomEquipe?: string;
   /** Nom de l'equipe d'en face. Meme contrat que `equipe`. */
   nomEquipeAdverse?: string;
+  /**
+   * Parties ecartees par le joueur (une partie annulee que stat.ink rend en
+   * match nul), par `uuid`. Elles ne figurent pas dans `battles` ; la liste
+   * sert a ce qu'une nouvelle recuperation ne les fasse pas revenir. Absente
+   * si vide.
+   */
+  exclues?: string[];
   /** Instant de la recuperation, en ISO 8601 UTC. */
   fetchedAt: string;
   /** Fenetre demandee, en ISO 8601 UTC pour lever toute ambiguite de fuseau. */
@@ -61,6 +68,8 @@ export type BuildSessionFileOptions = {
   nomEquipe?: string;
   /** Nom de l'equipe adverse. Facultatif. */
   nomEquipeAdverse?: string;
+  /** Uuid des parties a ecarter de `battles`. Facultatif. */
+  exclues?: string[];
   window: SessionWindow;
   filters?: BattleFilters;
   battles: StatinkBattle[];
@@ -83,6 +92,9 @@ export function buildSessionFile(
   const ressenti = options.ressenti?.trim();
   const nomEquipe = options.nomEquipe?.trim();
   const nomEquipeAdverse = options.nomEquipeAdverse?.trim();
+  const exclues = [...new Set(options.exclues ?? [])];
+  const ecartees = new Set(exclues);
+  const battles = options.battles.filter((manche) => !ecartees.has(manche.uuid));
 
   return {
     source: "stat.ink",
@@ -95,14 +107,15 @@ export function buildSessionFile(
     ...(ressenti ? { ressenti } : {}),
     ...(nomEquipe ? { nomEquipe } : {}),
     ...(nomEquipeAdverse ? { nomEquipeAdverse } : {}),
+    ...(exclues.length > 0 ? { exclues } : {}),
     fetchedAt: options.fetchedAt.toISOString(),
     window: {
       from: new Date(options.window.fromMs).toISOString(),
       to: new Date(options.window.toMs).toISOString(),
     },
     filters,
-    battleCount: options.battles.length,
-    battles: options.battles,
+    battleCount: battles.length,
+    battles,
   };
 }
 
@@ -218,13 +231,16 @@ const SAISIES = ["name", "type", "objectif", "ressenti", "nomEquipe", "nomEquipe
  *   remplace l'ancienne plutot que de s'y melanger.
  * - Chaque saisie (nom, type, objectif, ressenti, equipes) prend la valeur
  *   fournie par la recuperation, et garde celle du fichier sinon.
+ * - Les parties exclues des deux cotes sont reunies, et restent ecartees.
  * - `fetchedAt` est celui de la recuperation.
  */
 export function completeLaSession(
   existant: SessionFile,
   recupere: SessionFile,
 ): { file: SessionFile; ajoutees: number } {
-  const connues = new Set(existant.battles.map((manche) => manche.uuid));
+  // Une partie exclue d'un cote l'est des deux : `buildSessionFile` l'ecarte.
+  const exclues = [...new Set([...(existant.exclues ?? []), ...(recupere.exclues ?? [])])];
+  const connues = new Set([...existant.battles.map((manche) => manche.uuid), ...exclues]);
   const ajoutees = recupere.battles.filter((manche) => !connues.has(manche.uuid)).length;
 
   let battles = recupere.battles;
@@ -245,6 +261,7 @@ export function completeLaSession(
   const file = buildSessionFile({
     user: recupere.user,
     ...saisies,
+    exclues,
     window: sessionWindowOf(recupere),
     // Le fichier stocke les filtres a plat ; ils repartent tels quels.
     filters: recupere.filters as BattleFilters,
@@ -276,7 +293,9 @@ export function parseSessionFile(raw: string): SessionFile {
     !Array.isArray(file.battles) ||
     typeof file.fetchedAt !== "string" ||
     typeof file.window?.from !== "string" ||
-    typeof file.window?.to !== "string"
+    typeof file.window?.to !== "string" ||
+    (file.exclues !== undefined &&
+      !(Array.isArray(file.exclues) && file.exclues.every((uuid) => typeof uuid === "string")))
   ) {
     throw new Error("Ce fichier n'est pas une session stat.ink.");
   }

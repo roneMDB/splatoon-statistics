@@ -214,8 +214,8 @@ ipcMain.handle(
     }),
 );
 
-ipcMain.handle(IPC.saveSession, (_event, previewId: string) =>
-  puisSauvegarde(saveSession(previewId)),
+ipcMain.handle(IPC.saveSession, (_event, previewId: string, exclues: string[] = []) =>
+  puisSauvegarde(saveSession(previewId, {}, exclues)),
 );
 
 ipcMain.handle(IPC.completeSession, (event, path: string) =>

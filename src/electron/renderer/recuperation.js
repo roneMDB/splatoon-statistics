@@ -71,6 +71,19 @@ function verrouilleLeFormulaire(verrouille) {
   }
 }
 
+/** Le resume de l'apercu, sans les parties decochees. */
+function resumeDeLApercu() {
+  if (etat.apercuCourant === undefined) return;
+  const gardees = etat.apercuCourant.rows.filter((row) => !etat.exclues.has(row.uuid));
+  const compte = (/** @type {string} */ resultat) =>
+    gardees.filter((row) => row.result === resultat).length;
+  ecrisLeResume(
+    elements.apercuResume,
+    { battleCount: gardees.length, results: { win: compte("win"), lose: compte("lose") } },
+    etat.apercuCourant.rows.length - gardees.length,
+  );
+}
+
 elements.formulaire.addEventListener("submit", async (evenement) => {
   evenement.preventDefault();
   cacheLesBandeaux();
@@ -95,9 +108,19 @@ elements.formulaire.addEventListener("submit", async (evenement) => {
     const resultat = await api.previewSession(saisie);
     bandeau(elements.progression, "");
     etat.apercuCourant = resultat;
+    // Une partie annulee ressort de stat.ink en match nul : decochee d'office,
+    // le joueur la recoche s'il la veut.
+    etat.exclues = new Set(
+      resultat.rows.filter((row) => row.result === "draw").map((row) => row.uuid),
+    );
 
-    ecrisLeResume(elements.apercuResume, resultat);
-    elements.apercuMatchs.replaceChildren(...construisLesMatchs(resultat.rows));
+    resumeDeLApercu();
+    elements.apercuMatchs.replaceChildren(
+      ...construisLesMatchs(resultat.rows, undefined, {
+        exclues: etat.exclues,
+        auChangement: resumeDeLApercu,
+      }),
+    );
     montreLaVue("apercu");
 
     if (resultat.battleCount === 0) {
@@ -123,8 +146,9 @@ elements.boutonEnregistrer.addEventListener("click", async () => {
   cacheLesBandeaux();
   elements.boutonEnregistrer.disabled = true;
   try {
-    const resume = await api.saveSession(etat.apercuCourant.previewId);
+    const resume = await api.saveSession(etat.apercuCourant.previewId, [...etat.exclues]);
     etat.apercuCourant = undefined;
+    etat.exclues = new Set();
     // Les saisies propres a cette session ; fenetre, lobby et compte restent.
     for (const champ of [elements.nom, elements.equipe, elements.equipeAdverse, elements.objectif]) {
       champ.value = "";
@@ -149,6 +173,7 @@ elements.boutonEnregistrer.addEventListener("click", async () => {
 
 elements.boutonAnnuler.addEventListener("click", () => {
   etat.apercuCourant = undefined;
+  etat.exclues = new Set();
   cacheLesBandeaux();
   montreLaVue("formulaire");
 });

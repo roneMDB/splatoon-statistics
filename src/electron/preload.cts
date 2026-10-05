@@ -50,8 +50,8 @@ contextBridge.exposeInMainWorld("splatoonApi", {
   previewSession: (input: unknown) =>
     ipcRenderer.invoke(CANAUX.previewSession, input),
 
-  saveSession: (previewId: string) =>
-    ipcRenderer.invoke(CANAUX.saveSession, previewId),
+  saveSession: (previewId: string, exclues?: string[]) =>
+    ipcRenderer.invoke(CANAUX.saveSession, previewId, exclues),
 
   completeSession: (path: string) =>
     ipcRenderer.invoke(CANAUX.completeSession, path),

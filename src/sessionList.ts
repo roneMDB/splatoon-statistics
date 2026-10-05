@@ -323,6 +323,7 @@ export async function updateSessionMeta(
     ressenti: meta.ressenti,
     nomEquipe: meta.nomEquipe,
     nomEquipeAdverse: meta.nomEquipeAdverse,
+    exclues: file.exclues,
     window: sessionWindowOf(file),
     // Le fichier stocke les filtres a plat ; ils repartent tels quels.
     filters: file.filters as BattleFilters,

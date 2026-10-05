@@ -191,10 +191,15 @@ export async function previewSession(
  * creneau depuis la reclamation : ni nouvel apercu depose, ni reclamation
  * par un autre enregistrement (qui aurait pu, lui, reussir entre-temps). Le
  * numero d'ordre note ici sert exactement a ca : voir `ordreCreneau`.
+ *
+ * `exclues` vient de la fenetre : les parties que le joueur a decochees (une
+ * partie annulee, que stat.ink rend en match nul). Seuls les uuid de l'apercu
+ * sont retenus ; le reste est ignore.
  */
 export async function saveSession(
   previewId: string,
   deps: SessionFetchHandlerDeps = {},
+  exclues: readonly string[] = [],
 ): Promise<SessionSummary & { ajoutees?: number }> {
   if (apercuRetenu === undefined || apercuRetenu.id !== previewId) {
     throw new Error(APERCU_PERDU);
@@ -204,6 +209,10 @@ export async function saveSession(
   const ordreLorsDeLaReclamation = ordreCreneau;
   apercuRetenu = undefined;
   const { contenu } = retenu;
+  const demandees = new Set(Array.isArray(exclues) ? exclues : []);
+  const ecartees = contenu.battles
+    .map((manche) => manche.uuid)
+    .filter((uuid) => demandees.has(uuid));
 
   const file = buildSessionFile({
     user: contenu.user,
@@ -212,6 +221,7 @@ export async function saveSession(
     objectif: contenu.objectif,
     nomEquipe: contenu.nomEquipe,
     nomEquipeAdverse: contenu.nomEquipeAdverse,
+    exclues: ecartees,
     window: contenu.window,
     filters: contenu.filters,
     battles: contenu.battles,

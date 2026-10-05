@@ -149,6 +149,8 @@ export type SplatoonApi = {
   /** `ajoutees` n'est present que si la session existait deja et a ete completee. */
   saveSession: (
     previewId: string,
+    /** Uuid des parties decochees dans l'apercu. */
+    exclues?: string[],
   ) => Promise<import("../sessionList.ts").SessionSummary & { ajoutees?: number }>;
   /** Rattrape les manches que stat.ink a recues depuis, sans toucher aux saisies. */
   completeSession: (

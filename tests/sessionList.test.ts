@@ -48,6 +48,7 @@ async function ecrisSession(
     from: string;
     to: string;
     battles?: StatinkBattle[];
+    exclues?: string[];
   },
 ) {
   const { path } = await writeSession(
@@ -59,6 +60,7 @@ async function ecrisSession(
       ressenti: options.ressenti,
       window: buildWindow(options.from, options.to),
       battles: options.battles ?? [],
+      ...(options.exclues !== undefined ? { exclues: options.exclues } : {}),
       fetchedAt: new Date("2026-08-19T17:34:00Z"),
     }),
     dir,
@@ -376,6 +378,22 @@ describe("updateSessionMeta", () => {
     const relu = await readSession(path, dir);
     expect(relu.battles).toHaveLength(1);
     expect(relu.window.from).toBe("2026-08-19T18:00:00.000Z");
+  });
+
+  test("garde la liste des parties exclues", async () => {
+    const dir = await tempDir();
+    const path = await ecrisSession(dir, {
+      from: "2026-08-19 20:00",
+      to: "2026-08-19 22:00",
+      battles: [battle("a", "win"), battle("annulee", "draw")],
+      exclues: ["annulee"],
+    });
+
+    await updateSessionMeta(path, { name: "Intra" }, dir);
+
+    const relu = await readSession(path, dir);
+    expect(relu.exclues).toEqual(["annulee"]);
+    expect(relu.battles.map((manche) => manche.uuid)).toEqual(["a"]);
   });
 
   test("rend l'objectif et le ressenti dans le resume", async () => {

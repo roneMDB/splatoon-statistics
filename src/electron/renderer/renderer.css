@@ -563,7 +563,7 @@ button:disabled {
  */
 .match {
   display: grid;
-  grid-template-columns: 24px 3.8em minmax(11em, auto) 1fr 5.5em;
+  grid-template-columns: 24px 3.8em minmax(11em, auto) 1fr 6.5em;
   align-items: center;
   gap: 10px;
   padding: 5px 12px;
@@ -584,18 +584,41 @@ button:disabled {
   background: center / contain no-repeat;
 }
 
-.match > :nth-child(3),
-.match > :nth-child(4) {
+.match__texte {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.match > :last-child {
+.match__resultat {
+  white-space: nowrap;
   font-family: var(--titre);
   font-weight: 400;
   text-align: right;
   text-transform: uppercase;
+}
+
+/* Apercu : une case a cocher en tete, et la partie decochee s'efface. */
+.match--selectionnable {
+  grid-template-columns: 18px 24px 3.8em minmax(11em, auto) 1fr 6.5em;
+  cursor: pointer;
+}
+
+.match__garder {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--texte);
+  cursor: pointer;
+}
+
+.match--exclue {
+  opacity: 0.4;
+}
+
+.match--exclue .match__texte,
+.match--exclue .match__resultat {
+  text-decoration: line-through;
 }
 
 .match--ouvrable {

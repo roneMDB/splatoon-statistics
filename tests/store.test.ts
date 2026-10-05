@@ -335,3 +335,60 @@ describe("writeSession sur une session deja ecrite", () => {
     await expect(readFile(path, "utf8")).resolves.toBe("{ abime");
   });
 });
+
+describe("parties exclues", () => {
+  const recuperation = (battles: StatinkBattle[], exclues?: string[]) =>
+    buildSessionFile({
+      user: "Gloup",
+      window,
+      filters: { lobby: "private" },
+      battles,
+      fetchedAt: new Date("2026-08-19T18:30:00Z"),
+      ...(exclues !== undefined ? { exclues } : {}),
+    });
+
+  test("retire les parties exclues et retient leur uuid", () => {
+    const file = recuperation(
+      [battle("a", "2026-08-19T15:00:00Z"), battle("annulee", "2026-08-19T15:05:00Z")],
+      ["annulee", "annulee"],
+    );
+
+    expect(file.battles.map((manche) => manche.uuid)).toEqual(["a"]);
+    expect(file.battleCount).toBe(1);
+    expect(file.exclues).toEqual(["annulee"]);
+  });
+
+  test("n'ecrit pas de liste d'exclusion vide", () => {
+    expect(recuperation([battle("a", "2026-08-19T15:00:00Z")], [])).not.toHaveProperty("exclues");
+  });
+
+  test("une partie exclue ne revient pas quand on complete la session", () => {
+    const existante = recuperation(
+      [battle("a", "2026-08-19T15:00:00Z"), battle("annulee", "2026-08-19T15:05:00Z")],
+      ["annulee"],
+    );
+    const { file, ajoutees } = completeLaSession(
+      existante,
+      recuperation([
+        battle("a", "2026-08-19T15:00:00Z"),
+        battle("annulee", "2026-08-19T15:05:00Z"),
+        battle("c", "2026-08-19T15:20:00Z"),
+      ]),
+    );
+
+    expect(ajoutees).toBe(1);
+    expect(file.battles.map((manche) => manche.uuid)).toEqual(["a", "c"]);
+    expect(file.exclues).toEqual(["annulee"]);
+  });
+
+  test("reunit les exclusions du fichier et de la nouvelle recuperation", () => {
+    const existante = recuperation([battle("a", "2026-08-19T15:00:00Z")], ["x"]);
+    const { file } = completeLaSession(
+      existante,
+      recuperation([battle("a", "2026-08-19T15:00:00Z"), battle("y", "2026-08-19T15:10:00Z")], ["y"]),
+    );
+
+    expect(file.battles.map((manche) => manche.uuid)).toEqual(["a"]);
+    expect(file.exclues).toEqual(["x", "y"]);
+  });
+});

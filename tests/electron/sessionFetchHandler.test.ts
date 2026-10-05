@@ -226,6 +226,22 @@ describe("saveSession", () => {
     expect(ecrit).not.toHaveProperty("nomEquipe");
   });
 
+  test("ecarte les parties exclues de l'apercu, et seulement celles-la", async () => {
+    const outDir = await tempDir();
+    const { fetchPage } = stubPages([
+      [battle("b", "2026-08-19T20:30:00Z", "draw"), battle("a", "2026-08-19T19:00:00Z", "win")],
+    ]);
+
+    const apercu = await previewSession({ user: "Gloup", ...fenetre }, { fetchPage, outDir });
+    // Un uuid etranger a l'apercu est ignore : la fenetre ne decide que des siennes.
+    const resume = await saveSession(apercu.previewId, { outDir }, ["b", "etrangere"]);
+
+    expect(resume.battleCount).toBe(1);
+    const ecrit = JSON.parse(await readFile(resume.path, "utf8"));
+    expect(ecrit.battles.map((manche: { uuid: string }) => manche.uuid)).toEqual(["a"]);
+    expect(ecrit.exclues).toEqual(["b"]);
+  });
+
   test("date le fichier de l'instant de la recuperation, pas de l'enregistrement", async () => {
     const outDir = await tempDir();
     const { fetchPage } = stubPages([[]]);

@@ -18,6 +18,8 @@ export const etat = {
   vueCourante: /** @type {Vue} */ ("formulaire"),
   /** Apercu en cours, consomme par l'enregistrement. */
   apercuCourant: /** @type {SessionPreview | undefined} */ (undefined),
+  /** Uuid des parties decochees dans l'apercu, a ne pas enregistrer. */
+  exclues: /** @type {Set<string>} */ (new Set()),
   /** Session ouverte dans la fiche. */
   ficheCourante: /** @type {SessionSummary | undefined} */ (undefined),
   /** Lignes de la session ouverte. */
