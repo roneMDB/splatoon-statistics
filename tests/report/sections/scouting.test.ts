@@ -34,7 +34,17 @@ describe("sectionScouting", () => {
     const legende = lignes.findIndex((ligne) => ligne.startsWith("Élim. : éliminations"));
     expect(legende).toBeGreaterThan(0);
     expect(lignes[legende - 2]).toBe("```");
-    expect(lignes[legende]).toContain("K/D : éliminations par mort, sans les assistances");
+    expect(lignes[legende]).toContain("(K+A)/D : éliminations et assistances par mort");
+  });
+
+  test("tabule les assistances et les compte dans le ratio", () => {
+    const appui = joueur({ nom: "Appui", kill: 10, assist: 6, death: 8, manches: 13 });
+    const lignes = sectionScouting(analyse({ manches: treizeManches, adverse: [appui] }));
+
+    expect(lignes[3]).toContain("Assist.");
+    expect(lignes[3]).toContain("(K+A)/D");
+    const ligne = lignes.find((l) => l.startsWith("Appui")) ?? "";
+    expect(ligne.split(/\s{2,}/)).toEqual(["Appui", "N-ZAP '85", "10", "6", "8", "0", "2,00", "1"]);
   });
 
   test("nomme les adversaires par leur pseudo, leur arme a cote", () => {
@@ -54,7 +64,20 @@ describe("sectionScouting", () => {
       sectionScouting(analyse({ manches: treizeManches, adverse: [octobrush, versatile] })),
     );
 
-    expect(rendu).toContain("Menace principale : Marée** · Cometz Octobrush · 114 éliminations");
+    expect(rendu).toContain(
+      "Menace principale : Marée** · Cometz Octobrush · 114 éliminations, 0 assistance pour 77 morts.",
+    );
+  });
+
+  test("designe la menace en comptant les assistances", () => {
+    const tueur = joueur({ nom: "Tueur", kill: 30, assist: 2, death: 20, manches: 13 });
+    const appui = joueur({ nom: "Appui", kill: 25, assist: 15, death: 20, manches: 13 });
+    // L'analyse classe par eliminations seules : Tueur arrive en tete.
+    const rendu = texte(
+      sectionScouting(analyse({ manches: treizeManches, adverse: [tueur, appui] })),
+    );
+
+    expect(rendu).toContain("Menace principale : Appui** · N-ZAP '85 · 25 éliminations, 15 assistances pour 20 morts.");
   });
 
   test("numerote deux adversaires sans pseudo, qui seraient indistinguables", () => {

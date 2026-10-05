@@ -16,7 +16,11 @@ export function sectionScouting(analyse: AnalyseSession): string[] {
   // Une soiree ou l'equipe d'en face tourne produirait sinon un tableau d'une
   // douzaine de lignes dont la plupart pesent une manche. On tabule ceux qui
   // etaient la, et on mentionne les autres d'une ligne.
-  const adverse = reguliers(analyse.adverse, analyse.manches.length);
+  // L'analyse classe aux eliminations seules ; ici un joueur d'appui qui
+  // assiste beaucoup pese autant qu'un tueur, d'ou le reclassement.
+  const adverse = [...reguliers(analyse.adverse, analyse.manches.length)].sort(
+    (a, b) => b.kill + b.assist - (a.kill + a.assist) || b.kill - a.kill,
+  );
   const passages = analyse.adverse.length - adverse.length;
   if (adverse.length === 0) return [];
 
@@ -29,33 +33,36 @@ export function sectionScouting(analyse: AnalyseSession): string[] {
   // phrases qui suivent, elles, portent les deux noms.
   lignes.push(
     ...tableau(
-      ["Joueur", "Arme", "Élim.", "Morts", "Spé", "K/D", "Armes"],
+      ["Joueur", "Arme", "Élim.", "Assist.", "Morts", "Spé", "(K+A)/D", "Armes"],
       adverse.map((joueur, index) => [
         noms[index] ?? joueur.nom,
         joueur.armes[0]?.nom ?? "—",
         String(joueur.kill),
+        String(joueur.assist),
         String(joueur.death),
         String(joueur.special),
-        ratio(joueur.kill, joueur.death),
+        ratio(joueur.kill + joueur.assist, joueur.death),
         String(joueur.armes.length),
       ]),
     ),
     "",
     // Le tableau abrege pour tenir sur un telephone ; la legende rend ce qu'il
-    // abrege. « K/D » surtout, qui ne compte pas les assistances.
-    "Élim. : éliminations · Spé : spéciales déclenchées · " +
-      "K/D : éliminations par mort, sans les assistances · Armes : nombre d'armes jouées",
+    // abrege. Le ratio est celui de l'entete, assistances comprises.
+    "Élim. : éliminations · Assist. : assistances · Spé : spéciales déclenchées · " +
+      "(K+A)/D : éliminations et assistances par mort · Armes : nombre d'armes jouées",
     "",
   );
 
   const faits: string[] = [];
 
   const menace = adverse[0];
-  if (menace !== undefined && menace.kill > 0) {
+  if (menace !== undefined && menace.kill + menace.assist > 0) {
     faits.push(
       // Un point median, pas de parentheses : le nom d'arme en porte deja.
-      `**Menace principale : ${noms[0]}** · ${armeDominante(menace)} · ${menace.kill} éliminations ` +
-        `pour ${menace.death} morts.`,
+      `**Menace principale : ${noms[0]}** · ${armeDominante(menace)} · ` +
+        `${menace.kill} ${pluriel(menace.kill, "élimination")}, ` +
+        `${menace.assist} ${pluriel(menace.assist, "assistance")} ` +
+        `pour ${menace.death} ${pluriel(menace.death, "mort")}.`,
     );
   }
 
