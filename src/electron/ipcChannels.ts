@@ -91,6 +91,10 @@ export type FetchSessionFormInput = {
   name?: string;
   /** Valide contre SESSION_TYPES avant tout appel reseau. */
   type?: string;
+  /** Saisies facultatives, ecrites telles quelles avec la session. */
+  objectif?: string;
+  nomEquipe?: string;
+  nomEquipeAdverse?: string;
   /** Format du noyau : `YYYY-MM-DD HH:mm` ou `YYYY-MM-DD HH:mm:ss`, heure locale. */
   from: string;
   /** Par defaut : maintenant. */

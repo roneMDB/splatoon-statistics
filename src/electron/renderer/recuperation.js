@@ -52,6 +52,9 @@ function litLeFormulaire() {
     user: elements.compte.value.trim(),
     name: elements.nom.value.trim() || undefined,
     type: elements.type.value || undefined,
+    objectif: elements.objectif.value.trim() || undefined,
+    nomEquipe: elements.equipe.value.trim() || undefined,
+    nomEquipeAdverse: elements.equipeAdverse.value.trim() || undefined,
     lobby: elements.lobby.value || undefined,
     from: versFormatNoyau(elements.debut.value) ?? "",
     to: versFormatNoyau(elements.fin.value),
@@ -122,14 +125,18 @@ elements.boutonEnregistrer.addEventListener("click", async () => {
   try {
     const resume = await api.saveSession(etat.apercuCourant.previewId);
     etat.apercuCourant = undefined;
-    elements.nom.value = "";
+    // Les saisies propres a cette session ; fenetre, lobby et compte restent.
+    for (const champ of [elements.nom, elements.equipe, elements.equipeAdverse, elements.objectif]) {
+      champ.value = "";
+    }
     bandeau(
       elements.succes,
       resume.ajoutees === undefined
         ? `${resume.battleCount} match(s) enregistré(s). Écrit dans ${resume.path}`
         : // Le fichier existait : il a ete complete, pas remplace.
           `Session déjà enregistrée, complétée : ${resume.ajoutees} nouvelle(s) manche(s), ` +
-            `${resume.battleCount} au total. Objectif, ressenti et équipes conservés.`,
+            `${resume.battleCount} au total. Objectif, ressenti et équipes conservés, ` +
+            `sauf ceux saisis ici.`,
     );
     await rafraichisLaListe();
     montreLaVue("formulaire");

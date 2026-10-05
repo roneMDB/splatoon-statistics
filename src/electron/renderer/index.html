@@ -225,6 +225,41 @@
               />
             </div>
 
+            <!-- Suggestions communes avec la fiche : les noms deja saisis ailleurs. -->
+            <div class="champ champ--double">
+              <div>
+                <label for="champ-equipe">Mon équipe (facultatif)</label>
+                <input
+                  type="text"
+                  id="champ-equipe"
+                  name="nomEquipe"
+                  list="equipes-connues"
+                  autocomplete="off"
+                />
+              </div>
+              <div>
+                <label for="champ-equipe-adverse">Équipe adverse (facultatif)</label>
+                <input
+                  type="text"
+                  id="champ-equipe-adverse"
+                  name="nomEquipeAdverse"
+                  list="equipes-adverses-connues"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+
+            <div class="champ">
+              <label for="champ-objectif">Objectif de la session (facultatif)</label>
+              <input
+                type="text"
+                id="champ-objectif"
+                name="objectif"
+                placeholder="Tenir le rôle de support"
+                autocomplete="off"
+              />
+            </div>
+
             <div class="champ champ--double">
               <div>
                 <label for="champ-debut">Début</label>

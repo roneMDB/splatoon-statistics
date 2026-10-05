@@ -6,7 +6,8 @@
  * noyau. Le processus principal ne fait que le cabler a un canal IPC.
  *
  * Il reprend les etapes de la ligne de commande sans le dialogue de nommage :
- * le formulaire fournit le nom et le type avant de lancer la recuperation.
+ * le formulaire fournit le nom, le type, l'objectif et les equipes avant de
+ * lancer la recuperation.
  *
  * La recuperation et l'ecriture sont scindees en deux fonctions : la fenetre
  * doit pouvoir montrer un apercu des matchs avant que le fichier n'existe.
@@ -71,6 +72,9 @@ type ApercuRetenu = {
   user: string;
   name?: string;
   type?: SessionType;
+  objectif?: string;
+  nomEquipe?: string;
+  nomEquipeAdverse?: string;
   window: SessionWindow;
   filters: BattleFilters;
   battles: StatinkBattle[];
@@ -122,6 +126,9 @@ export async function previewSession(
   const lobby = parseLobby(input.lobby);
   const maxPages = parseMaxPages(input.maxPages);
   const name = input.name?.trim() || undefined;
+  const objectif = input.objectif?.trim() || undefined;
+  const nomEquipe = input.nomEquipe?.trim() || undefined;
+  const nomEquipeAdverse = input.nomEquipeAdverse?.trim() || undefined;
 
   // Leve avant tout appel reseau si la fenetre est illisible ou a l'envers.
   const window = buildWindow(input.from, input.to);
@@ -137,7 +144,18 @@ export async function previewSession(
   ordreCreneau += 1;
   apercuRetenu = {
     id,
-    contenu: { user, name, type, window, filters, battles: result.battles, fetchedAt },
+    contenu: {
+      user,
+      name,
+      type,
+      objectif,
+      nomEquipe,
+      nomEquipeAdverse,
+      window,
+      filters,
+      battles: result.battles,
+      fetchedAt,
+    },
   };
 
   return {
@@ -191,6 +209,9 @@ export async function saveSession(
     user: contenu.user,
     name: contenu.name,
     type: contenu.type,
+    objectif: contenu.objectif,
+    nomEquipe: contenu.nomEquipe,
+    nomEquipeAdverse: contenu.nomEquipeAdverse,
     window: contenu.window,
     filters: contenu.filters,
     battles: contenu.battles,
