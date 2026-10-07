@@ -79,6 +79,8 @@ async function chargeLesChoix() {
     case_.value = section.cle;
     // Les sections cochees d'office viennent des reglages (settings.json).
     case_.checked = section.coche !== false;
+    // Retenu pour qu'une fiche sans type retrouve la valeur des reglages.
+    case_.dataset.cocheParDefaut = String(case_.checked);
     etiquette.append(case_, document.createTextNode(` ${section.libelle}`));
     elements.compteRenduSections.append(etiquette);
   }

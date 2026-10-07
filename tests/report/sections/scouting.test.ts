@@ -41,8 +41,9 @@ describe("sectionScouting", () => {
     const appui = joueur({ nom: "Appui", kill: 10, assist: 6, death: 8, manches: 13 });
     const lignes = sectionScouting(analyse({ manches: treizeManches, adverse: [appui] }));
 
-    expect(lignes[3]).toContain("Assist.");
-    expect(lignes[3]).toContain("(K+A)/D");
+    const entete = lignes.find((l) => l.startsWith("Joueur")) ?? "";
+    expect(entete).toContain("Assist.");
+    expect(entete).toContain("(K+A)/D");
     const ligne = lignes.find((l) => l.startsWith("Appui")) ?? "";
     expect(ligne.split(/\s{2,}/)).toEqual(["Appui", "N-ZAP '85", "10", "6", "8", "0", "2,00", "1"]);
   });
@@ -165,5 +166,25 @@ describe("sectionScouting", () => {
     const rendu = texte(sectionScouting(analyse({ manches: treizeManches, adverse: [deuxArmes] })));
 
     expect(rendu).not.toContain("a tourné sur");
+  });
+
+  test("ouvre sur le bilan des deux camps, joueurs de passage compris", () => {
+    const passage = joueur({ nom: "Passage", kill: 1, assist: 2, death: 3, special: 4, manches: 1 });
+    const moi = joueur({ nom: "Gloup", moi: true, kill: 20, assist: 10, death: 15, special: 5, manches: 13 });
+    const lignes = sectionScouting(
+      analyse({
+        manches: treizeManches,
+        nomEquipe: "Gloup Squad",
+        equipe: [moi],
+        adverse: [octobrush, passage],
+      }),
+    );
+
+    expect(lignes[3]?.split(/\s{2,}/)).toEqual(["Équipe", "Élim.", "Assist.", "Morts", "Spé", "(K+A)/D"]);
+    expect(lignes[4]?.split(/\s{2,}/)).toEqual(["Gloup Squad", "20", "10", "15", "5", "2,00"]);
+    // 114 + 1 elim., 0 + 2 assist., 77 + 3 morts : le joueur de passage compte.
+    expect(lignes[5]?.split(/\s{2,}/)).toEqual(["En face", "115", "2", "80", "4", "1,46"]);
+    // Mais il n'a pas de ligne dans le tableau par joueur.
+    expect(lignes.some((ligne) => ligne.startsWith("Passage"))).toBe(false);
   });
 });

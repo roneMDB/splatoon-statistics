@@ -14,6 +14,25 @@ import { construisLesMatchs, formateLaDate, formateLHeure } from "./matchs.js";
 /** @typedef {import("../../battleRows.ts").BattleRow} BattleRow */
 
 /**
+ * Accorde la case Scouting au type enregistre de la session, comme le noyau :
+ * cochee contre une equipe (intra, scrim, compet), grisee en open ou autre,
+ * ou les adversaires sont de passage. Sans type, la valeur des reglages.
+ *
+ * @param {string | undefined} type
+ */
+function accordeLeScoutingAuType(type) {
+  const case_ = /** @type {HTMLInputElement | null} */ (
+    elements.compteRenduSections.querySelector('input[value="scouting"]')
+  );
+  if (case_ === null) return;
+  const sansEquipes = type !== undefined && !etat.typesAvecEquipes.includes(type);
+  case_.disabled = sansEquipes;
+  case_.title = sansEquipes ? "Pas d'adversaires suivis en open ou autre" : "";
+  case_.checked =
+    type === undefined ? case_.dataset.cocheParDefaut !== "false" : !sansEquipes;
+}
+
+/**
  * Ouvre la fiche d'une session existante : ses matchs, nom et type modifiables.
  * N'echoue jamais silencieusement : une lecture en erreur (fichier supprime ou
  * modifie entre le listing et le clic, etc.) est affichee dans le bandeau
@@ -32,6 +51,7 @@ export async function ouvreLaFiche(session) {
     elements.ficheEquipeAdverse.value = summary.nomEquipeAdverse ?? "";
     elements.ficheObjectif.value = summary.objectif ?? "";
     elements.ficheRessenti.value = summary.ressenti ?? "";
+    accordeLeScoutingAuType(summary.type);
     // Un compte rendu et une planche affiches appartiennent a la session
     // precedente : on les vide.
     cacheLeCompteRendu();
@@ -86,6 +106,7 @@ elements.boutonFicheEnregistrer.addEventListener("click", async () => {
     // Sans cela, la fiche garde le resume perime : une confirmation de
     // suppression juste apres un renommage afficherait encore l'ancien nom.
     etat.ficheCourante = resume;
+    accordeLeScoutingAuType(resume.type);
     await rafraichisLaListe();
     bandeau(elements.succes, "Session modifiée.");
   } catch (erreur) {

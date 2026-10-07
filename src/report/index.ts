@@ -9,6 +9,7 @@
  * fois le meme fichier de session donnent deux fois le meme texte.
  */
 
+import { sansEquipes } from "../sessionMeta.ts";
 import type { SessionFile } from "../store.ts";
 import { analyseSession } from "./analyse.ts";
 import type { AnalyseSession } from "./analyse.ts";
@@ -86,6 +87,8 @@ export function construisLeCompteRendu(
   if (ressenti) lignes.push(...ressenti.split("\n").map((ligne) => `> ${ligne}`), "");
 
   for (const section of options.sections) {
+    // En open ou autre, les adversaires sont de passage : rien a scouter.
+    if (section === "scouting" && sansEquipes(file.type)) continue;
     lignes.push(...REDACTEURS[section](analyse));
   }
 

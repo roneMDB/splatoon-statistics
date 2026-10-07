@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { analyseSession } from "../../src/report/analyse.ts";
+import { analyseSession, totauxDEquipe, type StatsJoueur } from "../../src/report/analyse.ts";
 import type { SessionFile } from "../../src/store.ts";
 import type { StatinkBattle, StatinkTeamMember } from "../../src/statink/types.ts";
 
@@ -530,5 +530,21 @@ describe("analyseSession — objectifs par arme", () => {
 
   test("retient l'arme de chaque manche dans mes chiffres", () => {
     expect(analyseSession(session([nzap(1, 1)]), {}).manches[0]?.moi?.arme).toBe("test_n_zap_85");
+  });
+});
+
+describe("totauxDEquipe", () => {
+  const stats = (manches: number, kill: number, assist: number, death: number, special: number): StatsJoueur => ({
+    nom: `J${kill}`, moi: false, manches, kill, assist, death, special, inked: 0, armes: [],
+  });
+
+  test("somme tout le camp, joueurs de passage compris", () => {
+    expect(totauxDEquipe([stats(10, 30, 5, 20, 8), stats(1, 2, 1, 3, 0)])).toEqual({
+      kill: 32, assist: 6, death: 23, special: 8,
+    });
+  });
+
+  test("rend des zeros pour un camp vide", () => {
+    expect(totauxDEquipe([])).toEqual({ kill: 0, assist: 0, death: 0, special: 0 });
   });
 });

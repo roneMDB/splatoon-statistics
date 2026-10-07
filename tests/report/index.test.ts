@@ -236,3 +236,27 @@ describe("construisLeCompteRendu — emoji", () => {
     expect(rendu()).toContain("✅ ❌ ❌ ➖");
   });
 });
+
+describe("construisLeCompteRendu — open et autre", () => {
+  const avecAdversaire = () => {
+    const manche = battle("win") as unknown as Record<string, unknown>;
+    manche.their_team_members = [{ me: false, name: "Adversaire", kill: 6, assist: 1, death: 2, special: 1 }];
+    return manche as unknown as StatinkBattle;
+  };
+
+  test("ne scoute pas les adversaires d'une session open", () => {
+    const rendu = construisLeCompteRendu(session({ type: "open" }, [avecAdversaire()]), {
+      sections: ["scouting"],
+    });
+    expect(rendu).not.toContain("En face");
+  });
+
+  test("scoute ceux d'une scrim, et d'une session sans type", () => {
+    for (const extra of [{ type: "scrim" }, {}]) {
+      const rendu = construisLeCompteRendu(session(extra, [avecAdversaire()]), {
+        sections: ["scouting"],
+      });
+      expect(rendu).toContain("### ⚔️ En face");
+    }
+  });
+});

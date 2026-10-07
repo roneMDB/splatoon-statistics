@@ -302,6 +302,24 @@ export function reguliers(joueurs: StatsJoueur[], manchesDeLaSession: number): S
   return joueurs.filter((joueur) => joueur.manches >= minimum);
 }
 
+/** Ce qu'un camp a fait sur la session. */
+export type TotauxDEquipe = { kill: number; assist: number; death: number; special: number };
+
+/**
+ * Totaux d'un camp. Tous ses joueurs comptent, reguliers ou de passage : le
+ * bilan d'une equipe porte sur toutes ses manches.
+ */
+export function totauxDEquipe(joueurs: StatsJoueur[]): TotauxDEquipe {
+  const totaux: TotauxDEquipe = { kill: 0, assist: 0, death: 0, special: 0 };
+  for (const joueur of joueurs) {
+    totaux.kill += joueur.kill;
+    totaux.assist += joueur.assist;
+    totaux.death += joueur.death;
+    totaux.special += joueur.special;
+  }
+  return totaux;
+}
+
 /**
  * Confronte mes manches aux objectifs de leur arme. Une manche sans arme
  * connue ne compte pour aucune ; une manche de moins d'une minute non plus.

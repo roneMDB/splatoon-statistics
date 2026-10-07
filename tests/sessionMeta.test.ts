@@ -3,6 +3,7 @@ import {
   isSessionType,
   parseSessionType,
   promptSessionMeta,
+  sansEquipes,
   SESSION_TYPES,
   TYPES_AVEC_EQUIPES,
 } from "../src/sessionMeta.ts";
@@ -117,6 +118,19 @@ describe("TYPES_AVEC_EQUIPES", () => {
     expect(TYPES_AVEC_EQUIPES).toEqual(["intra", "scrim", "compet"]);
     for (const type of TYPES_AVEC_EQUIPES) {
       expect(isSessionType(type)).toBe(true);
+    }
+  });
+});
+
+describe("sansEquipes", () => {
+  test("vrai pour les types qui ne se jouent pas contre une equipe", () => {
+    expect(sansEquipes("open")).toBe(true);
+    expect(sansEquipes("autre")).toBe(true);
+  });
+
+  test("faux contre une equipe, et sans type", () => {
+    for (const type of ["intra", "scrim", "compet", undefined]) {
+      expect(sansEquipes(type)).toBe(false);
     }
   });
 });

@@ -3,11 +3,21 @@
  *
  * Les adversaires sont designes par leur pseudo, leur arme a cote - voir
  * `designe` dans format.ts. Le nom de leur equipe, s'il a ete saisi, coiffe la
- * section.
+ * section, sous un bilan des deux camps.
  */
 
-import { reguliers } from "../analyse.ts";
-import type { AnalyseSession } from "../analyse.ts";
+/** Une ligne du bilan des camps. */
+const ligneDeBilan = (camp: string, totaux: TotauxDEquipe) => [
+  camp,
+  String(totaux.kill),
+  String(totaux.assist),
+  String(totaux.death),
+  String(totaux.special),
+  ratio(totaux.kill + totaux.assist, totaux.death),
+];
+
+import { reguliers, totauxDEquipe } from "../analyse.ts";
+import type { AnalyseSession, TotauxDEquipe } from "../analyse.ts";
 import { armeDominante, designeLesAdversaires, pluriel, ratio, tableau } from "../format.ts";
 
 export function sectionScouting(analyse: AnalyseSession): string[] {
@@ -26,6 +36,19 @@ export function sectionScouting(analyse: AnalyseSession): string[] {
 
   const titre = analyse.nomEquipeAdverse === undefined ? "En face" : `En face : ${analyse.nomEquipeAdverse}`;
   const lignes: string[] = [`### ⚔️ ${titre}`, ""];
+
+  // L'equipe d'en face dans son ensemble, la notre a cote pour comparer.
+  lignes.push(
+    ...tableau(
+      ["Équipe", "Élim.", "Assist.", "Morts", "Spé", "(K+A)/D"],
+      [
+        ligneDeBilan(analyse.nomEquipe ?? "Nous", totauxDEquipe(analyse.equipe)),
+        ligneDeBilan(analyse.nomEquipeAdverse ?? "En face", totauxDEquipe(analyse.adverse)),
+      ],
+    ),
+    "",
+  );
+
   const noms = designeLesAdversaires(adverse);
 
   // Dans le tableau, l'arme n'est nommee qu'en francais : la forme bilingue

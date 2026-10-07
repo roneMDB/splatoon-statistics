@@ -19,13 +19,14 @@
  */
 
 import type { AnalyseSession, ArmeJouee, Manche, StatsJoueur } from "./analyse.ts";
-import { reguliers } from "./analyse.ts";
+import { reguliers, totauxDEquipe } from "./analyse.ts";
 import { designeLesAdversaires, moyenne, pluriel, ratio, rencontre, titreDeSession } from "./format.ts";
 import { echappe } from "./html.ts";
 import type { SectionCompteRendu } from "./index.ts";
 import { cleSure, type CategoriePicto, type Pictos } from "./pictos.ts";
 import { REGLES, regleConnue } from "./regles.ts";
 import { libelleDuLobby } from "../libelles.fr.ts";
+import { sansEquipes } from "../sessionMeta.ts";
 import type { SessionFile } from "../store.ts";
 import { MEDAILLES_CITEES } from "./seuils.ts";
 
@@ -289,6 +290,8 @@ ${COULEURS_DE_TUILE}
 .adversaire__arme { display: block; margin-top: 2px; font-size: 13px; }
 .adversaire__chiffres { display: block; margin-top: 3px; font-size: 13px; }
 .adversaire__kd { display: block; }
+.equipe__bilan { margin-bottom: 12px; font-size: 14px; }
+.equipe__bilan b { font-family: ${TITRE}; font-weight: 400; font-size: 19px; color: #eaff3d; }
 .adversaire__chiffres b { font-family: ${TITRE}; font-weight: 400; font-size: 17px; color: #eaff3d; }
 `.trim();
 
@@ -564,8 +567,9 @@ function blocModes(analyse: AnalyseSession, registre: Registre, plein: boolean):
 }
 
 /**
- * Les reguliers d'une equipe : pseudo, arme dominante, chiffres. Sert aux deux
- * camps ; l'etiquette porte le nom saisi de l'equipe, a defaut un generique.
+ * Les reguliers d'une equipe : pseudo, arme dominante, chiffres, sous le bilan
+ * du camp entier. Sert aux deux camps ; l'etiquette porte le nom saisi de
+ * l'equipe, a defaut un generique.
  */
 function blocEquipe(joueurs: StatsJoueur[], manches: number, etiquette: string, registre: Registre): string {
   const presents = reguliers(joueurs, manches);
@@ -593,7 +597,15 @@ function blocEquipe(joueurs: StatsJoueur[], manches: number, etiquette: string, 
     );
   });
 
-  return sticker(`<ul class="adversaires">${cartes.join("")}</ul>`, { etiquette, plein: true });
+  // Tous les joueurs du camp, de passage compris, comme dans le Markdown.
+  const totaux = totauxDEquipe(joueurs);
+  const bilan =
+    `<p class="equipe__bilan secondaire">` +
+    `<b>${totaux.kill}</b> élim. · <b>${totaux.assist}</b> assist. · <b>${totaux.death}</b> morts · ` +
+    `<b>${totaux.special}</b> spé. · (K+A)/D <b>${ratio(totaux.kill + totaux.assist, totaux.death)}</b>` +
+    `</p>`;
+
+  return sticker(`${bilan}<ul class="adversaires">${cartes.join("")}</ul>`, { etiquette, plein: true });
 }
 
 /**
@@ -602,7 +614,8 @@ function blocEquipe(joueurs: StatsJoueur[], manches: number, etiquette: string, 
  * Deterministe, comme la planche : meme session, memes options, memes pictos,
  * meme chaine. L'ordre des blocs est fixe - score, mots, courbe, bulletin et
  * modes cote a cote, notre equipe, adversaires - quel que soit l'ordre des sections cochees :
- * c'est une mise en page, pas une suite de paragraphes.
+ * c'est une mise en page, pas une suite de paragraphes. En open ou autre, ni
+ * notre equipe ni les adversaires.
  */
 export function enteteEnHtml(
   file: SessionFile,
@@ -614,6 +627,8 @@ export function enteteEnHtml(
   const objectif = (options.objectif ?? analyse.objectif)?.trim();
   const ressenti = (options.ressenti ?? analyse.ressenti)?.trim();
   const avec = (section: SectionCompteRendu) => options.sections.includes(section);
+  // En open ou autre, coequipiers et adversaires sont de passage.
+  const equipes = !sansEquipes(file.type);
 
   // Bulletin et modes partagent une rangee ; seul, l'un prend toute la largeur.
   const duo = avec("role") && analyse.moi !== undefined && avec("modes") && analyse.parMode.length > 0;
@@ -624,10 +639,10 @@ export function enteteEnHtml(
     avec("courbe") ? blocCourbe(analyse, registre) : "",
     avec("role") ? blocBulletin(analyse, registre, !duo) : "",
     avec("modes") ? blocModes(analyse, registre, !duo) : "",
-    avec("role")
+    equipes && avec("role")
       ? blocEquipe(analyse.equipe, analyse.manches.length, analyse.nomEquipe ?? "Notre équipe", registre)
       : "",
-    avec("scouting")
+    equipes && avec("scouting")
       ? blocEquipe(analyse.adverse, analyse.manches.length, analyse.nomEquipeAdverse ?? "En face", registre)
       : "",
   ].filter((bloc) => bloc !== "");

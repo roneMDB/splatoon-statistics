@@ -22,6 +22,15 @@ export type SessionType = string;
  */
 export const TYPES_AVEC_EQUIPES: readonly SessionType[] = ["intra", "scrim", "compet"];
 
+/**
+ * Vrai pour une session typee qui ne se joue pas contre une equipe (open,
+ * autre) : coequipiers et adversaires y sont de passage, le compte rendu ne
+ * les montre pas. Une session sans type garde tout.
+ */
+export function sansEquipes(type: SessionType | undefined): boolean {
+  return type !== undefined && !TYPES_AVEC_EQUIPES.includes(type);
+}
+
 /** Metadonnees saisies par l'utilisateur, toutes facultatives. */
 export type SessionMeta = {
   name?: string;

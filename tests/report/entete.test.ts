@@ -190,6 +190,27 @@ describe("enteteEnHtml — blocs", () => {
     expect(html).toContain("<b>18</b> élim. · <b>2</b> assist. · <b>4</b> morts<span class=\"adversaire__kd\"><b>6</b> spé. · (K+A)/D <b>5,00</b></span>");
   });
 
+  test("pose le bilan de chaque camp au-dessus de ses joueurs", () => {
+    const { html } = rends(fichier);
+    // En face : deux manches a 9 elim., 1 assist., 2 morts, 3 spe.
+    expect(html).toContain(
+      '<p class="equipe__bilan secondaire"><b>18</b> élim. · <b>2</b> assist. · <b>4</b> morts · ' +
+        "<b>6</b> spé. · (K+A)/D <b>5,00</b></p>",
+    );
+    // Nous : (5+3) elim., (4+2) assist., (3+4) morts, (2+1) spe., deux fois.
+    expect(html).toContain(
+      "<b>16</b> élim. · <b>12</b> assist. · <b>14</b> morts · <b>6</b> spé. · (K+A)/D <b>2,00</b>",
+    );
+  });
+
+  test("ne montre ni notre equipe ni les adversaires en open ou autre", () => {
+    for (const type of ["open", "autre"]) {
+      const { html } = rends(session([battle("win")], { type }));
+      expect(html).not.toContain('class="adversaires"');
+      expect(html).not.toContain("equipe__bilan");
+    }
+  });
+
   test("montre notre equipe avec le bulletin, moi sous mon pseudo", () => {
     const { html } = rends(fichier, { sections: ["role"] });
     expect(html).toContain('<p class="etiquette">Notre équipe</p>');
