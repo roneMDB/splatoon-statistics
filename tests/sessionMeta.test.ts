@@ -4,6 +4,7 @@ import {
   parseSessionType,
   promptSessionMeta,
   SESSION_TYPES,
+  TYPES_AVEC_EQUIPES,
 } from "../src/sessionMeta.ts";
 
 /** Repond aux questions dans l'ordre, et retient ce qui a ete demande. */
@@ -109,4 +110,13 @@ describe("promptSessionMeta", () => {
 
 test("accepte le type open, pour les sessions en lobby ouvert", () => {
   expect(parseSessionType("open")).toBe("open");
+});
+
+describe("TYPES_AVEC_EQUIPES", () => {
+  test("retient les types joues contre une equipe, tous connus", () => {
+    expect(TYPES_AVEC_EQUIPES).toEqual(["intra", "scrim", "compet"]);
+    for (const type of TYPES_AVEC_EQUIPES) {
+      expect(isSessionType(type)).toBe(true);
+    }
+  });
 });

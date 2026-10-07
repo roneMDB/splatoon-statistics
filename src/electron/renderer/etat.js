@@ -16,6 +16,8 @@ import { elements } from "./elements.js";
 export const etat = {
   /** Vue affichee, pour que « Retour » des reglages y ramene. */
   vueCourante: /** @type {Vue} */ ("formulaire"),
+  /** Types qui appellent equipes, objectif et ressenti, recus avec les choix. */
+  typesAvecEquipes: /** @type {readonly string[]} */ ([]),
   /** Apercu en cours, consomme par l'enregistrement. */
   apercuCourant: /** @type {SessionPreview | undefined} */ (undefined),
   /** Uuid des parties decochees dans l'apercu, a ne pas enregistrer. */

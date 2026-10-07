@@ -186,7 +186,7 @@ describe("saveSession", () => {
     expect(ecrit.battles[0].champ_inconnu).toEqual({ profond: 42 });
   });
 
-  test("ecrit l'objectif et les equipes saisis avant la recuperation", async () => {
+  test("ecrit l'objectif, le ressenti et les equipes saisis avant la recuperation", async () => {
     const outDir = await tempDir();
     const { fetchPage } = stubPages([[battle("a", "2026-08-19T20:30:00Z")]]);
 
@@ -194,6 +194,7 @@ describe("saveSession", () => {
       {
         user: "Gloup",
         objectif: "  Tenir le support ",
+        ressenti: " Solide en fin de soiree  ",
         nomEquipe: "NIJI~A",
         nomEquipeAdverse: "NIJI~O",
         ...fenetre,
@@ -204,25 +205,28 @@ describe("saveSession", () => {
 
     expect(resume).toMatchObject({
       objectif: "Tenir le support",
+      ressenti: "Solide en fin de soiree",
       nomEquipe: "NIJI~A",
       nomEquipeAdverse: "NIJI~O",
     });
     const ecrit = JSON.parse(await readFile(resume.path, "utf8"));
     expect(ecrit.objectif).toBe("Tenir le support");
+    expect(ecrit.ressenti).toBe("Solide en fin de soiree");
   });
 
-  test("n'ecrit pas de champ pour un objectif ou des equipes laisses vides", async () => {
+  test("n'ecrit pas de champ pour un objectif, un ressenti ou des equipes laisses vides", async () => {
     const outDir = await tempDir();
     const { fetchPage } = stubPages([[]]);
 
     const apercu = await previewSession(
-      { user: "Gloup", objectif: "  ", nomEquipe: "", ...fenetre },
+      { user: "Gloup", objectif: "  ", ressenti: " ", nomEquipe: "", ...fenetre },
       { fetchPage, outDir },
     );
     const resume = await saveSession(apercu.previewId, { outDir });
 
     const ecrit = JSON.parse(await readFile(resume.path, "utf8"));
     expect(ecrit).not.toHaveProperty("objectif");
+    expect(ecrit).not.toHaveProperty("ressenti");
     expect(ecrit).not.toHaveProperty("nomEquipe");
   });
 

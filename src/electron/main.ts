@@ -35,7 +35,7 @@ import { toBattleRows } from "../battleRows.ts";
 import { toBattleDetail } from "../battleDetail.ts";
 import { estUneUrlStatink, saitOuvrirUnLien } from "../lienExterne.ts";
 import { saitOuvrirExplorer } from "../revelePlanche.ts";
-import { parseSessionType, SESSION_TYPES } from "../sessionMeta.ts";
+import { parseSessionType, SESSION_TYPES, TYPES_AVEC_EQUIPES } from "../sessionMeta.ts";
 import { KNOWN_LOBBIES } from "../statink/url.ts";
 import { avecLesEquipes, type Equipes } from "../store.ts";
 import { tourneSousWsl, versCheminWindows } from "../wsl.ts";
@@ -192,6 +192,7 @@ ipcMain.handle(IPC.habillage, async () => ({
 ipcMain.handle(IPC.choices, () => ({
   lobbies: KNOWN_LOBBIES,
   sessionTypes: SESSION_TYPES,
+  typesAvecEquipes: TYPES_AVEC_EQUIPES,
   defaultUser: DEFAULT_USER,
   reportSections: SECTIONS.map((cle) => ({
     cle,

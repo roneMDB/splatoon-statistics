@@ -6,8 +6,8 @@
  * noyau. Le processus principal ne fait que le cabler a un canal IPC.
  *
  * Il reprend les etapes de la ligne de commande sans le dialogue de nommage :
- * le formulaire fournit le nom, le type, l'objectif et les equipes avant de
- * lancer la recuperation.
+ * le formulaire fournit le nom, le type, l'objectif, le ressenti et les
+ * equipes avant de lancer la recuperation.
  *
  * La recuperation et l'ecriture sont scindees en deux fonctions : la fenetre
  * doit pouvoir montrer un apercu des matchs avant que le fichier n'existe.
@@ -73,6 +73,7 @@ type ApercuRetenu = {
   name?: string;
   type?: SessionType;
   objectif?: string;
+  ressenti?: string;
   nomEquipe?: string;
   nomEquipeAdverse?: string;
   window: SessionWindow;
@@ -127,6 +128,7 @@ export async function previewSession(
   const maxPages = parseMaxPages(input.maxPages);
   const name = input.name?.trim() || undefined;
   const objectif = input.objectif?.trim() || undefined;
+  const ressenti = input.ressenti?.trim() || undefined;
   const nomEquipe = input.nomEquipe?.trim() || undefined;
   const nomEquipeAdverse = input.nomEquipeAdverse?.trim() || undefined;
 
@@ -149,6 +151,7 @@ export async function previewSession(
       name,
       type,
       objectif,
+      ressenti,
       nomEquipe,
       nomEquipeAdverse,
       window,
@@ -219,6 +222,7 @@ export async function saveSession(
     name: contenu.name,
     type: contenu.type,
     objectif: contenu.objectif,
+    ressenti: contenu.ressenti,
     nomEquipe: contenu.nomEquipe,
     nomEquipeAdverse: contenu.nomEquipeAdverse,
     exclues: ecartees,

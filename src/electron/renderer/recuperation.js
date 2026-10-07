@@ -47,14 +47,29 @@ export function preRemplisLaFenetre() {
   elements.fin.value = versChampDate(maintenant);
 }
 
+/**
+ * Equipes, objectif et ressenti n'ont de sens que contre une equipe : le bloc
+ * suit le type choisi. Ce qui y est tape reste en place quand il se cache.
+ */
+export function montreLesChampsDuType() {
+  elements.blocEquipes.hidden = !etat.typesAvecEquipes.includes(elements.type.value);
+}
+
+elements.type.addEventListener("change", montreLesChampsDuType);
+
 function litLeFormulaire() {
+  // Un champ cache n'est pas envoye, meme s'il garde une saisie.
+  const avecEquipes = !elements.blocEquipes.hidden;
+  /** @param {HTMLInputElement | HTMLTextAreaElement} champ */
+  const lis = (champ) => (avecEquipes && champ.value.trim()) || undefined;
   return {
     user: elements.compte.value.trim(),
     name: elements.nom.value.trim() || undefined,
     type: elements.type.value || undefined,
-    objectif: elements.objectif.value.trim() || undefined,
-    nomEquipe: elements.equipe.value.trim() || undefined,
-    nomEquipeAdverse: elements.equipeAdverse.value.trim() || undefined,
+    objectif: lis(elements.objectif),
+    ressenti: lis(elements.ressenti),
+    nomEquipe: lis(elements.equipe),
+    nomEquipeAdverse: lis(elements.equipeAdverse),
     lobby: elements.lobby.value || undefined,
     from: versFormatNoyau(elements.debut.value) ?? "",
     to: versFormatNoyau(elements.fin.value),
@@ -150,7 +165,13 @@ elements.boutonEnregistrer.addEventListener("click", async () => {
     etat.apercuCourant = undefined;
     etat.exclues = new Set();
     // Les saisies propres a cette session ; fenetre, lobby et compte restent.
-    for (const champ of [elements.nom, elements.equipe, elements.equipeAdverse, elements.objectif]) {
+    for (const champ of [
+      elements.nom,
+      elements.equipe,
+      elements.equipeAdverse,
+      elements.objectif,
+      elements.ressenti,
+    ]) {
       champ.value = "";
     }
     bandeau(

@@ -16,6 +16,12 @@ export const SESSION_TYPES: readonly string[] = REGLAGES.typesDeSession;
  */
 export type SessionType = string;
 
+/**
+ * Types joues contre une equipe : seuls ceux-la appellent des noms d'equipe,
+ * un objectif et un ressenti au moment de la recuperation.
+ */
+export const TYPES_AVEC_EQUIPES: readonly SessionType[] = ["intra", "scrim", "compet"];
+
 /** Metadonnees saisies par l'utilisateur, toutes facultatives. */
 export type SessionMeta = {
   name?: string;

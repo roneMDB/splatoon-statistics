@@ -93,6 +93,7 @@ export type FetchSessionFormInput = {
   type?: string;
   /** Saisies facultatives, ecrites telles quelles avec la session. */
   objectif?: string;
+  ressenti?: string;
   nomEquipe?: string;
   nomEquipeAdverse?: string;
   /** Format du noyau : `YYYY-MM-DD HH:mm` ou `YYYY-MM-DD HH:mm:ss`, heure locale. */
@@ -238,6 +239,8 @@ export type SplatoonApi = {
   choices: () => Promise<{
     lobbies: readonly string[];
     sessionTypes: readonly SessionType[];
+    /** Types qui appellent equipes, objectif et ressenti a la recuperation. */
+    typesAvecEquipes: readonly SessionType[];
     defaultUser: string;
     /** Sections de compte rendu proposees, dans l'ordre du document. */
     reportSections: readonly { cle: string; libelle: string; coche: boolean }[];

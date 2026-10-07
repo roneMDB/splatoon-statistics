@@ -17,6 +17,8 @@ export const elements = {
   equipe: /** @type {HTMLInputElement} */ (document.getElementById("champ-equipe")),
   equipeAdverse: /** @type {HTMLInputElement} */ (document.getElementById("champ-equipe-adverse")),
   objectif: /** @type {HTMLInputElement} */ (document.getElementById("champ-objectif")),
+  ressenti: /** @type {HTMLTextAreaElement} */ (document.getElementById("champ-ressenti")),
+  blocEquipes: /** @type {HTMLElement} */ (document.getElementById("bloc-equipes")),
   debut: /** @type {HTMLInputElement} */ (document.getElementById("champ-debut")),
   fin: /** @type {HTMLInputElement} */ (document.getElementById("champ-fin")),
   type: /** @type {HTMLSelectElement} */ (document.getElementById("champ-type")),

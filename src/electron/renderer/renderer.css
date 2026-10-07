@@ -361,6 +361,13 @@ h2 {
   max-width: 560px;
 }
 
+/* Groupe de champs que le type de session montre ou cache, espace comme le reste. */
+.formulaire__bloc {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .champ {
   display: flex;
   flex-direction: column;
@@ -466,7 +473,8 @@ button:disabled {
 }
 
 .formulaire[aria-busy="true"] input,
-.formulaire[aria-busy="true"] select {
+.formulaire[aria-busy="true"] select,
+.formulaire[aria-busy="true"] textarea {
   opacity: 0.6;
 }
 

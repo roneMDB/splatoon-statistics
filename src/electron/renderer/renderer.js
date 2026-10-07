@@ -16,7 +16,7 @@ import { etat } from "./etat.js";
 import "./fiche.js";
 import { rafraichisLaListe } from "./liste.js";
 import "./manche.js";
-import { preRemplisLaFenetre } from "./recuperation.js";
+import { montreLesChampsDuType, preRemplisLaFenetre } from "./recuperation.js";
 import "./reglages.js";
 
 /**
@@ -68,6 +68,8 @@ async function chargeLesChoix() {
     elements.type.append(new Option(type, type));
     elements.ficheType.append(new Option(type, type));
   }
+  etat.typesAvecEquipes = choix.typesAvecEquipes;
+  montreLesChampsDuType();
 
   for (const section of choix.reportSections) {
     const etiquette = document.createElement("label");
