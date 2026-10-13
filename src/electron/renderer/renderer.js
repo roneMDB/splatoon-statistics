@@ -18,6 +18,7 @@ import { rafraichisLaListe } from "./liste.js";
 import "./manche.js";
 import { montreLesChampsDuType, preRemplisLaFenetre } from "./recuperation.js";
 import "./reglages.js";
+import "./veille.js";
 
 /**
  * Habille la fenetre aux couleurs du jeu : polices, motif, pictos de regle, et

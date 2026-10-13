@@ -64,6 +64,14 @@ export const IPC = {
   runBackup: "backup:run",
   /** Ouvre le dossier de sauvegarde dans le gestionnaire de fichiers du systeme. */
   openBackupDir: "backup:open-dir",
+  /** Etat de la veille s3s : statut, phase, parties envoyees, journal. */
+  veilleEtat: "veille:etat",
+  /** Lance la veille s3s (`s3s-sync -r -M 60` par defaut). */
+  veilleStart: "veille:start",
+  /** Arrete la veille s3s comme un Ctrl+C : la verification finale a lieu. */
+  veilleStop: "veille:stop",
+  /** Chaque changement d'etat de la veille, decompte compris. */
+  veilleProgress: "veille:progress",
 } as const;
 
 /** Ce que l'ecran des reglages recoit a l'ouverture. */
@@ -231,6 +239,12 @@ export type SplatoonApi = {
       hauteurBande: number;
     }
   >;
+  veilleEtat: () => Promise<import("../veille.ts").EtatDeVeille>;
+  veilleStart: () => Promise<import("../veille.ts").EtatDeVeille>;
+  /** Rend la main des que l'arret est transmis, sans attendre la fin de la veille. */
+  veilleStop: () => Promise<import("../veille.ts").EtatDeVeille>;
+  /** Renvoie la fonction de desabonnement. */
+  onVeilleProgress: (listener: (etat: import("../veille.ts").EtatDeVeille) => void) => () => void;
   /** Renvoie la fonction de desabonnement. */
   onFetchProgress: (
     listener: (progress: import("../fetchSession.ts").FetchPageProgress) => void,

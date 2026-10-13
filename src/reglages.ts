@@ -77,6 +77,11 @@ export type Reglages = {
    * dossier personnel (voir `src/sauvegarde.ts`).
    */
   sauvegarde: { automatique: boolean; dossier: string };
+  /**
+   * Veille s3s lancee par le bouton de la fenetre (voir `src/veille.ts`).
+   * `distribution` vide : la distribution WSL par defaut, depuis Windows.
+   */
+  veille: { commande: string; distribution: string };
 };
 
 export const REGLAGES_PAR_DEFAUT: Reglages = {
@@ -106,6 +111,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   },
   objectifsParArme: {},
   sauvegarde: { automatique: true, dossier: "" },
+  veille: { commande: "s3s-sync -r -M 60", distribution: "" },
 };
 
 /**
@@ -319,6 +325,21 @@ export function valideLesReglages(brut: unknown, source = "settings.json"): Regl
       // Vide est permis : c'est la destination par defaut, Google Drive.
       if (typeof dossier !== "string") throw new Error(`${ou}.dossier : texte attendu.`);
       reglages.sauvegarde.dossier = dossier.trim();
+    }
+  }
+
+  if (brut.veille !== undefined) {
+    const ou = `${source}, "veille"`;
+    if (!estUnObjet(brut.veille)) throw new Error(`${ou} : objet attendu.`);
+    refuseLesClesInconnues(brut.veille, Object.keys(REGLAGES_PAR_DEFAUT.veille), ou);
+    const { commande, distribution } = brut.veille;
+    if (commande !== undefined) reglages.veille.commande = texteNonVide(commande, `${ou}.commande`);
+    if (distribution !== undefined) {
+      // Un nom de distribution part en argument de `wsl.exe -d`.
+      if (typeof distribution !== "string" || !/^[\w.-]*$/.test(distribution.trim())) {
+        throw new Error(`${ou}.distribution : nom de distribution WSL attendu (lettres, chiffres, . _ -), ou vide.`);
+      }
+      reglages.veille.distribution = distribution.trim();
     }
   }
 

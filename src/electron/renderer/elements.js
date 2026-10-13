@@ -98,10 +98,18 @@ export const elements = {
   reglageSansBarres: /** @type {HTMLInputElement} */ (document.getElementById("reglage-sans-barres")),
   reglageSauvegardeAuto: /** @type {HTMLInputElement} */ (document.getElementById("reglage-sauvegarde-auto")),
   reglageSauvegardeDossier: /** @type {HTMLInputElement} */ (document.getElementById("reglage-sauvegarde-dossier")),
+  reglageVeilleCommande: /** @type {HTMLInputElement} */ (document.getElementById("reglage-veille-commande")),
+  reglageVeilleDistribution: /** @type {HTMLInputElement} */ (document.getElementById("reglage-veille-distribution")),
   sauvegardeEtat: /** @type {HTMLElement} */ (document.getElementById("sauvegarde-etat")),
   boutonSauvegarder: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-sauvegarder")),
   boutonSauvegardeDossier: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-sauvegarde-dossier")),
   bande: /** @type {HTMLElement} */ (document.getElementById("bande")),
+  boutonVeille: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-veille")),
+  veille: /** @type {HTMLElement} */ (document.getElementById("veille")),
+  veilleEtat: /** @type {HTMLElement} */ (document.getElementById("veille-etat")),
+  veilleBilan: /** @type {HTMLElement} */ (document.getElementById("veille-bilan")),
+  veilleParties: /** @type {HTMLOListElement} */ (document.getElementById("veille-parties")),
+  veilleJournal: /** @type {HTMLElement} */ (document.getElementById("veille-journal")),
 };
 
 /**

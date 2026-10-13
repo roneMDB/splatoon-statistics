@@ -42,6 +42,10 @@ const CANAUX = {
   backupStatus: "backup:status",
   runBackup: "backup:run",
   openBackupDir: "backup:open-dir",
+  veilleEtat: "veille:etat",
+  veilleStart: "veille:start",
+  veilleStop: "veille:stop",
+  veilleProgress: "veille:progress",
 } as const;
 
 contextBridge.exposeInMainWorld("splatoonApi", {
@@ -95,6 +99,21 @@ contextBridge.exposeInMainWorld("splatoonApi", {
   runBackup: () => ipcRenderer.invoke(CANAUX.runBackup),
 
   openBackupDir: () => ipcRenderer.invoke(CANAUX.openBackupDir),
+
+  veilleEtat: () => ipcRenderer.invoke(CANAUX.veilleEtat),
+
+  veilleStart: () => ipcRenderer.invoke(CANAUX.veilleStart),
+
+  veilleStop: () => ipcRenderer.invoke(CANAUX.veilleStop),
+
+  /** Abonnement durable : la fenetre suit la veille tant qu'elle est ouverte. */
+  onVeilleProgress: (listener: (etat: unknown) => void) => {
+    const handler = (_event: unknown, etat: unknown) => listener(etat);
+    ipcRenderer.on(CANAUX.veilleProgress, handler);
+    return () => {
+      ipcRenderer.removeListener(CANAUX.veilleProgress, handler);
+    };
+  },
 
   /** Ferme l'application : la fenetre ne peut pas quitter le processus seule. */
   quitApp: () => ipcRenderer.invoke(CANAUX.quitApp),

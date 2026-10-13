@@ -24,8 +24,9 @@ const main = await readFile(mainPath, "utf8");
 
 /**
  * Fonctions exposees par le pont, avec la cle de IPC qu'elles sont censees
- * invoquer. Identique au nom de la fonction, sauf `onFetchProgress` : le
- * prefixe `on` note un abonnement, la cle du canal reste `fetchProgress`.
+ * invoquer. Identique au nom de la fonction, sauf pour `onFetchProgress` et
+ * `onVeilleProgress` : le prefixe `on` note un abonnement, la cle du canal ne
+ * le porte pas.
  */
 const FONCTIONS = [
   ["listSessions", "listSessions"],
@@ -49,7 +50,11 @@ const FONCTIONS = [
   ["backupStatus", "backupStatus"],
   ["runBackup", "runBackup"],
   ["openBackupDir", "openBackupDir"],
+  ["veilleEtat", "veilleEtat"],
+  ["veilleStart", "veilleStart"],
+  ["veilleStop", "veilleStop"],
   ["onFetchProgress", "fetchProgress"],
+  ["onVeilleProgress", "veilleProgress"],
 ] as const satisfies ReadonlyArray<readonly [string, keyof typeof IPC]>;
 
 /**
@@ -189,13 +194,13 @@ describe("preload", () => {
 });
 
 describe("main.ts cable un gestionnaire pour chaque canal", () => {
-  test("un ipcMain.handle existe pour chaque canal, sauf la progression (un envoi, pas une invocation)", () => {
+  test("un ipcMain.handle existe pour chaque canal, sauf les progressions (un envoi, pas une invocation)", () => {
     const geres = new Set(
       [...main.matchAll(/ipcMain\.handle\(\s*IPC\.(\w+)/g)].map((trouve) => trouve[1]),
     );
 
     for (const [nom, cle] of Object.entries(IPC)) {
-      if (cle === IPC.fetchProgress) continue;
+      if (cle === IPC.fetchProgress || cle === IPC.veilleProgress) continue;
       expect(
         geres.has(nom),
         `aucun ipcMain.handle(IPC.${nom}, ...) trouve dans main.ts pour le canal "${cle}"`,

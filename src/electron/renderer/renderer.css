@@ -207,6 +207,156 @@ h2 {
 }
 
 /*
+ * Veille s3s. Le bouton prend l'accent quand elle tourne, avec une pastille
+ * qui bat : on doit voir d'un coup d'oeil qu'une veille est en cours.
+ */
+.bouton-veille--active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.bouton-veille--active::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: 1px;
+  animation: veille-pouls 1.6s ease-in-out infinite;
+}
+
+@keyframes veille-pouls {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bouton-veille--active::before {
+    animation: none;
+  }
+}
+
+.veille {
+  margin: 0 0 18px;
+  padding: 10px 14px 12px;
+  border: 2px solid var(--trait);
+  border-radius: 14px;
+  background: var(--fond-panneau);
+  font-size: 13px;
+}
+
+.veille__etat {
+  margin: 0;
+  color: var(--texte);
+}
+
+.veille__etat--erreur {
+  color: var(--erreur);
+}
+
+.veille__bilan {
+  margin: 4px 0 0;
+  color: var(--texte-doux);
+}
+
+.veille__parties {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+/* Deux lignes : heure, stage et resultat ; puis l'envoi. Le lien a droite. */
+.veille__partie {
+  display: grid;
+  grid-template-columns: 3.2em 1fr auto;
+  grid-template-areas:
+    "heure quoi lien"
+    "heure statut lien";
+  align-items: center;
+  column-gap: 10px;
+  padding: 4px 8px;
+  border-left: 4px solid var(--trait);
+  border-radius: 6px;
+  transition: background-color 0.6s;
+}
+
+.veille__partie + .veille__partie {
+  margin-top: 3px;
+}
+
+.veille__partie--victoire {
+  border-left-color: var(--victoire);
+}
+
+.veille__partie--defaite {
+  border-left-color: var(--defaite);
+}
+
+.veille__partie--nouvelle {
+  background: rgba(234, 255, 61, 0.14);
+}
+
+.veille__heure {
+  grid-area: heure;
+  color: var(--texte-doux);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.veille__quoi {
+  grid-area: quoi;
+}
+
+.veille__statut {
+  grid-area: statut;
+  color: var(--texte-doux);
+  font-size: 12px;
+}
+
+.veille__lien {
+  grid-area: lien;
+}
+
+.veille__partie--envoyee .veille__statut {
+  color: var(--victoire);
+}
+
+.veille__partie--echec .veille__statut {
+  color: var(--erreur);
+}
+
+.sessions .veille__lien {
+  font-size: 11.5px;
+  padding: 2px 8px 1px;
+}
+
+.veille__journal {
+  margin-top: 8px;
+}
+
+.veille__journal summary {
+  cursor: pointer;
+  color: var(--texte-doux);
+}
+
+.veille__journal pre {
+  max-height: 200px;
+  overflow: auto;
+  margin: 6px 0 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--fond-champ);
+  font-size: 11.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/*
  * Quitter : un rond en haut a droite, sous la bande quand elle est la (les
  * boutons du systeme occupent son coin droit).
  */

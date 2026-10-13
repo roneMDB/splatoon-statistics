@@ -59,6 +59,7 @@ import { outilsDePlanche } from "./planchePhotographe.ts";
 import { chargeLHabillage } from "../report/pictos.ts";
 import { MOTIF_SCOTCH } from "../report/texture.ts";
 import { creeLaSauvegarde, destinationDeSauvegarde } from "../sauvegarde.ts";
+import { creeLaVeille } from "./veilleHandler.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -492,6 +493,28 @@ ipcMain.handle(IPC.quitApp, () => {
   app.quit();
 });
 
+/**
+ * Veille s3s (voir `src/veille.ts`). Une seule pour l'application : son etat
+ * survit a un rechargement de la fenetre, qui le relit par `veilleEtat`.
+ * Chaque changement part a toutes les fenetres ouvertes.
+ */
+const veille = creeLaVeille({
+  lance: spawn,
+  plateforme: process.platform,
+  reglage: REGLAGES.veille,
+  onChange: (etat) => {
+    for (const fenetre of BrowserWindow.getAllWindows()) {
+      if (!fenetre.webContents.isDestroyed()) fenetre.webContents.send(IPC.veilleProgress, etat);
+    }
+  },
+});
+
+ipcMain.handle(IPC.veilleEtat, () => veille.etat());
+
+ipcMain.handle(IPC.veilleStart, () => veille.demarre());
+
+ipcMain.handle(IPC.veilleStop, () => veille.arrete());
+
 /*
  * Reglages. Les constantes du noyau (types, seuils, dossiers) sont lues une
  * fois, au chargement des modules : un reglage enregistre ne s'applique qu'au
@@ -548,12 +571,25 @@ void app.whenReady().then(() => {
   });
 });
 
+/** Vrai une fois l'arret de la veille demande par la fermeture. */
+let veilleArreteeAvantDeQuitter = false;
+
 /**
  * Une sauvegarde programmee ou en cours part avant de quitter, plutot que
  * d'attendre le prochain demarrage. Un echec ne retient pas la fermeture :
  * `lanceMaintenant` ne rejette jamais.
  */
 app.on("before-quit", (evenement) => {
+  // Une veille qui tourne recoit son Ctrl+C avant la fermeture : elle finit
+  // sa verification finale seule, sa sortie allant au journal sur disque
+  // (voir `scriptDeLancement`). On n'attend que la transmission de l'arret,
+  // et une seule fois : un arret refuse ne doit pas retenir la fermeture.
+  if (veille.etat().statut === "en-cours" && !veilleArreteeAvantDeQuitter) {
+    veilleArreteeAvantDeQuitter = true;
+    evenement.preventDefault();
+    void veille.arrete().then(() => app.quit());
+    return;
+  }
   if (!sauvegarde.enAttente()) return;
   evenement.preventDefault();
   void sauvegarde.lanceMaintenant().then(() => app.quit());

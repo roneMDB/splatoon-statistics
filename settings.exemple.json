@@ -36,5 +36,9 @@
   "sauvegarde": {
     "automatique": true,
     "dossier": ""
+  },
+  "veille": {
+    "commande": "s3s-sync -r -M 60",
+    "distribution": ""
   }
 }

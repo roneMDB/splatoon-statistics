@@ -45,6 +45,27 @@ statistiques et leurs trois pièces d'équipement, les médailles, le score et l
 On passe d'une manche à l'autre sans revenir en arrière, et un bouton ouvre la page
 stat.ink du match.
 
+### Veille s3s
+
+Le bouton **Lancer la veille s3s**, en haut de la colonne des sessions, lance
+`s3s-sync -r -M 60` dans WSL : vos parties partent sur stat.ink au fil de la
+session, sans terminal ouvert. Sous le bouton, l'application dit où en est la
+veille (rattrapage, attente avec le décompte avant la prochaine vérification,
+rafraîchissement des jetons) et liste chaque partie détectée : heure, stage,
+résultat, puis « envoyée ✓ » avec un lien vers stat.ink, ou « échec de l'envoi ».
+Un journal dépliable montre la sortie brute.
+
+**Arrêter la veille** revient à faire Ctrl+C : s3s fait sa vérification finale,
+puis l'envoi vers splashcat.ink a lieu, ce qui peut prendre une minute ou plus.
+Fermer l'application pendant une veille l'arrête de la même façon ; elle se
+termine seule, et sa sortie complète reste dans
+`~/.cache/splatoon-statistics/veille.log`. Si une synchro tourne déjà (le cron),
+la veille ne démarre pas et l'application le dit.
+
+La commande et la distribution WSL se changent dans les réglages (clé `veille`).
+Depuis Windows, la commande passe par `wsl.exe` ; sous WSL, elle est lancée
+directement.
+
 ### Application Windows
 
 ```bash
@@ -398,6 +419,7 @@ Les valeurs par défaut se règlent dans un fichier `settings.json`, à la racin
 | `dossiers` | `sessions`, `planches` et `pictos`. |
 | `seuils` | Les seuils de rédaction du compte rendu (voir `src/report/seuils.ts`). Les nombres de manches, secondes et médailles sont des entiers d'au moins 1. `partDeSessionReguliere` et `baisseDeRegimeRelative` sont des parts comprises entre 0 (exclu) et 1. |
 | `sauvegarde` | `automatique` (vrai par défaut) : copie après chaque modification et au démarrage. `dossier` : destination, vide pour `Mon Drive\Splatoon Statistics`. Voir « Sauvegarde et restauration ». |
+| `veille` | `commande` : ce que lance le bouton « Lancer la veille s3s », dans un shell bash de connexion (`s3s-sync -r -M 60` par défaut). `distribution` : distribution WSL visée depuis Windows, vide pour celle par défaut. |
 | `objectifsParArme` | Mes objectifs par arme, par clé stat.ink (`nzap85`) : `mortsMax` et/ou `speciauxMin`, entiers positifs ou nuls. Jugés manche par manche, sur les seules manches jouées avec l'arme. Une manche écourtée (un KO) est jugée au prorata du temps joué sur une manche entière (5 minutes, 3 en guerre de territoire), morts arrondies vers le bas et spéciaux vers le haut ; une prolongation ne remonte pas les objectifs ; une manche de moins d'une minute n'est pas jugée. Le bulletin de rôle et l'en-tête comptent les manches tenues, et les cartes de la planche marquent mes morts et spéciaux en jaune (tenu) ou en rose souligné (manqué), avec l'objectif ajusté à côté sur une manche écourtée.
 
 La lecture est stricte : une clé inconnue ou une valeur invalide arrête le programme avec un message qui la nomme, plutôt que d'être ignorée en silence. Retirer un type de la liste n'empêche pas de relire les sessions déjà enregistrées sous ce type. La variable `SPLATOON_SETTINGS` désigne un autre fichier ; vide, elle désactive la lecture (c'est ce que font les tests).
@@ -504,6 +526,7 @@ structure, types et valeurs dont le code dépend.
 | `src/battleRows.ts` | Vue allégée d'un match : ce que la fenêtre affiche, traduit |
 | `src/battleDetail.ts` | Détail d'une manche, à la demande |
 | `src/lienExterne.ts` | Ce qu'on accepte d'ouvrir, et si la machine sait le faire |
+| `src/veille.ts` | Veille s3s : commandes de lancement et d'arrêt, lecture de la sortie de s3s |
 | `src/wsl.ts` | Détection de WSL et conversion de chemin, pures et testables |
 | `src/revelePlanche.ts` | Si `explorer.exe` est atteignable, pour révéler la planche sous WSL |
 | `src/report/analyse.ts` | Réduit une session en chiffres. Ne rédige rien |
@@ -521,6 +544,7 @@ structure, types et valeurs dont le code dépend.
 | `src/electron/preload.cts` | Pont vers la fenêtre. Autonome : le bac à sable ne résout aucun module local |
 | `src/electron/sessionFetchHandler.ts` | Récupération pilotée par le formulaire, sans Electron |
 | `src/electron/plancheHandler.ts` | Fabrique la planche : capture injectée, testable sans Chromium. Reprise jusqu'à 5 fois |
+| `src/electron/veilleHandler.ts` | Fait tourner la veille s3s : un processus, lancé et arrêté à la demande |
 | `src/electron/planchePhotographe.ts` | Capture Electron réelle : fenêtre hors écran, presse-papier |
 | `src/electron/renderer/` | La fenêtre : HTML, CSS, JavaScript simple, non transpilé mais vérifié |
 | `src/electron/renderer/renderer.js` | Point d'entrée : charge les modules, habille la fenêtre, remplit les listes |
@@ -532,6 +556,7 @@ structure, types et valeurs dont le code dépend.
 | `src/electron/renderer/manche.js` | Détail d'une manche |
 | `src/electron/renderer/compteRendu.js` | Compte rendu et planche |
 | `src/electron/renderer/reglages.js` | Écran des réglages |
+| `src/electron/renderer/veille.js` | Bouton et suivi de la veille s3s |
 | `src/electron/renderer/markdown.js` | Rendu de l'aperçu. Moitié pure testée, DOM sans `innerHTML` |
 
 Le noyau ignore laquelle des deux façades l'appelle. Les modules `src/electron/`

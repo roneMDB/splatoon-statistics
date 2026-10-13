@@ -42,7 +42,23 @@
           <button type="button" class="bouton--discret" id="bouton-dossier-planches">
             Dossier des planches
           </button>
+          <button type="button" class="bouton--discret bouton-veille" id="bouton-veille" hidden>
+            Lancer la veille s3s
+          </button>
         </div>
+        <!--
+          Suivi de la veille s3s : ce qu'elle fait, et chaque partie envoyee a
+          stat.ink. Cache tant qu'aucune veille n'a tourne.
+        -->
+        <section class="veille" id="veille" aria-label="Veille s3s" hidden>
+          <p class="veille__etat" id="veille-etat" aria-live="polite"></p>
+          <p class="veille__bilan" id="veille-bilan"></p>
+          <ol class="veille__parties" id="veille-parties"></ol>
+          <details class="veille__journal">
+            <summary>Journal</summary>
+            <pre id="veille-journal"></pre>
+          </details>
+        </section>
         <header class="sessions__entete">
           <h1 id="titre-sessions">Sessions</h1>
           <p class="sessions__compte" id="sessions-compte"></p>
@@ -168,6 +184,32 @@
                 <button type="button" class="bouton--discret" id="bouton-sauvegarde-dossier">
                   Ouvrir le dossier
                 </button>
+              </div>
+            </fieldset>
+
+            <fieldset class="reglages__groupe">
+              <legend>Veille s3s</legend>
+              <p class="reglages__aide">
+                Commande lancée par le bouton « Lancer la veille s3s », dans WSL. L'arrêter revient
+                à faire Ctrl+C : s3s fait sa vérification finale avant de s'arrêter. Sortie
+                complète de la dernière veille : <code>~/.cache/splatoon-statistics/veille.log</code>.
+              </p>
+              <div class="champ">
+                <label for="reglage-veille-commande">Commande</label>
+                <input type="text" id="reglage-veille-commande" autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="champ">
+                <label for="reglage-veille-distribution">Distribution WSL</label>
+                <input
+                  type="text"
+                  id="reglage-veille-distribution"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="Distribution par défaut"
+                />
+                <p class="reglages__aide">
+                  Utile sous Windows seulement. Vide : celle que <code>wsl.exe</code> ouvre par défaut.
+                </p>
               </div>
             </fieldset>
 

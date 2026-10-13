@@ -190,6 +190,8 @@ function remplisLesReglages(reglages) {
   elements.reglageDossierPictos.value = reglages.dossiers.pictos;
   elements.reglageSauvegardeAuto.checked = reglages.sauvegarde.automatique;
   elements.reglageSauvegardeDossier.value = reglages.sauvegarde.dossier;
+  elements.reglageVeilleCommande.value = reglages.veille.commande;
+  elements.reglageVeilleDistribution.value = reglages.veille.distribution;
   for (const champ of elements.reglagesSeuils.querySelectorAll("input")) {
     const { cle = "", unite = "" } = champ.dataset;
     champ.value = String(versLEcran(parCle(reglages.seuils)[cle] ?? Number.NaN, unite));
@@ -232,6 +234,10 @@ function lisLesReglages() {
     sauvegarde: {
       automatique: elements.reglageSauvegardeAuto.checked,
       dossier: elements.reglageSauvegardeDossier.value,
+    },
+    veille: {
+      commande: elements.reglageVeilleCommande.value,
+      distribution: elements.reglageVeilleDistribution.value,
     },
   };
 }

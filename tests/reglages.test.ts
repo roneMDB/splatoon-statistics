@@ -222,3 +222,31 @@ describe("sauvegarde", () => {
     expect(ecartAuxDefauts(reglages)).toEqual({ sauvegarde: { automatique: false } });
   });
 });
+
+describe("veille", () => {
+  test("lance s3s-sync en veille par defaut, dans la distribution WSL par defaut", () => {
+    expect(valideLesReglages({}).veille).toEqual({ commande: "s3s-sync -r -M 60", distribution: "" });
+  });
+
+  test("accepte une autre commande et une distribution nommee, espaces de bord retires", () => {
+    expect(valideLesReglages({ veille: { commande: " s3s-sync -r -M 120 ", distribution: " Ubuntu-24.04 " } }).veille).toEqual({
+      commande: "s3s-sync -r -M 120",
+      distribution: "Ubuntu-24.04",
+    });
+  });
+
+  test.each([
+    [{ commande: "" }, /"veille"\.commande : texte non vide/],
+    [{ distribution: "Ubuntu; rm -rf ~" }, /"veille"\.distribution : nom de distribution WSL/],
+    [{ distribution: 3 }, /"veille"\.distribution/],
+    [{ intervalle: 60 }, /clé inconnue "intervalle"/],
+    ["s3s-sync", /objet attendu/],
+  ])("refuse %j", (veille, message) => {
+    expect(() => valideLesReglages({ veille })).toThrow(message);
+  });
+
+  test("ne s'ecrit que si elle differe des defauts", () => {
+    const reglages = valideLesReglages({ veille: { commande: "s3s-sync -r -M 120" } });
+    expect(ecartAuxDefauts(reglages)).toEqual({ veille: { commande: "s3s-sync -r -M 120" } });
+  });
+});
