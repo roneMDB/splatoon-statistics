@@ -90,7 +90,7 @@ export class Registre {
 }
 
 /** Polices du jeu, si `npm run pictos` les a recuperees. */
-function polices(pictos: Pictos): string {
+export function polices(pictos: Pictos): string {
   const familles: [famille: string, cle: string][] = [
     ["Splatoon Titre", "titre"],
     ["Splatoon Texte", "texte"],
@@ -110,8 +110,8 @@ function polices(pictos: Pictos): string {
  * jeu, l'en-tete garde l'allure des cartes. Les deux polices du jeu portent
  * tous les accents du francais (verifie sur leur table `cmap`).
  */
-const TITRE = `"Splatoon Titre", "Lato Black", "Lato", "DejaVu Sans", sans-serif`;
-const TEXTE = `"Splatoon Texte", "Lato", "DejaVu Sans", "Noto Sans", sans-serif`;
+export const TITRE = `"Splatoon Titre", "Lato Black", "Lato", "DejaVu Sans", sans-serif`;
+export const TEXTE = `"Splatoon Texte", "Lato", "DejaVu Sans", "Noto Sans", sans-serif`;
 
 /** Bornes du nombre de colonnes de la courbe ; au-dela, les tuiles passent a la ligne. */
 const TUILES_MIN = 12;
@@ -137,7 +137,7 @@ const COULEURS_DE_TUILE = REGLES.flatMap(([cle, vive, matte]) => [
  * defaites `#ff6fa1`, texte sombre `#0e0f18` sur le jaune et sur le blanc. Les
  * tuiles suivent la regle des cartes : sombre sur vive, clair sur matte.
  */
-const STYLE_FIXE = `
+export const STYLE_FIXE = `
 .entete { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 22px 24px; margin-bottom: 30px; }
 .entete .plein { grid-column: 1 / -1; }
 .sticker {
@@ -296,7 +296,7 @@ ${COULEURS_DE_TUILE}
 `.trim();
 
 /** Un sticker : l'enveloppe au contour, le corps decoupe, une etiquette. */
-function sticker(contenu: string, options: { etiquette?: string; plein?: boolean; classe?: string } = {}): string {
+export function sticker(contenu: string, options: { etiquette?: string; plein?: boolean; classe?: string } = {}): string {
   const classes = ["sticker", ...(options.plein ? ["plein"] : []), ...(options.classe ? [options.classe] : [])];
   const etiquette = options.etiquette === undefined ? "" : `<p class="etiquette">${echappe(options.etiquette)}</p>`;
   return `<div class="${classes.join(" ")}"><div class="sticker__corps">${etiquette}${contenu}</div></div>`;

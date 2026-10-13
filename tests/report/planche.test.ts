@@ -498,6 +498,12 @@ describe("construisLaPlanche", () => {
 });
 
 describe("construisLesPages", () => {
+  /**
+   * Une session sans equipe en face : ces tests portent sur les pages de
+   * manches et la synthese, pas sur le tableau de match, teste plus bas.
+   */
+  const sansTableau = (battles: StatinkBattle[]) => session(battles, { type: "open" });
+
   /** `n` manches, d'uuid distincts : le rang se lit dans le bandeau. */
   const manches = (n: number) =>
     Array.from({ length: n }, (_, i) => battle(`a${String(i).padStart(3, "0")}`, i % 2 === 0 ? "win" : "lose"));
@@ -508,7 +514,7 @@ describe("construisLesPages", () => {
 
   test("range les manches par pages de MANCHES_PAR_PAGE, sans en perdre ni en repeter", () => {
     const n = 7 * MANCHES_PAR_PAGE + 1;
-    const pages = construisLesPages(session(manches(n)));
+    const pages = construisLesPages(sansTableau(manches(n)));
 
     expect(pages).toHaveLength(8);
     expect(pages.flatMap((page) => numeros(page.html))).toEqual(
@@ -518,7 +524,7 @@ describe("construisLesPages", () => {
   });
 
   test("nomme les pages dans l'ordre, avec les manches qu'elles portent", () => {
-    const pages = construisLesPages(session(manches(MANCHES_PAR_PAGE + 1)));
+    const pages = construisLesPages(sansTableau(manches(MANCHES_PAR_PAGE + 1)));
     expect(pages.map((page) => page.nom)).toEqual([
       `01-manches-1-${MANCHES_PAR_PAGE}`,
       `02-manches-${MANCHES_PAR_PAGE + 1}-${MANCHES_PAR_PAGE + 1}`,
@@ -526,7 +532,7 @@ describe("construisLesPages", () => {
   });
 
   test("une page de manches est etroite, a une colonne, et sa largeur atteint la feuille", () => {
-    const [page] = construisLesPages(session(manches(2)));
+    const [page] = construisLesPages(sansTableau(manches(2)));
     expect(page!.largeur).toBe(LARGEUR_PAGE_MANCHES);
     expect(page!.html).toContain(`width: ${LARGEUR_PAGE_MANCHES}px`);
     expect(page!.html).toContain('<main class="planche__grille planche__grille--colonne">');
@@ -534,18 +540,18 @@ describe("construisLesPages", () => {
   });
 
   test("chaque page de manches se lit seule : titre, rang des manches et legende", () => {
-    const pages = construisLesPages(session(manches(MANCHES_PAR_PAGE + 2)));
+    const pages = construisLesPages(sansTableau(manches(MANCHES_PAR_PAGE + 2)));
     const total = MANCHES_PAR_PAGE + 2;
 
     for (const page of pages) {
-      expect(page.html).toContain("Intra du 04/08 — Équipe O");
+      expect(page.html).toContain("Open du 04/08 — Équipe O");
       expect(page.html.match(/class="planche__legende"/g)).toHaveLength(1);
     }
     expect(pages[1]!.html).toContain(`Manches ${MANCHES_PAR_PAGE + 1} à ${total} sur ${total}`);
   });
 
   test("avec l'en-tete, une page de synthese large ouvre la serie, sans carte", () => {
-    const pages = construisLesPages(session(manches(2)), { entete: { sections: [] } });
+    const pages = construisLesPages(sansTableau(manches(2)), { entete: { sections: [] } });
 
     expect(pages.map((page) => page.nom)).toEqual(["00-synthese", "01-manches-1-2"]);
     const [synthese, suivante] = pages;
@@ -569,7 +575,7 @@ describe("construisLesPages", () => {
       their_team_members: [],
     } as unknown as Partial<StatinkBattle>);
     const liste = [...manches(MANCHES_PAR_PAGE), autre];
-    const pages = construisLesPages(session(liste), { pictos });
+    const pages = construisLesPages(sansTableau(liste), { pictos });
 
     expect(pages[0]!.html).toContain(".picto--speciales-greatbarrier {");
     expect(pages[0]!.html).not.toContain(".picto--speciales-jetpack {");
@@ -577,7 +583,7 @@ describe("construisLesPages", () => {
   });
 
   test("aucune page ne charge de ressource externe", () => {
-    const pages = construisLesPages(session(manches(4)), { entete: { sections: [] } });
+    const pages = construisLesPages(sansTableau(manches(4)), { entete: { sections: [] } });
     for (const { html } of pages) {
       expect(html).not.toMatch(/<script|<link|<img|@import|https?:/i);
       expect(html).toContain('<meta http-equiv="Content-Security-Policy"');
@@ -585,13 +591,13 @@ describe("construisLesPages", () => {
   });
 
   test("une session vide donne une page, pour que la fabrication rende quelque chose", () => {
-    const pages = construisLesPages(session([]));
+    const pages = construisLesPages(sansTableau([]));
     expect(pages).toHaveLength(1);
     expect(pages[0]!.html).toContain("</html>");
   });
 
   test("est deterministe", () => {
-    const fichier = session(manches(5));
+    const fichier = sansTableau(manches(5));
     expect(construisLesPages(fichier)).toEqual(construisLesPages(fichier));
   });
 });

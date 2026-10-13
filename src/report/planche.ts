@@ -46,6 +46,8 @@ import { jugeLaManche } from "./objectifs.ts";
 import { REGLES, regleConnue } from "./regles.ts";
 import { OBJECTIFS_PAR_ARME } from "./seuils.ts";
 import { MOTIF_SCOTCH } from "./texture.ts";
+import { tableauDeMatchEnHtml } from "./tableauDeMatch.ts";
+import { TYPES_AVEC_EQUIPES } from "../sessionMeta.ts";
 
 /**
  * Largeur de rendu, en pixels CSS. La capture ouvre sa fenetre a cette
@@ -721,7 +723,8 @@ export type PagePlanche = { nom: string; html: string; largeur: number };
  * photographie. Voir `LARGEUR_PAGE_MANCHES` pour la raison du decoupage.
  *
  * Avec l'en-tete, une page de synthese l'ouvre, a la largeur de la planche
- * entiere pour laquelle `entete.ts` est dessine. Viennent ensuite les manches,
+ * entiere pour laquelle `entete.ts` est dessine. En intra, scrim ou compet, le
+ * tableau de match suit, a la meme largeur. Viennent ensuite les manches,
  * `MANCHES_PAR_PAGE` par page. Chaque page porte le titre et la legende : dans
  * une galerie Discord, elle peut etre vue seule. Chacune a aussi son propre
  * registre de pictos, pour n'embarquer que ceux qu'elle montre.
@@ -744,6 +747,19 @@ export function construisLesPages(file: SessionFile, options: OptionsPlanche = {
       nom: "00-synthese",
       largeur: LARGEUR_PLANCHE,
       html: documentEnHtml({ titre, largeur: LARGEUR_PLANCHE, polices: true, styles: [entete.style], corps: [entete.html] }),
+    });
+  }
+
+  // Une session jouee contre une equipe a aussi son tableau de match, neutre,
+  // a poster pour les deux camps (voir `tableauDeMatch.ts`). Quel que soit
+  // l'en-tete : l'un est mon bulletin, l'autre ne parle de personne en
+  // particulier. Son nom le range apres la synthese dans l'explorateur.
+  if (file.type !== undefined && TYPES_AVEC_EQUIPES.includes(file.type) && details.length > 0) {
+    const tableau = tableauDeMatchEnHtml(file, analyse, pictos);
+    pages.push({
+      nom: "00-tableau-match",
+      largeur: LARGEUR_PLANCHE,
+      html: documentEnHtml({ titre, largeur: LARGEUR_PLANCHE, polices: true, styles: [tableau.style], corps: [tableau.html] }),
     });
   }
 

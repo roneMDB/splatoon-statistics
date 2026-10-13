@@ -285,7 +285,7 @@ async function photographie(page: PagePlanche, outils: OutilsDePlanche): Promise
  *
  * Les PNG sont toujours ecrits, meme quand le presse-papier a fonctionne :
  * c'est le chemin fiable, le presse-papier n'est que le raccourci, et il ne
- * porte qu'une image - la premiere, la synthese quand il y en a une. Il ne
+ * porte qu'une image - la premiere : la synthese quand il y en a une, a defaut le tableau de match. Il ne
  * doit jamais faire echouer la fabrication : un rejet de `copie`
  * (implementation defaillante, presse-papier indisponible) vaut
  * "indisponible", jamais une exception - les fichiers sont deja ecrits, ils ne
