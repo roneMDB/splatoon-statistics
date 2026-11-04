@@ -224,21 +224,31 @@ describe("sauvegarde", () => {
 });
 
 describe("veille", () => {
-  test("lance s3s-sync en veille par defaut, dans la distribution WSL par defaut", () => {
-    expect(valideLesReglages({}).veille).toEqual({ commande: "s3s-sync -r -M 60", distribution: "" });
+  test("lance s3s-sync en veille par defaut, dans la distribution WSL par defaut, des l'ouverture", () => {
+    expect(valideLesReglages({}).veille).toEqual({
+      commande: "s3s-sync -r -M 60",
+      distribution: "",
+      auDemarrage: true,
+    });
   });
 
   test("accepte une autre commande et une distribution nommee, espaces de bord retires", () => {
     expect(valideLesReglages({ veille: { commande: " s3s-sync -r -M 120 ", distribution: " Ubuntu-24.04 " } }).veille).toEqual({
       commande: "s3s-sync -r -M 120",
       distribution: "Ubuntu-24.04",
+      auDemarrage: true,
     });
+  });
+
+  test("le lancement a l'ouverture se coupe", () => {
+    expect(valideLesReglages({ veille: { auDemarrage: false } }).veille.auDemarrage).toBe(false);
   });
 
   test.each([
     [{ commande: "" }, /"veille"\.commande : texte non vide/],
     [{ distribution: "Ubuntu; rm -rf ~" }, /"veille"\.distribution : nom de distribution WSL/],
     [{ distribution: 3 }, /"veille"\.distribution/],
+    [{ auDemarrage: "oui" }, /"veille"\.auDemarrage : true ou false attendu/],
     [{ intervalle: 60 }, /clé inconnue "intervalle"/],
     ["s3s-sync", /objet attendu/],
   ])("refuse %j", (veille, message) => {

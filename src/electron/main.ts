@@ -6,7 +6,7 @@
  * et restent donc testables hors-ligne. Ici, seulement du cablage.
  */
 
-import { app, BrowserWindow, clipboard, ipcMain, shell } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain, Notification, shell } from "electron";
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
@@ -60,6 +60,7 @@ import { chargeLHabillage } from "../report/pictos.ts";
 import { MOTIF_SCOTCH } from "../report/texture.ts";
 import { creeLaSauvegarde, destinationDeSauvegarde } from "../sauvegarde.ts";
 import { creeLaVeille } from "./veilleHandler.ts";
+import type { AlerteDeVeille } from "../veille.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -493,6 +494,42 @@ ipcMain.handle(IPC.quitApp, () => {
   app.quit();
 });
 
+/** Ce que la notification dit de chaque alerte de la veille. */
+const NOTIFICATIONS_DE_VEILLE: Record<AlerteDeVeille, { title: string; body: string }> = {
+  "splatnet-inaccessible": {
+    title: "Veille s3s bloquée",
+    body: "STU n'arrive pas à ouvrir SplatNet3 : la session Nintendo est peut-être perdue. Voir l'application.",
+  },
+  "jetons-introuvables": {
+    title: "Veille s3s : jetons introuvables",
+    body: "STU a abandonné. Reconnectez la Nintendo Switch App dans l'émulateur, puis relancez la veille.",
+  },
+};
+
+/**
+ * Previent d'une alerte que la fenetre est peut-etre cachee : notification du
+ * systeme, et icone qui clignote dans la barre des taches, qui se voit meme
+ * quand Windows ne montre pas la notification.
+ */
+function previensDeLAlerte(alerte: AlerteDeVeille): void {
+  const fenetre = BrowserWindow.getAllWindows()[0];
+  if (fenetre !== undefined && !fenetre.isFocused()) fenetre.flashFrame(true);
+  if (!Notification.isSupported()) return;
+  const notification = new Notification({
+    ...NOTIFICATIONS_DE_VEILLE[alerte],
+    icon: join(here, "renderer", "icone.png"),
+  });
+  notification.on("click", () => {
+    if (fenetre === undefined || fenetre.isDestroyed()) return;
+    if (fenetre.isMinimized()) fenetre.restore();
+    fenetre.focus();
+  });
+  notification.show();
+}
+
+/** Derniere alerte annoncee : on ne previent qu'a son apparition, ou quand elle s'aggrave. */
+let alerteAnnoncee: AlerteDeVeille | undefined;
+
 /**
  * Veille s3s (voir `src/veille.ts`). Une seule pour l'application : son etat
  * survit a un rechargement de la fenetre, qui le relit par `veilleEtat`.
@@ -506,6 +543,8 @@ const veille = creeLaVeille({
     for (const fenetre of BrowserWindow.getAllWindows()) {
       if (!fenetre.webContents.isDestroyed()) fenetre.webContents.send(IPC.veilleProgress, etat);
     }
+    if (etat.alerte !== undefined && etat.alerte !== alerteAnnoncee) previensDeLAlerte(etat.alerte);
+    alerteAnnoncee = etat.alerte;
   },
 });
 
@@ -514,6 +553,10 @@ ipcMain.handle(IPC.veilleEtat, () => veille.etat());
 ipcMain.handle(IPC.veilleStart, () => veille.demarre());
 
 ipcMain.handle(IPC.veilleStop, () => veille.arrete());
+
+ipcMain.handle(IPC.veilleCapture, (_event, chemin: unknown) =>
+  typeof chemin === "string" ? veille.capture(chemin) : undefined,
+);
 
 /*
  * Reglages. Les constantes du noyau (types, seuils, dossiers) sont lues une
@@ -564,6 +607,8 @@ void app.whenReady().then(() => {
   createWindow();
   // Rattrapage : recopie ce qu'une session precedente n'aurait pas pu copier.
   sauvegarde.demande();
+  // Si le cron tient deja la synchro, la veille cede la place et le dit.
+  if (REGLAGES.veille.auDemarrage) veille.demarre();
 
   // Sous macOS, cliquer l'icone du dock rouvre une fenetre sans relancer l'appli.
   app.on("activate", () => {

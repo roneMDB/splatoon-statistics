@@ -12,6 +12,7 @@ import {
   lisLigne,
   nettoieLaLigne,
   scriptDArret,
+  scriptDeCapture,
   scriptDeLancement,
   TAILLE_DU_JOURNAL,
   type EtatDeVeille,
@@ -147,6 +148,18 @@ describe("lisLigne : les messages de s3s.py, recopies tels quels", () => {
     expect(lisLigne("Error uploading battle. (ID: VnNIaXN0b3J5)")).toEqual({ type: "echec-envoi", nature: "battle" });
   });
 
+  test("les echecs de STU, et la capture qu'il laisse", () => {
+    expect(lisLigne("Could not open SplatNet3 app in 3 attempts.")).toEqual({ type: "splatnet-inaccessible" });
+    expect(lisLigne("Could not find all requested tokens in 16 attempts, application will stop now.")).toEqual({
+      type: "jetons-introuvables",
+    });
+    expect(
+      lisLigne(
+        'A screenshot with SplatNet3 opened was saved to "/home/erwan/repositories/splatnet3-token-util/2026-11-04_13-42-28.png".',
+      ),
+    ).toEqual({ type: "capture", chemin: "/home/erwan/repositories/splatnet3-token-util/2026-11-04_13-42-28.png" });
+  });
+
   test("les couleurs du terminal sont retirees avant lecture", () => {
     expect(nettoieLaLigne("\x1b[93m\x1b[1ms3s\x1b[0m\x1b[93m v0.7.0\x1b[0m  ")).toBe("s3s v0.7.0");
   });
@@ -222,5 +235,46 @@ describe("appliqueLaLigne", () => {
 
   test("retient qu'une synchro tournait deja", () => {
     expect(rejoue(["2026-10-13 21:40:00 : une synchro est déjà en cours, on passe."]).dejaEnCours).toBe(true);
+  });
+
+  test("SplatNet3 qui ne s'ouvre pas leve une alerte, avec la capture de l'emulateur", () => {
+    const etat = rejoue([
+      "Booting emulator...",
+      "Opening SplatNet3 - attempt 3/3 failed.",
+      "Could not open SplatNet3 app in 3 attempts.",
+      'A screenshot with SplatNet3 opened was saved to "/stu/2026-11-04_13-42-28.png".',
+    ]);
+    expect(etat).toMatchObject({ phase: "jetons", alerte: "splatnet-inaccessible", capture: "/stu/2026-11-04_13-42-28.png" });
+  });
+
+  test("l'abandon de STU l'emporte, et la capture reste", () => {
+    const etat = rejoue([
+      "Could not open SplatNet3 app in 3 attempts.",
+      'A screenshot with SplatNet3 opened was saved to "/stu/a.png".',
+      "Could not find all requested tokens in 16 attempts, application will stop now.",
+    ]);
+    expect(etat).toMatchObject({ alerte: "jetons-introuvables", capture: "/stu/a.png" });
+  });
+
+  test("l'alerte tombe des que s3s repart avec des jetons valides", () => {
+    const alerte = rejoue([
+      "Could not open SplatNet3 app in 3 attempts.",
+      'A screenshot with SplatNet3 opened was saved to "/stu/a.png".',
+      "Booting emulator...",
+    ]);
+    expect(alerte.alerte).toBe("splatnet-inaccessible");
+    const repartie = appliqueLaLigne(alerte, "Checking if there are previously-unuploaded battles/jobs...");
+    expect(repartie.alerte).toBeUndefined();
+    expect(repartie.capture).toBeUndefined();
+  });
+});
+
+describe("scriptDeCapture", () => {
+  test("lit une capture PNG en base64, chemin entre guillemets", () => {
+    expect(scriptDeCapture("/stu/l'écran.png")).toBe(`base64 -w0 -- '/stu/l'\\''écran.png'`);
+  });
+
+  test.each(["relatif.png", "/stu/journal.txt", ""])("refuse %j : pas une capture de STU", (chemin) => {
+    expect(scriptDeCapture(chemin)).toBeUndefined();
   });
 });

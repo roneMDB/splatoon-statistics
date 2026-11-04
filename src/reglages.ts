@@ -80,8 +80,9 @@ export type Reglages = {
   /**
    * Veille s3s lancee par le bouton de la fenetre (voir `src/veille.ts`).
    * `distribution` vide : la distribution WSL par defaut, depuis Windows.
+   * `auDemarrage` : la veille part seule a l'ouverture de l'application.
    */
-  veille: { commande: string; distribution: string };
+  veille: { commande: string; distribution: string; auDemarrage: boolean };
 };
 
 export const REGLAGES_PAR_DEFAUT: Reglages = {
@@ -111,7 +112,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   },
   objectifsParArme: {},
   sauvegarde: { automatique: true, dossier: "" },
-  veille: { commande: "s3s-sync -r -M 60", distribution: "" },
+  veille: { commande: "s3s-sync -r -M 60", distribution: "", auDemarrage: true },
 };
 
 /**
@@ -332,7 +333,7 @@ export function valideLesReglages(brut: unknown, source = "settings.json"): Regl
     const ou = `${source}, "veille"`;
     if (!estUnObjet(brut.veille)) throw new Error(`${ou} : objet attendu.`);
     refuseLesClesInconnues(brut.veille, Object.keys(REGLAGES_PAR_DEFAUT.veille), ou);
-    const { commande, distribution } = brut.veille;
+    const { commande, distribution, auDemarrage } = brut.veille;
     if (commande !== undefined) reglages.veille.commande = texteNonVide(commande, `${ou}.commande`);
     if (distribution !== undefined) {
       // Un nom de distribution part en argument de `wsl.exe -d`.
@@ -340,6 +341,10 @@ export function valideLesReglages(brut: unknown, source = "settings.json"): Regl
         throw new Error(`${ou}.distribution : nom de distribution WSL attendu (lettres, chiffres, . _ -), ou vide.`);
       }
       reglages.veille.distribution = distribution.trim();
+    }
+    if (auDemarrage !== undefined) {
+      if (typeof auDemarrage !== "boolean") throw new Error(`${ou}.auDemarrage : true ou false attendu.`);
+      reglages.veille.auDemarrage = auDemarrage;
     }
   }
 

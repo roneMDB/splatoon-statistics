@@ -16,6 +16,7 @@ import {
   etatAuDemarrage,
   etatInitial,
   scriptDArret,
+  scriptDeCapture,
   scriptDeLancement,
   type EtatDeVeille,
   type ReglageDeVeille,
@@ -37,6 +38,8 @@ export type Veille = {
   demarre: () => EtatDeVeille;
   /** Demande l'arret (Ctrl+C) et rend la main sans attendre la fin de la verification finale. */
   arrete: () => Promise<EtatDeVeille>;
+  /** La capture de l'emulateur nommee par STU, en URL `data:` ; `undefined` si elle est illisible. */
+  capture: (chemin: string) => Promise<string | undefined>;
 };
 
 /**
@@ -125,5 +128,24 @@ export function creeLaVeille(dependances: {
     return etat;
   }
 
-  return { etat: () => etat, demarre, arrete };
+  async function capture(chemin: string): Promise<string | undefined> {
+    const script = scriptDeCapture(chemin);
+    if (script === undefined || etat.indisponible) return undefined;
+    const commande = commandeSysteme(plateforme, script, reglage)!;
+    return new Promise((resolve) => {
+      const enfant = lance(commande.fichier, commande.args, OPTIONS);
+      let base64 = "";
+      enfant.stdout?.setEncoding("utf8");
+      enfant.stdout?.on("data", (morceau: string) => {
+        base64 += morceau;
+      });
+      enfant.on("error", () => resolve(undefined));
+      enfant.on("close", (code) => {
+        const propre = base64.trim();
+        resolve(code === 0 && propre !== "" ? `data:image/png;base64,${propre}` : undefined);
+      });
+    });
+  }
+
+  return { etat: () => etat, demarre, arrete, capture };
 }

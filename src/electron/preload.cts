@@ -46,6 +46,7 @@ const CANAUX = {
   veilleStart: "veille:start",
   veilleStop: "veille:stop",
   veilleProgress: "veille:progress",
+  veilleCapture: "veille:capture",
 } as const;
 
 contextBridge.exposeInMainWorld("splatoonApi", {
@@ -105,6 +106,8 @@ contextBridge.exposeInMainWorld("splatoonApi", {
   veilleStart: () => ipcRenderer.invoke(CANAUX.veilleStart),
 
   veilleStop: () => ipcRenderer.invoke(CANAUX.veilleStop),
+
+  veilleCapture: (chemin: string) => ipcRenderer.invoke(CANAUX.veilleCapture, chemin),
 
   /** Abonnement durable : la fenetre suit la veille tant qu'elle est ouverte. */
   onVeilleProgress: (listener: (etat: unknown) => void) => {

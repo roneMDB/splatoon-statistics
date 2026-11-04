@@ -30,6 +30,19 @@ const RESULTATS = { Victory: "Victoire", Defeat: "Défaite", Draw: "Égalité", 
 /** @type {Record<PartieSuivie["statut"], string>} */
 const STATUTS = { envoi: "envoi…", envoyee: "envoyée ✓", deja: "déjà sur stat.ink", echec: "échec de l'envoi" };
 
+/** Ce que l'encart dit de chaque alerte. */
+/** @type {Record<NonNullable<EtatDeVeille["alerte"]>, { titre: string; texte: string }>} */
+const ALERTES = {
+  "splatnet-inaccessible": {
+    titre: "STU n'arrive pas à ouvrir SplatNet3",
+    texte: "Il va réessayer, mais sans fin si la Nintendo Switch App est déconnectée. Ci-dessous, le dernier écran de l'émulateur.",
+  },
+  "jetons-introuvables": {
+    titre: "STU a abandonné : pas de jetons",
+    texte: "La veille ne peut plus rien envoyer. Ci-dessous, le dernier écran de l'émulateur.",
+  },
+};
+
 /** Duree pendant laquelle une partie qui vient d'arriver reste mise en evidence. */
 const DUREE_NOUVELLE_MS = 8000;
 
@@ -40,6 +53,9 @@ let dernierNumeroVu = 0;
 const apparitions = new Map();
 /** Liste affichee, pour ne pas la reconstruire chaque seconde (le decompte). */
 let partiesAffichees = "";
+/** Capture demandee en dernier : l'etat repasse chaque seconde, on ne la relit pas. */
+/** @type {string | undefined} */
+let captureDemandee;
 /** Dernier etat recu, pour retirer la mise en evidence une fois passee. */
 /** @type {EtatDeVeille | undefined} */
 let dernierEtat;
@@ -142,6 +158,35 @@ function ligneDePartie(partie) {
 }
 
 /** @param {EtatDeVeille} etat */
+function afficheLAlerte(etat) {
+  const alerte = etat.alerte;
+  elements.veilleAlerte.hidden = alerte === undefined;
+  if (alerte === undefined) {
+    captureDemandee = undefined;
+    elements.veilleCapture.hidden = true;
+    elements.veilleCapture.removeAttribute("src");
+    return;
+  }
+  elements.veilleAlerteTitre.textContent = ALERTES[alerte].titre;
+  elements.veilleAlerteTexte.textContent = ALERTES[alerte].texte;
+
+  const chemin = etat.capture;
+  if (chemin === captureDemandee) return;
+  captureDemandee = chemin;
+  elements.veilleCapture.hidden = true;
+  if (chemin === undefined) return;
+  void api
+    .veilleCapture(chemin)
+    .then((image) => {
+      // Une capture plus recente a pu etre demandee entre-temps.
+      if (image === undefined || captureDemandee !== chemin) return;
+      elements.veilleCapture.src = image;
+      elements.veilleCapture.hidden = false;
+    })
+    .catch(() => {});
+}
+
+/** @param {EtatDeVeille} etat */
 function affiche(etat) {
   dernierEtat = etat;
   const bouton = elements.boutonVeille;
@@ -160,6 +205,7 @@ function affiche(etat) {
     etat.parties.length > 0 ||
     etat.erreur !== undefined ||
     etat.codeDeSortie !== undefined ||
+    etat.alerte !== undefined ||
     etat.dejaEnCours;
   elements.veille.hidden = !aMontrer;
   if (!aMontrer) return;
@@ -167,6 +213,8 @@ function affiche(etat) {
   const erreur = etat.erreur;
   elements.veilleEtat.textContent = erreur ?? ligneDEtat(etat);
   elements.veilleEtat.classList.toggle("veille__etat--erreur", erreur !== undefined);
+
+  afficheLAlerte(etat);
 
   elements.veilleBilan.textContent = bilan(etat.parties);
 

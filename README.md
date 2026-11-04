@@ -47,13 +47,19 @@ stat.ink du match.
 
 ### Veille s3s
 
-Le bouton **Lancer la veille s3s**, en haut de la colonne des sessions, lance
-`s3s-sync -r -M 60` dans WSL : vos parties partent sur stat.ink au fil de la
-session, sans terminal ouvert. Sous le bouton, l'application dit où en est la
-veille (rattrapage, attente avec le décompte avant la prochaine vérification,
+La veille part seule à l'ouverture de l'application (réglage « Lancer la veille
+à l'ouverture de l'application »), et le bouton **Lancer la veille s3s**, en haut
+de la colonne des sessions, la relance. Elle lance `s3s-sync -r -M 60` dans WSL :
+vos parties partent sur stat.ink au fil de la session, sans terminal ouvert.
+Sous le bouton, l'application dit où en est la veille (rattrapage, attente avec le décompte avant la prochaine vérification,
 rafraîchissement des jetons) et liste chaque partie détectée : heure, stage,
 résultat, puis « envoyée ✓ » avec un lien vers stat.ink, ou « échec de l'envoi ».
 Un journal dépliable montre la sortie brute.
+
+Quand STU n'arrive pas à ouvrir SplatNet3, ou abandonne la recherche des jetons,
+un encart orange le dit sous le bouton, avec le dernier écran de l'émulateur et la
+marche à suivre ; une notification part aussi, et l'icône clignote dans la barre
+des tâches. L'encart disparaît dès que s3s repart avec des jetons valides.
 
 **Arrêter la veille** revient à faire Ctrl+C : s3s fait sa vérification finale,
 puis l'envoi vers splashcat.ink a lieu, ce qui peut prendre une minute ou plus.
@@ -65,6 +71,31 @@ la veille ne démarre pas et l'application le dit.
 La commande et la distribution WSL se changent dans les réglages (clé `veille`).
 Depuis Windows, la commande passe par `wsl.exe` ; sous WSL, elle est lancée
 directement.
+
+#### La veille tourne en boucle sur les jetons
+
+Symptôme : la veille reste sur le rafraîchissement des jetons, et le journal
+répète `Open SplatNet3 app - attempt 1/3`, `Result of the pixel search: found = False`,
+puis `Could not find all requested tokens`. La dernière capture
+`~/repositories/splatnet3-token-util/AAAA-MM-JJ_HH-MM-SS.png` montre la Nintendo
+Switch App sur l'écran **Sign In** : la session Nintendo de l'émulateur est perdue,
+et rien ne se réparera seul.
+
+1. **Arrêter la veille** (bouton, ou fermer l'application). Si une synchro du cron
+   tient le verrou : `fuser -v /tmp/s3s-upload.lock` donne le processus,
+   `ps -o pgid= -p <pid>` son groupe, et `kill -INT -<pgid>` l'arrête.
+2. **Ouvrir l'émulateur avec sa fenêtre** (STU le lance sans fenêtre) :
+   `~/Android/boot-window.sh`
+3. Dans la Nintendo Switch App, toucher **Sign In** et se reconnecter jusqu'à
+   l'accueil de l'appli.
+4. **Éteindre Android proprement**, sans fermer la fenêtre :
+   `source ~/Android/env.sh && adb shell sync && adb shell reboot -p`.
+   Fermer la fenêtre ne suffit pas : l'émulateur enregistre un instantané rapide
+   au lieu d'éteindre Android, et STU, qui démarre à froid (`-no-snapshot-load`),
+   retrouve la Switch App déconnectée.
+5. Relancer la veille. STU doit obtenir les jetons dès la première tentative.
+
+Le cron horaire passe à la minute 0 : se reconnecter en dehors de ce moment.
 
 ### Application Windows
 

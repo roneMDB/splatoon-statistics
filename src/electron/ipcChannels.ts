@@ -72,6 +72,8 @@ export const IPC = {
   veilleStop: "veille:stop",
   /** Chaque changement d'etat de la veille, decompte compris. */
   veilleProgress: "veille:progress",
+  /** Capture de l'emulateur laissee par STU, en URL `data:`. */
+  veilleCapture: "veille:capture",
 } as const;
 
 /** Ce que l'ecran des reglages recoit a l'ouverture. */
@@ -243,6 +245,8 @@ export type SplatoonApi = {
   veilleStart: () => Promise<import("../veille.ts").EtatDeVeille>;
   /** Rend la main des que l'arret est transmis, sans attendre la fin de la veille. */
   veilleStop: () => Promise<import("../veille.ts").EtatDeVeille>;
+  /** `undefined` si la capture est illisible. */
+  veilleCapture: (chemin: string) => Promise<string | undefined>;
   /** Renvoie la fonction de desabonnement. */
   onVeilleProgress: (listener: (etat: import("../veille.ts").EtatDeVeille) => void) => () => void;
   /** Renvoie la fonction de desabonnement. */

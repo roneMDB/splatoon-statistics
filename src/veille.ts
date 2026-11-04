@@ -74,6 +74,19 @@ export function scriptDeLancement(commande: string, fichierPid: string = FICHIER
 }
 
 
+/**
+ * Le script bash qui lit une capture de l'emulateur, en base64 sur une ligne,
+ * pour que la fenetre l'affiche. Passer par bash plutot que par le disque de
+ * l'hote : sous Windows, la capture vit dans WSL.
+ *
+ * Le chemin vient de la sortie de STU : seul un PNG designe par un chemin
+ * absolu est lu. Rend `undefined` pour tout autre chemin.
+ */
+export function scriptDeCapture(chemin: string): string | undefined {
+  if (!/^\/.*\.png$/i.test(chemin)) return undefined;
+  return `base64 -w0 -- ${entreGuillemets(chemin)}`;
+}
+
 /** Le script bash qui arrete la veille : Ctrl+C, adresse a tout son groupe. */
 export function scriptDArret(fichierPid: string = FICHIER_PID): string {
   return `[ -s ${fichierPid} ] && kill -INT -- -"$(cat ${fichierPid})"`;
@@ -124,6 +137,9 @@ export type EvenementDeVeille =
   | { type: "echec-envoi"; nature: "battle" | "job" }
   | { type: "splashcat" }
   | { type: "deja-en-cours" }
+  | { type: "splatnet-inaccessible" }
+  | { type: "jetons-introuvables" }
+  | { type: "capture"; chemin: string }
   | { type: "ligne" };
 
 /** Les couleurs du terminal (`\x1b[93m`) que s3s ecrit meme sans terminal. */
@@ -134,7 +150,10 @@ export const nettoieLaLigne = (ligne: string): string => ligne.replace(ECHAPPEME
 
 const NATURE = "(battle|job)";
 
-/** Les messages de `s3s.py`, `stu-run.py` et `upload.sh`, dans l'ordre ou on les essaie. */
+/**
+ * Les messages de `s3s.py`, `stu-run.py`, `upload.sh` et de STU
+ * (`splatnet3-token-util/main.py`), dans l'ordre ou on les essaie.
+ */
 const MOTIFS: readonly [RegExp, (trouve: RegExpExecArray) => EvenementDeVeille][] = [
   [/^Press Ctrl\+C to exit\. (\d+)/, (t) => ({ type: "decompte", secondes: Number(t[1]) })],
   [/^Checking for new results/, () => ({ type: "verification" })],
@@ -167,6 +186,9 @@ const MOTIFS: readonly [RegExp, (trouve: RegExpExecArray) => EvenementDeVeille][
   [/^(Booting emulator|Waiting for emulator to complete)/, () => ({ type: "jetons" })],
   [/^--- splashcat/, () => ({ type: "splashcat" })],
   [/une synchro est déjà en cours, on passe/, () => ({ type: "deja-en-cours" })],
+  [/^Could not open SplatNet3 app in \d+ attempts/, () => ({ type: "splatnet-inaccessible" })],
+  [/^Could not find all requested tokens in \d+ attempts/, () => ({ type: "jetons-introuvables" })],
+  [/^A screenshot with SplatNet3 opened was saved to "(.+)"\.?$/, (t) => ({ type: "capture", chemin: t[1]! })],
 ];
 
 /** Ce qu'annonce une ligne deja nettoyee. Une ligne inconnue ne va qu'au journal. */
@@ -221,6 +243,18 @@ export type PhaseDeVeille =
   | "verification-finale"
   | "splashcat";
 
+/**
+ * Ce qui empeche la veille d'avancer, et qu'elle ne reglera pas seule :
+ *
+ * - `splatnet-inaccessible` : STU a demarre l'emulateur mais n'a pas pu ouvrir
+ *   SplatNet3. Le plus souvent, la Nintendo Switch App est revenue a l'ecran
+ *   « Sign In » : STU va reessayer en boucle, pendant pres d'une heure, sans
+ *   jamais y arriver. Parfois aussi un raté isole, que la tentative suivante
+ *   rattrape : la capture permet de trancher.
+ * - `jetons-introuvables` : STU a abandonne.
+ */
+export type AlerteDeVeille = "splatnet-inaccessible" | "jetons-introuvables";
+
 /** Une partie vue passer pendant la veille. */
 export type PartieSuivie = {
   nature: "battle" | "job";
@@ -251,6 +285,10 @@ export type EtatDeVeille = {
   erreur?: string;
   /** Plateforme ou la veille n'est pas proposee. */
   indisponible?: boolean;
+  /** Ce qui bloque la veille ; leve jusqu'a ce que s3s reparte avec des jetons valides. */
+  alerte?: AlerteDeVeille;
+  /** Derniere capture de l'emulateur laissee par STU (chemin Linux), tant que l'alerte tient. */
+  capture?: string;
 };
 
 /** Lignes gardees au journal : de quoi lire une erreur, pas un historique. */
@@ -287,10 +325,14 @@ export function appliqueLaLigne(etat: EtatDeVeille, brute: string): EtatDeVeille
   const numero = (etat.parties[0]?.numero ?? 0) + 1;
 
   switch (evenement.type) {
-    case "jetons":
     case "rattrapage":
     case "attente":
     case "verification":
+      // s3s ne fait rien de cela sans jetons valides : ce qui bloquait est leve.
+      delete suivant.alerte;
+      delete suivant.capture;
+    // fallthrough
+    case "jetons":
     case "verification-finale":
     case "splashcat":
       suivant.phase = evenement.type;
@@ -302,6 +344,16 @@ export function appliqueLaLigne(etat: EtatDeVeille, brute: string): EtatDeVeille
       break;
     case "deja-en-cours":
       suivant.dejaEnCours = true;
+      break;
+    case "splatnet-inaccessible":
+      // L'abandon, plus grave, n'est pas recouvert par un echec qui le precede.
+      if (suivant.alerte !== "jetons-introuvables") suivant.alerte = "splatnet-inaccessible";
+      break;
+    case "jetons-introuvables":
+      suivant.alerte = "jetons-introuvables";
+      break;
+    case "capture":
+      suivant.capture = evenement.chemin;
       break;
     case "partie-detectee":
       suivant.parties = [

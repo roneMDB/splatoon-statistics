@@ -335,6 +335,39 @@ h2 {
   padding: 2px 8px 1px;
 }
 
+.veille__alerte {
+  margin: 8px 0 4px;
+  padding: 8px 12px 10px;
+  border: 2px solid var(--alerte);
+  border-radius: 10px;
+}
+
+.veille__alerte p,
+.veille__alerte ol {
+  margin: 4px 0 0;
+}
+
+.veille__alerte ol {
+  padding-left: 20px;
+}
+
+.veille__alerte code {
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.veille__alerte-titre {
+  color: var(--alerte);
+  font-weight: 700;
+}
+
+.veille__capture {
+  display: block;
+  max-width: 160px;
+  margin-top: 8px;
+  border-radius: 8px;
+}
+
 .veille__journal {
   margin-top: 8px;
 }

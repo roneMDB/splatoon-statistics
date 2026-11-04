@@ -53,6 +53,7 @@ const FONCTIONS = [
   ["veilleEtat", "veilleEtat"],
   ["veilleStart", "veilleStart"],
   ["veilleStop", "veilleStop"],
+  ["veilleCapture", "veilleCapture"],
   ["onFetchProgress", "fetchProgress"],
   ["onVeilleProgress", "veilleProgress"],
 ] as const satisfies ReadonlyArray<readonly [string, keyof typeof IPC]>;

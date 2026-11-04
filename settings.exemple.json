@@ -39,6 +39,7 @@
   },
   "veille": {
     "commande": "s3s-sync -r -M 60",
-    "distribution": ""
+    "distribution": "",
+    "auDemarrage": true
   }
 }

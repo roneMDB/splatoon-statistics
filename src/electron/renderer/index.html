@@ -52,6 +52,23 @@
         -->
         <section class="veille" id="veille" aria-label="Veille s3s" hidden>
           <p class="veille__etat" id="veille-etat" aria-live="polite"></p>
+          <!--
+            Ce qui bloque la veille et qu'elle ne reglera pas seule : le plus
+            souvent, la Nintendo Switch App deconnectee dans l'emulateur. La
+            capture laissee par STU montre l'ecran d'un coup d'oeil.
+          -->
+          <div class="veille__alerte" id="veille-alerte" role="alert" hidden>
+            <p class="veille__alerte-titre" id="veille-alerte-titre"></p>
+            <p id="veille-alerte-texte"></p>
+            <p>Si l'émulateur affiche « Sign In », la session Nintendo est perdue :</p>
+            <ol>
+              <li>arrêter la veille ;</li>
+              <li>dans WSL, lancer <code>~/Android/boot-window.sh</code>, et se reconnecter dans la Nintendo Switch App ;</li>
+              <li>sans fermer la fenêtre, éteindre l'émulateur : <code>source ~/Android/env.sh &amp;&amp; adb shell sync &amp;&amp; adb shell reboot -p</code> ;</li>
+              <li>relancer la veille.</li>
+            </ol>
+            <img class="veille__capture" id="veille-capture" alt="Dernier écran de l'émulateur, capturé par STU" hidden />
+          </div>
           <p class="veille__bilan" id="veille-bilan"></p>
           <ol class="veille__parties" id="veille-parties"></ol>
           <details class="veille__journal">
@@ -194,6 +211,10 @@
                 à faire Ctrl+C : s3s fait sa vérification finale avant de s'arrêter. Sortie
                 complète de la dernière veille : <code>~/.cache/splatoon-statistics/veille.log</code>.
               </p>
+              <label class="section">
+                <input type="checkbox" id="reglage-veille-au-demarrage" />
+                Lancer la veille à l'ouverture de l'application
+              </label>
               <div class="champ">
                 <label for="reglage-veille-commande">Commande</label>
                 <input type="text" id="reglage-veille-commande" autocomplete="off" spellcheck="false" />

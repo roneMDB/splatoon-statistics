@@ -19,13 +19,22 @@ class FauxProcessus extends EventEmitter {
   }
 }
 
-/** Le lanceur garde chaque processus cree ; l'arret rend `codeDArret` aussitot. */
-function fauxLanceur(codeDArret: number | null = 0) {
+/**
+ * Le lanceur garde chaque processus cree ; l'arret rend `codeDArret` aussitot,
+ * la lecture d'une capture rend `capture` (rien : la lecture echoue).
+ */
+function fauxLanceur(codeDArret: number | null = 0, capture?: string) {
   const lances: { fichier: string; args: string[]; processus: FauxProcessus }[] = [];
   const lance: Lanceur = (fichier, args) => {
     const processus = new FauxProcessus();
     lances.push({ fichier, args, processus });
     if (args.at(-1)?.includes("kill -INT")) setImmediate(() => processus.emit("close", codeDArret));
+    if (args.at(-1)?.startsWith("base64")) {
+      setImmediate(() => {
+        if (capture !== undefined) processus.ecris(capture);
+        processus.finit(capture === undefined ? 1 : 0);
+      });
+    }
     return processus;
   };
   return { lance, lances };
@@ -34,8 +43,8 @@ function fauxLanceur(codeDArret: number | null = 0) {
 const attends = () => new Promise((resolve) => setImmediate(resolve));
 const reglage = { commande: "s3s-sync -r -M 60", distribution: "" };
 
-function veilleDeTest(codeDArret: number | null = 0, plateforme: NodeJS.Platform = "linux") {
-  const { lance, lances } = fauxLanceur(codeDArret);
+function veilleDeTest(codeDArret: number | null = 0, plateforme: NodeJS.Platform = "linux", capture?: string) {
+  const { lance, lances } = fauxLanceur(codeDArret, capture);
   const etats: EtatDeVeille[] = [];
   const veille = creeLaVeille({ lance, plateforme, reglage, onChange: (etat) => etats.push(etat) });
   return { veille, lances, etats };
@@ -122,5 +131,18 @@ describe("creeLaVeille", () => {
     expect(veille.etat().indisponible).toBe(true);
     veille.demarre();
     expect(lances).toHaveLength(0);
+  });
+
+  test("lit la capture de l'emulateur en image affichable", async () => {
+    const { veille, lances } = veilleDeTest(0, "linux", "iVBORw0K\n");
+    expect(await veille.capture("/stu/a.png")).toBe("data:image/png;base64,iVBORw0K");
+    expect(lances[0]?.args.at(-1)).toBe("base64 -w0 -- '/stu/a.png'");
+  });
+
+  test("une capture illisible, ou qui n'en est pas une, ne rend rien", async () => {
+    const { veille, lances } = veilleDeTest();
+    expect(await veille.capture("/stu/a.png")).toBeUndefined();
+    expect(await veille.capture("/etc/passwd")).toBeUndefined();
+    expect(lances).toHaveLength(1);
   });
 });
