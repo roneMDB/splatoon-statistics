@@ -47,6 +47,10 @@ const CANAUX = {
   veilleStop: "veille:stop",
   veilleProgress: "veille:progress",
   veilleCapture: "veille:capture",
+  emulateurEtat: "emulateur:etat",
+  emulateurOuvre: "emulateur:ouvre",
+  emulateurEteint: "emulateur:eteint",
+  emulateurProgress: "emulateur:progress",
 } as const;
 
 contextBridge.exposeInMainWorld("splatoonApi", {
@@ -115,6 +119,20 @@ contextBridge.exposeInMainWorld("splatoonApi", {
     ipcRenderer.on(CANAUX.veilleProgress, handler);
     return () => {
       ipcRenderer.removeListener(CANAUX.veilleProgress, handler);
+    };
+  },
+
+  emulateurEtat: () => ipcRenderer.invoke(CANAUX.emulateurEtat),
+
+  emulateurOuvre: () => ipcRenderer.invoke(CANAUX.emulateurOuvre),
+
+  emulateurEteint: () => ipcRenderer.invoke(CANAUX.emulateurEteint),
+
+  onEmulateurProgress: (listener: (etat: unknown) => void) => {
+    const handler = (_event: unknown, etat: unknown) => listener(etat);
+    ipcRenderer.on(CANAUX.emulateurProgress, handler);
+    return () => {
+      ipcRenderer.removeListener(CANAUX.emulateurProgress, handler);
     };
   },
 

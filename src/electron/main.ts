@@ -60,7 +60,8 @@ import { chargeLHabillage } from "../report/pictos.ts";
 import { MOTIF_SCOTCH } from "../report/texture.ts";
 import { creeLaSauvegarde, destinationDeSauvegarde } from "../sauvegarde.ts";
 import { creeLaVeille } from "./veilleHandler.ts";
-import type { AlerteDeVeille } from "../veille.ts";
+import { creeLEmulateur } from "./emulateurHandler.ts";
+import type { AlerteDeVeille, StatutDeVeille } from "../veille.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -530,6 +531,9 @@ function previensDeLAlerte(alerte: AlerteDeVeille): void {
 /** Derniere alerte annoncee : on ne previent qu'a son apparition, ou quand elle s'aggrave. */
 let alerteAnnoncee: AlerteDeVeille | undefined;
 
+/** Dernier statut de la veille annonce a l'emulateur, dont le bouton en depend. */
+let statutAnnonce: StatutDeVeille = "arretee";
+
 /**
  * Veille s3s (voir `src/veille.ts`). Une seule pour l'application : son etat
  * survit a un rechargement de la fenetre, qui le relit par `veilleEtat`.
@@ -545,6 +549,10 @@ const veille = creeLaVeille({
     }
     if (etat.alerte !== undefined && etat.alerte !== alerteAnnoncee) previensDeLAlerte(etat.alerte);
     alerteAnnoncee = etat.alerte;
+    if (etat.statut !== statutAnnonce) {
+      statutAnnonce = etat.statut;
+      void emulateur.rafraichis();
+    }
   },
 });
 
@@ -557,6 +565,28 @@ ipcMain.handle(IPC.veilleStop, () => veille.arrete());
 ipcMain.handle(IPC.veilleCapture, (_event, chemin: unknown) =>
   typeof chemin === "string" ? veille.capture(chemin) : undefined,
 );
+
+/**
+ * L'emulateur de STU, ouvert avec sa fenetre quand la session Nintendo est
+ * perdue. Son bouton depend de la veille : on lui passe son statut.
+ */
+const emulateur = creeLEmulateur({
+  lance: spawn,
+  plateforme: process.platform,
+  reglage: REGLAGES.veille,
+  statutDeVeille: () => veille.etat().statut,
+  onChange: (etat) => {
+    for (const fenetre of BrowserWindow.getAllWindows()) {
+      if (!fenetre.webContents.isDestroyed()) fenetre.webContents.send(IPC.emulateurProgress, etat);
+    }
+  },
+});
+
+ipcMain.handle(IPC.emulateurEtat, () => emulateur.rafraichis());
+
+ipcMain.handle(IPC.emulateurOuvre, () => emulateur.ouvre());
+
+ipcMain.handle(IPC.emulateurEteint, () => emulateur.eteint());
 
 /*
  * Reglages. Les constantes du noyau (types, seuils, dossiers) sont lues une
@@ -619,6 +649,9 @@ void app.whenReady().then(() => {
 /** Vrai une fois l'arret de la veille demande par la fermeture. */
 let veilleArreteeAvantDeQuitter = false;
 
+/** Vrai une fois l'extinction de l'emulateur demandee par la fermeture. */
+let emulateurEteintAvantDeQuitter = false;
+
 /**
  * Une sauvegarde programmee ou en cours part avant de quitter, plutot que
  * d'attendre le prochain demarrage. Un echec ne retient pas la fermeture :
@@ -633,6 +666,15 @@ app.on("before-quit", (evenement) => {
     veilleArreteeAvantDeQuitter = true;
     evenement.preventDefault();
     void veille.arrete().then(() => app.quit());
+    return;
+  }
+  // L'emulateur ouvert par l'application s'eteint proprement : fermer sa
+  // fenetre ou le tuer perdrait la connexion a la Nintendo Switch App. Une
+  // seule tentative, 30 s au plus (voir `eteintSiOuvertParNous`).
+  if (emulateur.etat().ouvertParNous && !emulateurEteintAvantDeQuitter) {
+    emulateurEteintAvantDeQuitter = true;
+    evenement.preventDefault();
+    void emulateur.eteintSiOuvertParNous().then(() => app.quit());
     return;
   }
   if (!sauvegarde.enAttente()) return;

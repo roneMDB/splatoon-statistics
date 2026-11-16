@@ -74,6 +74,14 @@ export const IPC = {
   veilleProgress: "veille:progress",
   /** Capture de l'emulateur laissee par STU, en URL `data:`. */
   veilleCapture: "veille:capture",
+  /** Etat de l'emulateur Android de STU, relu a la demande, avec le bouton a afficher. */
+  emulateurEtat: "emulateur:etat",
+  /** Ouvre l'emulateur avec sa fenetre, pour se reconnecter a la Nintendo Switch App. */
+  emulateurOuvre: "emulateur:ouvre",
+  /** Eteint Android proprement (sync puis reboot -p), sans fermer la fenetre. */
+  emulateurEteint: "emulateur:eteint",
+  /** Chaque changement d'etat de l'emulateur. */
+  emulateurProgress: "emulateur:progress",
 } as const;
 
 /** Ce que l'ecran des reglages recoit a l'ouverture. */
@@ -249,6 +257,15 @@ export type SplatoonApi = {
   veilleCapture: (chemin: string) => Promise<string | undefined>;
   /** Renvoie la fonction de desabonnement. */
   onVeilleProgress: (listener: (etat: import("../veille.ts").EtatDeVeille) => void) => () => void;
+  emulateurEtat: () => Promise<import("./emulateurHandler.ts").EtatAffiche>;
+  /** Rend la main une fois l'emulateur allume, ou l'echec constate. */
+  emulateurOuvre: () => Promise<import("./emulateurHandler.ts").EtatAffiche>;
+  /** Rend la main une fois l'emulateur eteint, ou l'echec constate. */
+  emulateurEteint: () => Promise<import("./emulateurHandler.ts").EtatAffiche>;
+  /** Renvoie la fonction de desabonnement. */
+  onEmulateurProgress: (
+    listener: (etat: import("./emulateurHandler.ts").EtatAffiche) => void,
+  ) => () => void;
   /** Renvoie la fonction de desabonnement. */
   onFetchProgress: (
     listener: (progress: import("../fetchSession.ts").FetchPageProgress) => void,

@@ -54,8 +54,12 @@ const FONCTIONS = [
   ["veilleStart", "veilleStart"],
   ["veilleStop", "veilleStop"],
   ["veilleCapture", "veilleCapture"],
+  ["emulateurEtat", "emulateurEtat"],
+  ["emulateurOuvre", "emulateurOuvre"],
+  ["emulateurEteint", "emulateurEteint"],
   ["onFetchProgress", "fetchProgress"],
   ["onVeilleProgress", "veilleProgress"],
+  ["onEmulateurProgress", "emulateurProgress"],
 ] as const satisfies ReadonlyArray<readonly [string, keyof typeof IPC]>;
 
 /**
@@ -201,7 +205,11 @@ describe("main.ts cable un gestionnaire pour chaque canal", () => {
     );
 
     for (const [nom, cle] of Object.entries(IPC)) {
-      if (cle === IPC.fetchProgress || cle === IPC.veilleProgress) continue;
+      if (
+        cle === IPC.fetchProgress ||
+        cle === IPC.veilleProgress ||
+        cle === IPC.emulateurProgress
+      ) continue;
       expect(
         geres.has(nom),
         `aucun ipcMain.handle(IPC.${nom}, ...) trouve dans main.ts pour le canal "${cle}"`,
