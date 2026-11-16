@@ -46,11 +46,15 @@ sous Windows), comme la veille. Chacune commence par `source ~/Android/env.sh`.
 
 - **État** : un seul script rend une ligne parmi `absent` (pas de `env.sh`),
   `verrou` (`flock -n /tmp/s3s-upload.lock true` échoue), `allume`, `eteint`.
-- **Ouverture** : `setsid -f ~/Android/boot-window.sh > journal 2>&1`, détaché,
-  pour que la mort de `wsl.exe` ne coupe pas l'émulateur ; le journal va dans
-  `/tmp/splatoon-statistics-emulateur.log`. L'application retient qu'elle l'a
-  ouvert (en mémoire, le temps de la session).
-- **Extinction** : `adb shell sync && adb shell reboot -p`. Fermer la fenêtre
+- **Ouverture** : `exec setsid -w ~/Android/boot-window.sh > journal 2>&1`. Le
+  processus lancé (`bash`, ou `wsl.exe` sous Windows) reste l'enfant de
+  l'application tant que l'émulateur tourne : il garde la distribution WSL en
+  vie, et sa fin dit que l'émulateur s'est arrêté. `setsid` sort l'émulateur
+  du groupe de l'application : une fermeture brutale ne lui envoie pas de
+  signal. Le journal va dans `/tmp/splatoon-statistics-emulateur.log`.
+  « Ouvert par l'application » veut dire : cet enfant tourne encore.
+- **Extinction** : `adb shell sync`, puis `adb shell reboot -p` dont le code de
+  sortie est ignoré (la connexion adb tombe avec Android). Fermer la fenêtre
   enregistrerait un instantané rapide au lieu d'éteindre Android, et STU, qui
   démarre à froid, retrouverait la Switch App déconnectée.
 
