@@ -294,7 +294,19 @@ elements.boutonEmulateur.addEventListener("click", () => {
   elements.boutonEmulateur.disabled = true;
   const appel = action === "ouvre" ? api.emulateurOuvre() : api.emulateurEteint();
   void appel.then(afficheLEmulateur).catch((erreur) => {
-    elements.emulateurNote.textContent = messageDe(erreur);
+    const message = messageDe(erreur);
+    elements.emulateurNote.textContent = message;
+    // Relit l'etat pour degriser le bouton. afficheLEmulateur efface la note :
+    // on remet l'erreur si l'etat n'en donne pas.
+    void api
+      .emulateurEtat()
+      .then((etat) => {
+        afficheLEmulateur(etat);
+        elements.emulateurNote.textContent ||= message;
+      })
+      .catch(() => {
+        elements.boutonEmulateur.disabled = false;
+      });
   });
 });
 
