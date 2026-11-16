@@ -311,6 +311,11 @@ elements.boutonEmulateur.addEventListener("click", () => {
 });
 
 api.onEmulateurProgress(afficheLEmulateur);
+// Le bouton est toujours la : on le lit au demarrage, et a chaque retour sur
+// la fenetre (STU ou le cron ont pu allumer ou eteindre l'emulateur).
+const relisLEmulateur = () => void api.emulateurEtat().then(afficheLEmulateur).catch(() => {});
+relisLEmulateur();
+window.addEventListener("focus", relisLEmulateur);
 api.onVeilleProgress(affiche);
 // Une veille lancee avant un rechargement de la fenetre tourne toujours :
 // ses parties deja vues ne sont pas « nouvelles ».

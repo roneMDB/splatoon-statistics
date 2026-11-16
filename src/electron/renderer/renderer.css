@@ -361,15 +361,14 @@ h2 {
   font-weight: 700;
 }
 
-.veille__emulateur {
+.emulateur {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
 }
 
-.veille__emulateur-note {
+.emulateur__note {
   font-size: 12px;
   opacity: 0.8;
 }

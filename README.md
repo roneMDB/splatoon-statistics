@@ -84,8 +84,8 @@ et rien ne se réparera seul.
 1. **Arrêter la veille** (bouton, ou fermer l'application). Si une synchro du cron
    tient le verrou : `fuser -v /tmp/s3s-upload.lock` donne le processus,
    `ps -o pgid= -p <pid>` son groupe, et `kill -INT -<pgid>` l'arrête.
-2. **Ouvrir l'émulateur avec sa fenêtre** : bouton « Ouvrir l'émulateur » de
-   l'encart orange (STU le lance sans fenêtre). Sans l'application :
+2. **Ouvrir l'émulateur avec sa fenêtre** : bouton « Ouvrir l'émulateur », à côté
+   de celui de la veille (STU le lance sans fenêtre). Sans l'application :
    `~/Android/boot-window.sh`.
 3. Dans la Nintendo Switch App, toucher **Sign In** et se reconnecter jusqu'à
    l'accueil de l'appli.

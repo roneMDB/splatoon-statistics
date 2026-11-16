@@ -9,8 +9,9 @@ les lancer elle-même.
 
 ## Ce que voit l'utilisateur
 
-Dans l'encart d'alerte de STU, et seulement là, les commandes à copier sont
-remplacées par **un bouton** dont le libellé dépend de la situation :
+**Un bouton**, toujours présent à côté de celui de la veille, dont le libellé
+dépend de la situation. Dans l'encart d'alerte de STU, les commandes à copier
+ne restent affichées que s'il n'y a pas de bouton :
 
 | Situation | Bouton |
 |---|---|
@@ -72,7 +73,7 @@ l'émulateur est signalé.
   l'extinction, expose `etat`, `ouvre`, `eteint`, `eteintSiOuvertParNous`.
 - IPC : `emulateurEtat`, `emulateurOuvre`, `emulateurEteint`, et un canal de
   progression ; `preload.cts` et `ipcChannels.ts` à l'avenant.
-- Rendu : le bouton dans `#veille-alerte` (`index.html`, `veille.js`).
+- Rendu : le bouton dans la barre d'outils, à côté de celui de la veille (`index.html`, `veille.js`) ; relu au démarrage et quand la fenêtre reprend le focus.
 - `main.ts` : l'extinction dans `before-quit`, après l'arrêt de la veille.
 - README : la procédure « La veille tourne en boucle sur les jetons » cite les
   boutons, en gardant les commandes pour qui n'a pas l'application.
