@@ -361,6 +361,19 @@ h2 {
   font-weight: 700;
 }
 
+.veille__emulateur {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.veille__emulateur-note {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
 .veille__capture {
   display: block;
   max-width: 160px;

@@ -63,10 +63,19 @@
             <p>Si l'émulateur affiche « Sign In », la session Nintendo est perdue :</p>
             <ol>
               <li>arrêter la veille ;</li>
-              <li>dans WSL, lancer <code>~/Android/boot-window.sh</code>, et se reconnecter dans la Nintendo Switch App ;</li>
-              <li>sans fermer la fenêtre, éteindre l'émulateur : <code>source ~/Android/env.sh &amp;&amp; adb shell sync &amp;&amp; adb shell reboot -p</code> ;</li>
-              <li>relancer la veille.</li>
+              <li>ouvrir l'émulateur, et se reconnecter dans la Nintendo Switch App ;</li>
+              <li>l'éteindre par le bouton, sans fermer sa fenêtre (fermer l'application l'éteint aussi) ;</li>
+              <li>relancer la veille, en dehors de la minute 0 où passe le cron.</li>
             </ol>
+            <div class="veille__emulateur" id="veille-emulateur" hidden>
+              <button type="button" class="bouton--discret" id="bouton-emulateur"></button>
+              <span class="veille__emulateur-note" id="emulateur-note"></span>
+            </div>
+            <p id="emulateur-manuel">
+              Dans WSL : <code>~/Android/boot-window.sh</code> pour l'ouvrir,
+              <code>source ~/Android/env.sh &amp;&amp; adb shell sync &amp;&amp; adb shell reboot -p</code>
+              pour l'éteindre.
+            </p>
             <img class="veille__capture" id="veille-capture" alt="Dernier écran de l'émulateur, capturé par STU" hidden />
           </div>
           <p class="veille__bilan" id="veille-bilan"></p>

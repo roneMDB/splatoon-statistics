@@ -11,6 +11,7 @@ import { api, elements, messageDe } from "./elements.js";
 
 /** @typedef {import("../../veille.ts").EtatDeVeille} EtatDeVeille */
 /** @typedef {import("../../veille.ts").PartieSuivie} PartieSuivie */
+/** @typedef {import("../emulateurHandler.ts").EtatAffiche} EtatDEmulateur */
 
 /** Ce que dit la ligne d'etat, phase par phase. */
 /** @type {Record<string, string>} */
@@ -56,6 +57,11 @@ let partiesAffichees = "";
 /** Capture demandee en dernier : l'etat repasse chaque seconde, on ne la relit pas. */
 /** @type {string | undefined} */
 let captureDemandee;
+/** L'encart etait-il deja visible : on relit l'emulateur a son apparition. */
+let alerteVisible = false;
+/** Action proposee par le bouton de l'emulateur, `undefined` s'il est grise. */
+/** @type {"ouvre" | "eteint" | undefined} */
+let actionDEmulateur;
 /** Dernier etat recu, pour retirer la mise en evidence une fois passee. */
 /** @type {EtatDeVeille | undefined} */
 let dernierEtat;
@@ -161,6 +167,8 @@ function ligneDePartie(partie) {
 function afficheLAlerte(etat) {
   const alerte = etat.alerte;
   elements.veilleAlerte.hidden = alerte === undefined;
+  if (alerte !== undefined && !alerteVisible) void api.emulateurEtat().then(afficheLEmulateur).catch(() => {});
+  alerteVisible = alerte !== undefined;
   if (alerte === undefined) {
     captureDemandee = undefined;
     elements.veilleCapture.hidden = true;
@@ -184,6 +192,26 @@ function afficheLAlerte(etat) {
       elements.veilleCapture.hidden = false;
     })
     .catch(() => {});
+}
+
+/**
+ * Le bouton de l'emulateur, tel que le processus principal l'a choisi. Sans
+ * bouton (pas de SDK Android, lecture impossible), les commandes a taper
+ * restent affichees.
+ * @param {EtatDEmulateur} etat
+ */
+function afficheLEmulateur(etat) {
+  const bouton = etat.bouton;
+  elements.veilleEmulateur.hidden = !bouton.visible;
+  elements.emulateurManuel.hidden = bouton.visible;
+  if (!bouton.visible) {
+    actionDEmulateur = undefined;
+    return;
+  }
+  elements.boutonEmulateur.textContent = bouton.libelle;
+  elements.boutonEmulateur.disabled = !bouton.actif;
+  actionDEmulateur = bouton.actif ? bouton.action : undefined;
+  elements.emulateurNote.textContent = bouton.note ?? "";
 }
 
 /** @param {EtatDeVeille} etat */
@@ -259,6 +287,18 @@ elements.boutonVeille.addEventListener("click", async () => {
   }
 });
 
+elements.boutonEmulateur.addEventListener("click", () => {
+  const action = actionDEmulateur;
+  if (action === undefined) return;
+  // Grise tout de suite : le prochain etat arrive par `onEmulateurProgress`.
+  elements.boutonEmulateur.disabled = true;
+  const appel = action === "ouvre" ? api.emulateurOuvre() : api.emulateurEteint();
+  void appel.then(afficheLEmulateur).catch((erreur) => {
+    elements.emulateurNote.textContent = messageDe(erreur);
+  });
+});
+
+api.onEmulateurProgress(afficheLEmulateur);
 api.onVeilleProgress(affiche);
 // Une veille lancee avant un rechargement de la fenetre tourne toujours :
 // ses parties deja vues ne sont pas « nouvelles ».

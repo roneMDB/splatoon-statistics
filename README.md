@@ -84,11 +84,14 @@ et rien ne se réparera seul.
 1. **Arrêter la veille** (bouton, ou fermer l'application). Si une synchro du cron
    tient le verrou : `fuser -v /tmp/s3s-upload.lock` donne le processus,
    `ps -o pgid= -p <pid>` son groupe, et `kill -INT -<pgid>` l'arrête.
-2. **Ouvrir l'émulateur avec sa fenêtre** (STU le lance sans fenêtre) :
-   `~/Android/boot-window.sh`
+2. **Ouvrir l'émulateur avec sa fenêtre** : bouton « Ouvrir l'émulateur » de
+   l'encart orange (STU le lance sans fenêtre). Sans l'application :
+   `~/Android/boot-window.sh`.
 3. Dans la Nintendo Switch App, toucher **Sign In** et se reconnecter jusqu'à
    l'accueil de l'appli.
-4. **Éteindre Android proprement**, sans fermer la fenêtre :
+4. **Éteindre Android proprement**, sans fermer la fenêtre : bouton « Éteindre
+   l'émulateur », ou fermer l'application, qui éteint l'émulateur qu'elle a
+   ouvert. Sans l'application :
    `source ~/Android/env.sh && adb shell sync && adb shell reboot -p`.
    Fermer la fenêtre ne suffit pas : l'émulateur enregistre un instantané rapide
    au lieu d'éteindre Android, et STU, qui démarre à froid (`-no-snapshot-load`),
