@@ -8,13 +8,11 @@
  * gestionnaire qui les lance est `src/electron/emulateurHandler.ts`.
  */
 
-import type { StatutDeVeille } from "./veille.ts";
+import { VERROU_S3S, type StatutDeVeille } from "./veille.ts";
 
 /** Sortie de l'emulateur ouvert par l'application. */
 export const FICHIER_JOURNAL_EMULATEUR = "/tmp/splatoon-statistics-emulateur.log";
 
-/** Verrou pris par `~/repositories/s3s/upload.sh` (cron horaire) le temps d'une synchro. */
-const VERROU_S3S = "/tmp/s3s-upload.lock";
 
 /** Ce que rend `SCRIPT_D_ETAT`. */
 export type LectureDEmulateur = "absent" | "verrou" | "allume" | "eteint";

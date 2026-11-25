@@ -72,6 +72,8 @@ export const IPC = {
   veilleStop: "veille:stop",
   /** Fait verifier s3s tout de suite, sans attendre la fin de la minute. */
   veilleVerifie: "veille:verifie",
+  /** Arrete la synchro qui tient le verrou de s3s, puis lance la veille. */
+  veilleForce: "veille:force",
   /** Chaque changement d'etat de la veille, decompte compris. */
   veilleProgress: "veille:progress",
   /** Capture de l'emulateur laissee par STU, en URL `data:`. */
@@ -257,6 +259,8 @@ export type SplatoonApi = {
   veilleStop: () => Promise<import("../veille.ts").EtatDeVeille>;
   /** Rend la main des que la demande est transmise ; la verification suit par `onVeilleProgress`. */
   veilleVerifie: () => Promise<import("../veille.ts").EtatDeVeille>;
+  /** Rend la main une fois la veille relancee, ou l'echec constate (2 min 45 au plus). */
+  veilleForce: () => Promise<import("../veille.ts").EtatDeVeille>;
   /** `undefined` si la capture est illisible. */
   veilleCapture: (chemin: string) => Promise<string | undefined>;
   /** Renvoie la fonction de desabonnement. */

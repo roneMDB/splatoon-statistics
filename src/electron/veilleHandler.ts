@@ -18,6 +18,7 @@ import {
   scriptDArret,
   scriptDeCapture,
   scriptDeLancement,
+  scriptDeLiberation,
   scriptDeVerification,
   peutVerifierMaintenant,
   type EtatDeVeille,
@@ -45,6 +46,13 @@ export type Veille = {
    * effet hors de l'attente ; rend la main des que le signal est transmis.
    */
   verifieMaintenant: () => Promise<EtatDeVeille>;
+  /**
+   * Arrete la synchro qui tient le verrou (veille orpheline, cron, terminal),
+   * puis lance la veille. Sans effet si une veille de l'application tourne.
+   */
+  forceEtRelance: () => Promise<EtatDeVeille>;
+  /** Rend vrai une fois la veille arretee, faux si `delaiMs` passe avant. */
+  attendsLaFin: (delaiMs: number) => Promise<boolean>;
   /** La capture de l'emulateur nommee par STU, en URL `data:` ; `undefined` si elle est illisible. */
   capture: (chemin: string) => Promise<string | undefined>;
 };
@@ -69,10 +77,29 @@ export function creeLaVeille(dependances: {
 
   const lisLeStatut = () => etat.statut;
 
+  /** Ceux qui attendent la fin de la veille. */
+  let enAttenteDeLaFin: (() => void)[] = [];
+
   const change = (suivant: EtatDeVeille) => {
     etat = suivant;
     onChange(etat);
+    if (etat.statut === "arretee" && enAttenteDeLaFin.length > 0) {
+      const aPrevenir = enAttenteDeLaFin;
+      enAttenteDeLaFin = [];
+      for (const previens of aPrevenir) previens();
+    }
   };
+
+  function attendsLaFin(delaiMs: number): Promise<boolean> {
+    if (etat.statut === "arretee") return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const minuterie = setTimeout(() => resolve(false), delaiMs);
+      enAttenteDeLaFin.push(() => {
+        clearTimeout(minuterie);
+        resolve(true);
+      });
+    });
+  }
 
   /** Une veille terminee, quelle qu'en soit la raison : plus de phase, plus de decompte. */
   const terminee = (complement: Partial<EtatDeVeille>) => {
@@ -159,6 +186,33 @@ export function creeLaVeille(dependances: {
     return etat;
   }
 
+  async function forceEtRelance(): Promise<EtatDeVeille> {
+    if (etat.statut !== "arretee" || etat.indisponible || etat.liberation) return etat;
+    const { erreur: _erreur, ...reste } = etat;
+    change({ ...reste, liberation: true });
+
+    const commande = commandeSysteme(plateforme, scriptDeLiberation(), reglage)!;
+    const code = await new Promise<number | null>((resolve) => {
+      const enfant = lance(commande.fichier, commande.args, { ...OPTIONS, stdio: "ignore" });
+      enfant.on("error", () => resolve(null));
+      enfant.on("close", resolve);
+    });
+
+    const { liberation: _liberation, ...sansLiberation } = etat;
+    if (code !== 0) {
+      change({
+        ...sansLiberation,
+        erreur:
+          code === 2
+            ? "Impossible de forcer : fuser est absent de WSL (paquet psmisc)."
+            : "La synchro en cours ne s'est pas arrêtée : réessayez, ou voir ~/repositories/s3s/cron.log.",
+      });
+      return etat;
+    }
+    change(sansLiberation);
+    return demarre();
+  }
+
   async function capture(chemin: string): Promise<string | undefined> {
     const script = scriptDeCapture(chemin);
     if (script === undefined || etat.indisponible) return undefined;
@@ -178,5 +232,5 @@ export function creeLaVeille(dependances: {
     });
   }
 
-  return { etat: () => etat, demarre, arrete, verifieMaintenant, capture };
+  return { etat: () => etat, demarre, arrete, verifieMaintenant, forceEtRelance, attendsLaFin, capture };
 }

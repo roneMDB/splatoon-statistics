@@ -46,6 +46,7 @@ const CANAUX = {
   veilleStart: "veille:start",
   veilleStop: "veille:stop",
   veilleVerifie: "veille:verifie",
+  veilleForce: "veille:force",
   veilleProgress: "veille:progress",
   veilleCapture: "veille:capture",
   emulateurEtat: "emulateur:etat",
@@ -113,6 +114,8 @@ contextBridge.exposeInMainWorld("splatoonApi", {
   veilleStop: () => ipcRenderer.invoke(CANAUX.veilleStop),
 
   veilleVerifie: () => ipcRenderer.invoke(CANAUX.veilleVerifie),
+
+  veilleForce: () => ipcRenderer.invoke(CANAUX.veilleForce),
 
   veilleCapture: (chemin: string) => ipcRenderer.invoke(CANAUX.veilleCapture, chemin),
 

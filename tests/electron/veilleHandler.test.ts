@@ -23,13 +23,19 @@ class FauxProcessus extends EventEmitter {
  * Le lanceur garde chaque processus cree ; l'arret rend `codeDArret` aussitot,
  * la lecture d'une capture rend `capture` (rien : la lecture echoue).
  */
-function fauxLanceur(codeDArret: number | null = 0, capture?: string, codeDeVerification: number | null = 0) {
+function fauxLanceur(
+  codeDArret: number | null = 0,
+  capture?: string,
+  codeDeVerification: number | null = 0,
+  codeDeLiberation: number | null = 0,
+) {
   const lances: { fichier: string; args: string[]; processus: FauxProcessus }[] = [];
   const lance: Lanceur = (fichier, args) => {
     const processus = new FauxProcessus();
     lances.push({ fichier, args, processus });
     if (args.at(-1)?.includes("kill -INT")) setImmediate(() => processus.emit("close", codeDArret));
     if (args.at(-1)?.includes("pkill -USR1")) setImmediate(() => processus.emit("close", codeDeVerification));
+    if (args.at(-1)?.includes("fuser")) setImmediate(() => processus.emit("close", codeDeLiberation));
     if (args.at(-1)?.startsWith("base64")) {
       setImmediate(() => {
         if (capture !== undefined) processus.ecris(capture);
@@ -49,8 +55,9 @@ function veilleDeTest(
   plateforme: NodeJS.Platform = "linux",
   capture?: string,
   codeDeVerification: number | null = 0,
+  codeDeLiberation: number | null = 0,
 ) {
-  const { lance, lances } = fauxLanceur(codeDArret, capture, codeDeVerification);
+  const { lance, lances } = fauxLanceur(codeDArret, capture, codeDeVerification, codeDeLiberation);
   const etats: EtatDeVeille[] = [];
   const veille = creeLaVeille({ lance, plateforme, reglage, onChange: (etat) => etats.push(etat) });
   return { veille, lances, etats };
@@ -125,6 +132,44 @@ describe("creeLaVeille", () => {
     const etat = await veille.verifieMaintenant();
     expect(etat.verificationDemandee).toBeUndefined();
     expect(etat.erreur).toContain("s3s-relance.py");
+  });
+
+  test("« Forcer et relancer » libere le verrou, puis lance la veille", async () => {
+    const { veille, lances, etats } = veilleDeTest();
+    const etat = await veille.forceEtRelance();
+    expect(lances[0]?.args.at(-1)).toContain("fuser");
+    expect(etats.some((e) => e.liberation === true)).toBe(true);
+    expect(etat).toMatchObject({ statut: "en-cours", phase: "demarrage" });
+    expect(etat.liberation).toBeUndefined();
+    expect(lances[1]?.args.at(-1)).toContain("s3s-sync -r -M 60");
+  });
+
+  test("si l'autre synchro ne s'arrete pas, ne lance rien et le dit", async () => {
+    const { veille, lances } = veilleDeTest(0, "linux", undefined, 0, 1);
+    const etat = await veille.forceEtRelance();
+    expect(etat.statut).toBe("arretee");
+    expect(etat.liberation).toBeUndefined();
+    expect(etat.erreur).toContain("ne s'est pas arrêtée");
+    expect(lances).toHaveLength(1);
+  });
+
+  test("sans effet pendant qu'une veille de l'application tourne", async () => {
+    const { veille, lances } = veilleDeTest();
+    veille.demarre();
+    await veille.forceEtRelance();
+    expect(lances).toHaveLength(1);
+  });
+
+  test("attendsLaFin se resout a la fin de la veille, ou au bout du delai", async () => {
+    const { veille, lances } = veilleDeTest();
+    expect(await veille.attendsLaFin(10)).toBe(true);
+
+    veille.demarre();
+    expect(await veille.attendsLaFin(10)).toBe(false);
+
+    const fin = veille.attendsLaFin(5000);
+    lances[0]!.processus.finit(0);
+    expect(await fin).toBe(true);
   });
 
   test("un arret qui n'aboutit pas laisse la veille en cours, et le dit", async () => {

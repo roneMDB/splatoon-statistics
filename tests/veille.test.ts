@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,6 +15,7 @@ import {
   scriptDArret,
   scriptDeCapture,
   scriptDeLancement,
+  scriptDeLiberation,
   scriptDeVerification,
   TAILLE_DU_JOURNAL,
   type EtatDeVeille,
@@ -88,6 +89,29 @@ describe("scripts", () => {
     expect(existsSync(fichierPid)).toBe(false);
   });
 
+  test("une veille encore vivante garde sa place et son pid ; un pid perime est remplace", () => {
+    const dossier = mkdtempSync(join(tmpdir(), "veille-"));
+    const fichierPid = join(dossier, "veille.pid");
+    const lance = (commande: string) =>
+      execFileSync("bash", ["-c", scriptDeLancement(commande, fichierPid)], {
+        encoding: "utf8",
+        env: { ...process.env, HOME: dossier },
+      });
+
+    // Un groupe vivant : celui du processus de test.
+    const groupeVivant = execFileSync("ps", ["-o", "pgid=", "-p", String(process.pid)], { encoding: "utf8" }).trim();
+    writeFileSync(fichierPid, groupeVivant);
+    const sortie = lance("echo 'ne doit pas tourner'");
+    expect(sortie).toMatch(/une synchro est déjà en cours, on passe\.$/m);
+    expect(sortie).not.toContain("ne doit pas tourner");
+    expect(readFileSync(fichierPid, "utf8")).toBe(groupeVivant);
+
+    // Un pid perime : la veille demarre, puis efface le sien.
+    writeFileSync(fichierPid, "999999");
+    expect(lance("echo 'tourne'")).toBe("tourne\n");
+    expect(existsSync(fichierPid)).toBe(false);
+  });
+
   test("l'arret est un Ctrl+C adresse au groupe entier", () => {
     expect(scriptDArret()).toMatch(/kill -INT -- -"\$\(cat /);
   });
@@ -131,6 +155,57 @@ describe("scripts", () => {
         meneur.kill("SIGKILL");
       }
     }
+  });
+
+  describe("liberation du verrou", () => {
+    /**
+     * Un detenteur du verrou dans son propre groupe, comme une veille ou le
+     * cron. `surInt` : ce qu'il fait d'un Ctrl+C.
+     */
+    function detenteur(dossier: string, surInt: string) {
+      const verrou = join(dossier, "verrou");
+      writeFileSync(
+        join(dossier, "detenteur.sh"),
+        `exec 9>"${verrou}"; flock 9; trap '${surInt}' INT; touch "${join(dossier, "pret")}"; while :; do sleep 0.05; done\n`,
+      );
+      const processus = spawn("setsid", ["bash", join(dossier, "detenteur.sh")], { stdio: "ignore" });
+      return { verrou, processus };
+    }
+    const pret = async (dossier: string) => {
+      for (let essai = 0; essai < 100 && !existsSync(join(dossier, "pret")); essai++) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
+    };
+    const libere = (verrou: string, delai: number, terminaison: number) =>
+      spawnSync("bash", ["-c", scriptDeLiberation(verrou, delai, terminaison)]).status;
+
+    test("un verrou libre l'est tout de suite", () => {
+      const dossier = mkdtempSync(join(tmpdir(), "verrou-"));
+      expect(libere(join(dossier, "verrou"), 1, 1)).toBe(0);
+    });
+
+    test("Ctrl+C au groupe qui tient le verrou, puis attend qu'il le rende", async () => {
+      const dossier = mkdtempSync(join(tmpdir(), "verrou-"));
+      const { verrou, processus } = detenteur(dossier, `echo int > "${join(dossier, "signal")}"; exit 0`);
+      try {
+        await pret(dossier);
+        expect(libere(verrou, 5, 1)).toBe(0);
+        expect(readFileSync(join(dossier, "signal"), "utf8")).toBe("int\n");
+      } finally {
+        processus.kill("SIGKILL");
+      }
+    });
+
+    test("un detenteur sourd au Ctrl+C recoit SIGTERM", async () => {
+      const dossier = mkdtempSync(join(tmpdir(), "verrou-"));
+      const { verrou, processus } = detenteur(dossier, "");
+      try {
+        await pret(dossier);
+        expect(libere(verrou, 1, 5)).toBe(0);
+      } finally {
+        processus.kill("SIGKILL");
+      }
+    });
   });
 
   test("sans s3s-relance.py, la verification immediate echoue sans rien signaler", () => {

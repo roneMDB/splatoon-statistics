@@ -566,6 +566,8 @@ ipcMain.handle(IPC.veilleStop, () => veille.arrete());
 
 ipcMain.handle(IPC.veilleVerifie, () => veille.verifieMaintenant());
 
+ipcMain.handle(IPC.veilleForce, () => veille.forceEtRelance());
+
 ipcMain.handle(IPC.veilleCapture, (_event, chemin: unknown) =>
   typeof chemin === "string" ? veille.capture(chemin) : undefined,
 );
@@ -628,13 +630,26 @@ ipcMain.handle(IPC.saveSettings, async (_event, brut: unknown) => {
   return { reglages, enAttente: !memesReglages(reglages, REGLAGES) };
 });
 
+/** Vrai quand la fermeture en cours doit rouvrir l'application. */
+let relanceDemandee = false;
+
 /**
- * `relaunch` puis `exit` : le nouveau processus reprend les memes arguments,
- * donc le drapeau `--use-angle` que `lanceApp.ts` pose sous WSL.
+ * La nouvelle instance attend au plus ce delai que la veille de l'ancienne
+ * finisse sa verification finale (et Splashcat) avant de demarrer.
+ */
+const DELAI_DE_FIN_DE_VEILLE_MS = 180_000;
+
+/**
+ * `relaunch` puis `quit` : le nouveau processus reprend les memes arguments,
+ * donc le drapeau `--use-angle` que `lanceApp.ts` pose sous WSL. `quit` et
+ * non `exit` : `exit` saute `before-quit`, et la veille, jamais arretee,
+ * tournait alors seule, hors de portee de la nouvelle instance qui butait
+ * sur son verrou.
  */
 ipcMain.handle(IPC.relaunchApp, () => {
+  relanceDemandee = true;
   app.relaunch();
-  app.exit(0);
+  app.quit();
 });
 
 void app.whenReady().then(() => {
@@ -680,7 +695,13 @@ app.on("before-quit", (evenement) => {
   if (veille.etat().statut === "en-cours" && !veilleArreteeAvantDeQuitter) {
     veilleArreteeAvantDeQuitter = true;
     evenement.preventDefault();
-    void veille.arrete().then(() => app.quit());
+    // Pour un redemarrage, on attend en plus la fin reelle de la veille : la
+    // nouvelle instance relance la sienne, qui buterait sinon sur le verrou
+    // encore tenu par l'ancienne. La fenetre montre l'arret en cours.
+    void veille
+      .arrete()
+      .then(() => (relanceDemandee ? veille.attendsLaFin(DELAI_DE_FIN_DE_VEILLE_MS) : undefined))
+      .then(() => app.quit());
     return;
   }
   // L'emulateur ouvert par l'application s'eteint proprement : fermer sa

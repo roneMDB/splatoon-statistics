@@ -95,8 +95,11 @@ function ligneDEtat(etat) {
     }
     return PHASES[etat.phase ?? "demarrage"] ?? "";
   }
+  if (etat.liberation === true) {
+    return "Arrêt de la synchro en cours (vérification finale, jusqu'à 3 minutes), puis relance…";
+  }
   if (etat.dejaEnCours) {
-    return "Une synchro tournait déjà (cron ou terminal) : la veille n'a pas été lancée. Réessayez dans un moment.";
+    return "Une synchro tient déjà la place (cron, terminal ou ancienne veille) : la veille n'a pas été lancée.";
   }
   if (etat.codeDeSortie === 0) return "Veille terminée.";
   if (etat.codeDeSortie !== undefined) {
@@ -232,10 +235,17 @@ function affiche(etat) {
   // Arretee, lancer est l'action principale ; en cours, c'est verifier, et
   // arreter passe au second plan.
   const bouton = elements.boutonVeille;
-  bouton.disabled = etat.statut === "arret-demande";
+  bouton.disabled = etat.statut === "arret-demande" || etat.liberation === true;
   bouton.textContent =
     etat.statut === "arretee" ? "Lancer la veille" : etat.statut === "en-cours" ? "Arrêter" : "Arrêt en cours…";
-  bouton.classList.toggle("bouton--discret", etat.statut !== "arretee");
+  // Refusee par le verrou, la veille propose de forcer : c'est alors l'action
+  // principale, et relancer simplement passe au second plan.
+  const forcer = etat.statut === "arretee" && (etat.dejaEnCours || etat.liberation === true);
+  elements.boutonForcer.hidden = !forcer;
+  elements.boutonForcer.disabled = etat.liberation === true;
+  elements.boutonForcer.textContent = etat.liberation === true ? "Arrêt de l'autre synchro…" : "Forcer et relancer";
+  bouton.classList.toggle("bouton--discret", etat.statut !== "arretee" || forcer);
+  bouton.textContent = forcer ? "Réessayer" : bouton.textContent;
 
   // Meme regle que `peutVerifierMaintenant` (src/veille.ts) : visible tant que
   // la veille tourne, actif pendant son decompte seulement.
@@ -302,6 +312,19 @@ elements.boutonVeille.addEventListener("click", async () => {
     elements.veilleEtat.textContent = messageDe(erreur);
     elements.veilleEtat.classList.add("veille__etat--erreur");
   }
+});
+
+elements.boutonForcer.addEventListener("click", () => {
+  elements.boutonForcer.disabled = true;
+  dernierNumeroVu = 0;
+  void api
+    .veilleForce()
+    .then(affiche)
+    .catch((erreur) => {
+      elements.boutonForcer.disabled = false;
+      elements.veilleEtat.textContent = messageDe(erreur);
+      elements.veilleEtat.classList.add("veille__etat--erreur");
+    });
 });
 
 elements.boutonVerifier.addEventListener("click", () => {

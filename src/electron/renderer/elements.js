@@ -107,6 +107,7 @@ export const elements = {
   bande: /** @type {HTMLElement} */ (document.getElementById("bande")),
   boutonVeille: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-veille")),
   boutonVerifier: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-verifier")),
+  boutonForcer: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-forcer")),
   veille: /** @type {HTMLElement} */ (document.getElementById("veille")),
   veilleEtat: /** @type {HTMLElement} */ (document.getElementById("veille-etat")),
   veilleVoyant: /** @type {HTMLElement} */ (document.getElementById("veille-voyant")),

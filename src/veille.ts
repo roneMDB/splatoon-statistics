@@ -28,6 +28,9 @@ export type ReglageDeVeille = {
   distribution: string;
 };
 
+/** Verrou pris par `s3s-sync` (veille, cron ou terminal) le temps d'une synchro. */
+export const VERROU_S3S = "/tmp/s3s-upload.lock";
+
 /** Ou le meneur du groupe de la veille ecrit son pid, cote Linux. */
 export const FICHIER_PID = "/tmp/splatoon-statistics-veille.pid";
 
@@ -53,6 +56,12 @@ export const entreGuillemets = (texte: string): string => `'${texte.replaceAll("
  * `PYTHONUNBUFFERED=1` : sans terminal, Python ecrit sa sortie par blocs de
  * plusieurs kilo-octets, et le suivi arriverait en retard, par paquets.
  *
+ * Une veille dont le groupe vit encore (lancee par une instance precedente
+ * de l'application, fermee sans l'arreter) garde la place : la nouvelle le
+ * dit avec le message de `s3s-sync`, et ne touche pas au fichier pid, sans
+ * quoi plus rien ne pourrait arreter l'ancienne. Pour la meme raison, une
+ * veille n'efface en partant que son propre pid.
+ *
  * La sortie passe par `tee -i -p` avant d'atteindre l'application. Fermer
  * l'application pendant l'arret ferme le tube de sortie : sans relais, s3s
  * mourrait d'un `BrokenPipeError` en pleine verification finale. `tee -p`
@@ -62,13 +71,15 @@ export const entreGuillemets = (texte: string): string => `'${texte.replaceAll("
  */
 export function scriptDeLancement(commande: string, fichierPid: string = FICHIER_PID): string {
   const interieur = [
+    `if [ -s ${fichierPid} ] && kill -0 -- -"$(cat ${fichierPid})" 2>/dev/null; then ` +
+      `echo "$(date '+%F %T') : une synchro est déjà en cours, on passe."; exit 0; fi`,
     `echo $$ > ${fichierPid}`,
     "export PYTHONUNBUFFERED=1",
     "set -o pipefail",
     `mkdir -p "$(dirname ${FICHIER_JOURNAL})"`,
     `{ ${commande}\n} 2>&1 | tee -i -p ${FICHIER_JOURNAL}`,
     // Un pid laisse derriere soi finirait par designer un autre processus.
-    `rc=$?; rm -f ${fichierPid}; exit $rc`,
+    `rc=$?; [ "$(cat ${fichierPid} 2>/dev/null)" = "$$" ] && rm -f ${fichierPid}; exit $rc`,
   ].join("; ");
   return `exec setsid -w bash -c ${entreGuillemets(interieur)}`;
 }
@@ -105,6 +116,42 @@ export function scriptDArret(fichierPid: string = FICHIER_PID): string {
  */
 export function scriptDeVerification(fichierPid: string = FICHIER_PID): string {
   return `[ -s ${fichierPid} ] && pkill -USR1 -g "$(cat ${fichierPid})" -f 's3s-relance\\.py '`;
+}
+
+/**
+ * Le script bash qui libere le verrou de s3s, quel que soit celui qui le
+ * tient : veille orpheline d'une instance precedente, cron, terminal.
+ *
+ * `fuser` donne les processus qui ont le verrou ouvert ; on vise leur groupe
+ * entier, comme le ferait un Ctrl+C dans leur terminal : s3s fait sa
+ * verification finale, rien n'est perdu. Si le verrou tient encore apres
+ * `delaiDOuverture` secondes (Splashcat compris), SIGTERM, puis encore
+ * `delaiDeFermeture` secondes. Jamais le groupe de ce script, ni celui
+ * d'init.
+ *
+ * Rend 0 une fois le verrou libre (ou s'il l'etait deja), 1 sinon, 2 sans
+ * `fuser`.
+ */
+export function scriptDeLiberation(
+  verrou: string = VERROU_S3S,
+  delaiDInterruption = 150,
+  delaiDeTerminaison = 15,
+): string {
+  const v = entreGuillemets(verrou);
+  return [
+    "command -v fuser >/dev/null || exit 2",
+    `libre() { flock -n ${v} true 2>/dev/null; }`,
+    "libre && exit 0",
+    'moi=$(ps -o pgid= -p $$ | tr -d " ")',
+    "groupes() {",
+    `  for p in $(fuser ${v} 2>/dev/null); do ps -o pgid= -p "$p"; done | tr -d " " | sort -u | grep -vx -e "$moi" -e 0 -e 1`,
+    "}",
+    'signale() { for g in $(groupes); do kill -"$1" -- -"$g" 2>/dev/null; done; }',
+    'attends() { for _ in $(seq "$1"); do libre && return 0; sleep 1; done; return 1; }',
+    `signale INT; attends ${delaiDInterruption} && exit 0`,
+    `signale TERM; attends ${delaiDeTerminaison} && exit 0`,
+    "exit 1",
+  ].join("\n");
 }
 
 /**
@@ -306,6 +353,8 @@ export type EtatDeVeille = {
   capture?: string;
   /** « Vérifier maintenant » transmis, jusqu'a ce que s3s quitte son attente. */
   verificationDemandee?: true;
+  /** « Forcer et relancer » : la synchro qui tient le verrou est en train de s'arreter. */
+  liberation?: true;
 };
 
 /** Le bouton « Vérifier maintenant » n'a de sens que pendant le decompte d'une veille qui tourne. */
