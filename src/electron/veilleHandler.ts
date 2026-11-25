@@ -18,6 +18,8 @@ import {
   scriptDArret,
   scriptDeCapture,
   scriptDeLancement,
+  scriptDeVerification,
+  peutVerifierMaintenant,
   type EtatDeVeille,
   type ReglageDeVeille,
 } from "../veille.ts";
@@ -38,6 +40,11 @@ export type Veille = {
   demarre: () => EtatDeVeille;
   /** Demande l'arret (Ctrl+C) et rend la main sans attendre la fin de la verification finale. */
   arrete: () => Promise<EtatDeVeille>;
+  /**
+   * Fait verifier s3s tout de suite, sans attendre la fin du decompte. Sans
+   * effet hors de l'attente ; rend la main des que le signal est transmis.
+   */
+  verifieMaintenant: () => Promise<EtatDeVeille>;
   /** La capture de l'emulateur nommee par STU, en URL `data:` ; `undefined` si elle est illisible. */
   capture: (chemin: string) => Promise<string | undefined>;
 };
@@ -69,7 +76,7 @@ export function creeLaVeille(dependances: {
 
   /** Une veille terminee, quelle qu'en soit la raison : plus de phase, plus de decompte. */
   const terminee = (complement: Partial<EtatDeVeille>) => {
-    const { phase: _phase, decompte: _decompte, ...reste } = etat;
+    const { phase: _phase, decompte: _decompte, verificationDemandee: _demandee, ...reste } = etat;
     change({ ...reste, ...complement, statut: "arretee" });
   };
 
@@ -128,6 +135,30 @@ export function creeLaVeille(dependances: {
     return etat;
   }
 
+  async function verifieMaintenant(): Promise<EtatDeVeille> {
+    if (!peutVerifierMaintenant(etat)) return etat;
+    const { erreur: _erreur, ...reste } = etat;
+    change({ ...reste, verificationDemandee: true });
+
+    const commande = commandeSysteme(plateforme, scriptDeVerification(), reglage)!;
+    const code = await new Promise<number | null>((resolve) => {
+      const enfant = lance(commande.fichier, commande.args, { ...OPTIONS, stdio: "ignore" });
+      enfant.on("error", () => resolve(null));
+      enfant.on("close", resolve);
+    });
+
+    // Rien n'a recu le signal : s3s ne passe pas par son lanceur. La demande
+    // retombe, sinon le bouton resterait grise jusqu'a la verification suivante.
+    if (code !== 0 && etat.verificationDemandee === true) {
+      const { verificationDemandee: _demandee, ...sansDemande } = etat;
+      change({
+        ...sansDemande,
+        erreur: "Vérification immédiate impossible : s3s ne passe pas par s3s-relance.py (voir stu-run.py).",
+      });
+    }
+    return etat;
+  }
+
   async function capture(chemin: string): Promise<string | undefined> {
     const script = scriptDeCapture(chemin);
     if (script === undefined || etat.indisponible) return undefined;
@@ -147,5 +178,5 @@ export function creeLaVeille(dependances: {
     });
   }
 
-  return { etat: () => etat, demarre, arrete, capture };
+  return { etat: () => etat, demarre, arrete, verifieMaintenant, capture };
 }

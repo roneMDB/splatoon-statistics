@@ -564,6 +564,8 @@ ipcMain.handle(IPC.veilleStart, () => veille.demarre());
 
 ipcMain.handle(IPC.veilleStop, () => veille.arrete());
 
+ipcMain.handle(IPC.veilleVerifie, () => veille.verifieMaintenant());
+
 ipcMain.handle(IPC.veilleCapture, (_event, chemin: unknown) =>
   typeof chemin === "string" ? veille.capture(chemin) : undefined,
 );

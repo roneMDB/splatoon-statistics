@@ -106,6 +106,7 @@ export const elements = {
   boutonSauvegardeDossier: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-sauvegarde-dossier")),
   bande: /** @type {HTMLElement} */ (document.getElementById("bande")),
   boutonVeille: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-veille")),
+  boutonVerifier: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-verifier")),
   veille: /** @type {HTMLElement} */ (document.getElementById("veille")),
   veilleEtat: /** @type {HTMLElement} */ (document.getElementById("veille-etat")),
   veilleAlerte: /** @type {HTMLElement} */ (document.getElementById("veille-alerte")),

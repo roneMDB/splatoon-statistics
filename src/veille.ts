@@ -93,6 +93,21 @@ export function scriptDArret(fichierPid: string = FICHIER_PID): string {
 }
 
 /**
+ * Le script bash qui demande une verification tout de suite, sans attendre la
+ * fin du decompte.
+ *
+ * s3s ne sait pas ecourter son attente : c'est `~/repositories/s3s/s3s-relance.py`,
+ * par lequel `stu-run.py` fait passer s3s, qui saute le reste du decompte a la
+ * reception de SIGUSR1. Le signal vise ce seul processus, dans le groupe de la
+ * veille : l'action par defaut de SIGUSR1 tue, et tout autre processus du
+ * groupe (bash, tee, s3s lance sans le lanceur) en mourrait. Rend 1 si le
+ * lanceur ne tourne pas.
+ */
+export function scriptDeVerification(fichierPid: string = FICHIER_PID): string {
+  return `[ -s ${fichierPid} ] && pkill -USR1 -g "$(cat ${fichierPid})" -f 's3s-relance\\.py '`;
+}
+
+/**
  * Enrobe un script bash pour la plateforme. Le shell est un shell de
  * connexion (`-l`) : c'est lui qui met `~/.local/bin`, ou vit `s3s-sync`, dans
  * le PATH.
@@ -289,7 +304,13 @@ export type EtatDeVeille = {
   alerte?: AlerteDeVeille;
   /** Derniere capture de l'emulateur laissee par STU (chemin Linux), tant que l'alerte tient. */
   capture?: string;
+  /** « Vérifier maintenant » transmis, jusqu'a ce que s3s quitte son attente. */
+  verificationDemandee?: true;
 };
+
+/** Le bouton « Vérifier maintenant » n'a de sens que pendant le decompte d'une veille qui tourne. */
+export const peutVerifierMaintenant = (etat: EtatDeVeille): boolean =>
+  etat.statut === "en-cours" && etat.phase === "attente" && etat.verificationDemandee !== true;
 
 /** Lignes gardees au journal : de quoi lire une erreur, pas un historique. */
 export const TAILLE_DU_JOURNAL = 200;
@@ -337,6 +358,8 @@ export function appliqueLaLigne(etat: EtatDeVeille, brute: string): EtatDeVeille
     case "splashcat":
       suivant.phase = evenement.type;
       delete suivant.decompte;
+      // L'attente est finie : la verification demandee a eu lieu, ou n'a plus lieu d'etre.
+      delete suivant.verificationDemandee;
       break;
     case "decompte":
       suivant.phase = "attente";

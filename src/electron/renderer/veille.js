@@ -228,6 +228,11 @@ function affiche(etat) {
         : "Arrêt en cours…";
   bouton.classList.toggle("bouton-veille--active", etat.statut !== "arretee");
 
+  // Meme regle que `peutVerifierMaintenant` (src/veille.ts) : visible tant que
+  // la veille tourne, actif pendant son decompte seulement.
+  elements.boutonVerifier.hidden = etat.statut !== "en-cours";
+  elements.boutonVerifier.disabled = etat.phase !== "attente" || etat.verificationDemandee === true;
+
   const aMontrer =
     etat.statut !== "arretee" ||
     etat.parties.length > 0 ||
@@ -285,6 +290,19 @@ elements.boutonVeille.addEventListener("click", async () => {
     elements.veilleEtat.textContent = messageDe(erreur);
     elements.veilleEtat.classList.add("veille__etat--erreur");
   }
+});
+
+elements.boutonVerifier.addEventListener("click", () => {
+  // Grise tout de suite : l'etat suivant dira quand le reactiver.
+  elements.boutonVerifier.disabled = true;
+  void api
+    .veilleVerifie()
+    .then(affiche)
+    .catch((erreur) => {
+      elements.boutonVerifier.disabled = false;
+      elements.veilleEtat.textContent = messageDe(erreur);
+      elements.veilleEtat.classList.add("veille__etat--erreur");
+    });
 });
 
 elements.boutonEmulateur.addEventListener("click", () => {

@@ -23,12 +23,13 @@ class FauxProcessus extends EventEmitter {
  * Le lanceur garde chaque processus cree ; l'arret rend `codeDArret` aussitot,
  * la lecture d'une capture rend `capture` (rien : la lecture echoue).
  */
-function fauxLanceur(codeDArret: number | null = 0, capture?: string) {
+function fauxLanceur(codeDArret: number | null = 0, capture?: string, codeDeVerification: number | null = 0) {
   const lances: { fichier: string; args: string[]; processus: FauxProcessus }[] = [];
   const lance: Lanceur = (fichier, args) => {
     const processus = new FauxProcessus();
     lances.push({ fichier, args, processus });
     if (args.at(-1)?.includes("kill -INT")) setImmediate(() => processus.emit("close", codeDArret));
+    if (args.at(-1)?.includes("pkill -USR1")) setImmediate(() => processus.emit("close", codeDeVerification));
     if (args.at(-1)?.startsWith("base64")) {
       setImmediate(() => {
         if (capture !== undefined) processus.ecris(capture);
@@ -43,8 +44,13 @@ function fauxLanceur(codeDArret: number | null = 0, capture?: string) {
 const attends = () => new Promise((resolve) => setImmediate(resolve));
 const reglage = { commande: "s3s-sync -r -M 60", distribution: "" };
 
-function veilleDeTest(codeDArret: number | null = 0, plateforme: NodeJS.Platform = "linux", capture?: string) {
-  const { lance, lances } = fauxLanceur(codeDArret, capture);
+function veilleDeTest(
+  codeDArret: number | null = 0,
+  plateforme: NodeJS.Platform = "linux",
+  capture?: string,
+  codeDeVerification: number | null = 0,
+) {
+  const { lance, lances } = fauxLanceur(codeDArret, capture, codeDeVerification);
   const etats: EtatDeVeille[] = [];
   const veille = creeLaVeille({ lance, plateforme, reglage, onChange: (etat) => etats.push(etat) });
   return { veille, lances, etats };
@@ -90,6 +96,35 @@ describe("creeLaVeille", () => {
     expect(veille.etat()).toMatchObject({ statut: "arretee", codeDeSortie: 0 });
     expect(veille.etat().phase).toBeUndefined();
     expect(veille.etat().journal.at(-1)).toBe("Fin propre.");
+  });
+
+  test("« Vérifier maintenant » signale s3s pendant l'attente, et seulement alors", async () => {
+    const { veille, lances } = veilleDeTest();
+    veille.demarre();
+    await veille.verifieMaintenant();
+    expect(lances).toHaveLength(1);
+
+    lances[0]!.processus.ecris("Press Ctrl+C to exit. 42 \r");
+    await attends();
+    expect(await veille.verifieMaintenant()).toMatchObject({ verificationDemandee: true });
+    expect(lances[1]?.args.at(-1)).toContain("pkill -USR1");
+    // Une seconde demande avant la verification ne signale pas une seconde fois.
+    await veille.verifieMaintenant();
+    expect(lances).toHaveLength(2);
+
+    lances[0]!.processus.ecris("Checking for new results...\r");
+    await attends();
+    expect(veille.etat().verificationDemandee).toBeUndefined();
+  });
+
+  test("sans lanceur pour recevoir le signal, la demande retombe et le dit", async () => {
+    const { veille, lances } = veilleDeTest(0, "linux", undefined, 1);
+    veille.demarre();
+    lances[0]!.processus.ecris("Press Ctrl+C to exit. 42 \r");
+    await attends();
+    const etat = await veille.verifieMaintenant();
+    expect(etat.verificationDemandee).toBeUndefined();
+    expect(etat.erreur).toContain("s3s-relance.py");
   });
 
   test("un arret qui n'aboutit pas laisse la veille en cours, et le dit", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -11,9 +11,11 @@ import {
   etatAuDemarrage,
   lisLigne,
   nettoieLaLigne,
+  peutVerifierMaintenant,
   scriptDArret,
   scriptDeCapture,
   scriptDeLancement,
+  scriptDeVerification,
   TAILLE_DU_JOURNAL,
   type EtatDeVeille,
 } from "../src/veille.ts";
@@ -88,6 +90,70 @@ describe("scripts", () => {
 
   test("l'arret est un Ctrl+C adresse au groupe entier", () => {
     expect(scriptDArret()).toMatch(/kill -INT -- -"\$\(cat /);
+  });
+
+  test("la verification immediate ne signale que s3s-relance.py, dans le groupe de la veille", async () => {
+    // SIGUSR1 tue par defaut : un voisin du groupe vise par erreur mourrait.
+    const dossier = mkdtempSync(join(tmpdir(), "verifie-"));
+    const fichier = (nom: string) => join(dossier, nom);
+    writeFileSync(
+      fichier("cible.sh"),
+      `trap 'echo recu > "$1"; exit 0' USR1\nwhile :; do sleep 0.05; done\n`,
+    );
+    writeFileSync(
+      fichier("meneur.sh"),
+      [
+        `echo $$ > "${fichier("pid")}"`,
+        `bash "${fichier("cible.sh")}" "${fichier("recu")}" s3s-relance.py s3s.py &`,
+        `sleep 5 & echo $! > "${fichier("voisin")}"`,
+        "wait",
+      ].join("\n"),
+    );
+    const meneur = spawn("setsid", ["-w", "bash", fichier("meneur.sh")], { stdio: "ignore" });
+    try {
+      const attends = async (condition: () => boolean) => {
+        for (let essai = 0; essai < 100 && !condition(); essai++) await new Promise((r) => setTimeout(r, 20));
+        expect(condition()).toBe(true);
+      };
+      await attends(() => existsSync(fichier("voisin")));
+      await new Promise((r) => setTimeout(r, 100));
+
+      execFileSync("bash", ["-c", scriptDeVerification(fichier("pid"))]);
+      await attends(() => existsSync(fichier("recu")));
+
+      const voisin = readFileSync(fichier("voisin"), "utf8").trim();
+      // `kill -0` : le voisin vit toujours.
+      expect(() => execFileSync("kill", ["-0", voisin])).not.toThrow();
+    } finally {
+      try {
+        process.kill(-Number(readFileSync(fichier("pid"), "utf8")), "SIGKILL");
+      } catch {
+        meneur.kill("SIGKILL");
+      }
+    }
+  });
+
+  test("sans s3s-relance.py, la verification immediate echoue sans rien signaler", () => {
+    const dossier = mkdtempSync(join(tmpdir(), "verifie-"));
+    writeFileSync(join(dossier, "pid"), "999999");
+    expect(() => execFileSync("bash", ["-c", scriptDeVerification(join(dossier, "pid"))])).toThrow();
+  });
+});
+
+describe("peutVerifierMaintenant", () => {
+  test("seulement pendant l'attente d'une veille qui tourne, une fois", () => {
+    const enAttente = rejoue(["Press Ctrl+C to exit. 30"]);
+    expect(peutVerifierMaintenant(enAttente)).toBe(true);
+    expect(peutVerifierMaintenant({ ...enAttente, verificationDemandee: true })).toBe(false);
+    expect(peutVerifierMaintenant(etatAuDemarrage())).toBe(false);
+    expect(peutVerifierMaintenant({ ...enAttente, statut: "arret-demande" })).toBe(false);
+  });
+
+  test("la demande retombe des que s3s verifie", () => {
+    const demande: EtatDeVeille = { ...rejoue(["Press Ctrl+C to exit. 30"]), verificationDemandee: true };
+    // Le decompte file a toute vitesse avant la verification : la demande tient.
+    expect(rejoue(["Press Ctrl+C to exit. 0"], demande).verificationDemandee).toBe(true);
+    expect(rejoue(["Checking for new results..."], demande).verificationDemandee).toBeUndefined();
   });
 });
 
