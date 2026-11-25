@@ -38,32 +38,40 @@
     <main class="app">
       <section class="sessions" aria-labelledby="titre-sessions">
         <div class="sessions__outils">
-          <button type="button" class="bouton--discret" id="bouton-reglages">Réglages</button>
-          <button type="button" class="bouton--discret" id="bouton-dossier-planches">
-            Dossier des planches
+          <button type="button" class="bouton--discret bouton-outil" id="bouton-reglages">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" />
+            </svg>
+            Réglages
           </button>
-          <button type="button" class="bouton--discret bouton-veille" id="bouton-veille" hidden>
-            Lancer la veille s3s
+          <button type="button" class="bouton--discret bouton-outil" id="bouton-dossier-planches">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+              <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v8.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" />
+            </svg>
+            Planches
           </button>
-          <!-- Pendant l'attente de la veille : verifier sans attendre la fin de la minute. -->
-          <button type="button" class="bouton--discret" id="bouton-verifier" hidden>
-            Vérifier maintenant
-          </button>
-          <!--
-            Ouvrir l'emulateur avec sa fenetre (se reconnecter a la Nintendo
-            Switch App), puis l'eteindre proprement. Cache sans SDK Android.
-          -->
-          <div class="emulateur" id="veille-emulateur" hidden>
-            <button type="button" class="bouton--discret" id="bouton-emulateur"></button>
-            <span class="emulateur__note" id="emulateur-note" aria-live="polite"></span>
-          </div>
         </div>
         <!--
-          Suivi de la veille s3s : ce qu'elle fait, et chaque partie envoyee a
-          stat.ink. Cache tant qu'aucune veille n'a tourne.
+          Veille s3s : un encart qui porte ses propres commandes (lancer,
+          verifier, arreter, emulateur), ce qu'elle fait, et chaque partie
+          envoyee a stat.ink. Cache seulement la ou la veille n'existe pas.
         -->
-        <section class="veille" id="veille" aria-label="Veille s3s" hidden>
+        <section class="veille" id="veille" aria-labelledby="veille-titre" hidden>
+          <header class="veille__entete">
+            <span class="veille__voyant" id="veille-voyant" aria-hidden="true"></span>
+            <span class="veille__titre" id="veille-titre">Veille s3s</span>
+          </header>
           <p class="veille__etat" id="veille-etat" aria-live="polite"></p>
+          <!-- Le temps restant avant la prochaine verification, d'un coup d'oeil. -->
+          <div class="veille__decompte" id="veille-decompte" hidden>
+            <span class="veille__decompte-barre" id="veille-decompte-barre"></span>
+          </div>
+          <div class="veille__actions">
+            <!-- Pendant l'attente : verifier sans attendre la fin de la minute. -->
+            <button type="button" id="bouton-verifier" hidden>Vérifier maintenant</button>
+            <button type="button" class="bouton-veille" id="bouton-veille">Lancer la veille</button>
+          </div>
           <!--
             Ce qui bloque la veille et qu'elle ne reglera pas seule : le plus
             souvent, la Nintendo Switch App deconnectee dans l'emulateur. La
@@ -88,7 +96,16 @@
           </div>
           <p class="veille__bilan" id="veille-bilan"></p>
           <ol class="veille__parties" id="veille-parties"></ol>
-          <details class="veille__journal">
+          <!--
+            Ouvrir l'emulateur avec sa fenetre (se reconnecter a la Nintendo
+            Switch App), puis l'eteindre proprement. Cache sans SDK Android ;
+            quand il est grise, la raison est dans son infobulle.
+          -->
+          <div class="emulateur" id="veille-emulateur" hidden>
+            <button type="button" class="bouton--discret" id="bouton-emulateur"></button>
+            <span class="emulateur__note" id="emulateur-note" aria-live="polite"></span>
+          </div>
+          <details class="veille__journal" id="veille-journal-bloc">
             <summary>Journal</summary>
             <pre id="veille-journal"></pre>
           </details>

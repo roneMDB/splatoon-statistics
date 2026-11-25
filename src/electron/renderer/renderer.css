@@ -201,51 +201,90 @@ h2 {
   padding-bottom: 18px;
 }
 
-.sessions__outils button {
-  font-size: 13px;
-  padding: 6px 14px 5px;
+/* Deux utilitaires, sobres : la colonne commence par la veille. */
+.sessions__outils .bouton-outil {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  padding: 5px 13px 4px;
+}
+
+.bouton-outil svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.85;
 }
 
 /*
- * Veille s3s. Le bouton prend l'accent quand elle tourne, avec une pastille
- * qui bat : on doit voir d'un coup d'oeil qu'une veille est en cours.
+ * Veille s3s : un encart qui porte ses commandes. Le voyant prend l'accent et
+ * bat quand elle tourne : on doit voir d'un coup d'oeil qu'une veille est en
+ * cours.
  */
-.bouton-veille--active {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.bouton-veille--active::before {
-  content: "";
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-right: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  vertical-align: 1px;
-  animation: veille-pouls 1.6s ease-in-out infinite;
-}
-
-@keyframes veille-pouls {
-  50% {
-    opacity: 0.25;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bouton-veille--active::before {
-    animation: none;
-  }
-}
-
 .veille {
-  margin: 0 0 18px;
-  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 22px;
+  padding: 12px 14px 12px;
   border: 2px solid var(--trait);
   border-radius: 14px;
   background: var(--fond-panneau);
   font-size: 13px;
+}
+
+.veille:has(.veille__voyant[data-statut="en-cours"]) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--trait));
+}
+
+.veille [hidden] {
+  display: none;
+}
+
+.veille__entete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.veille__titre {
+  font-family: var(--titre);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texte-doux);
+}
+
+.veille__voyant {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--trait);
+}
+
+.veille__voyant[data-statut="en-cours"] {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: veille-pouls 1.6s ease-in-out infinite;
+}
+
+.veille__voyant[data-statut="arret-demande"] {
+  background: var(--alerte);
+}
+
+@keyframes veille-pouls {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .veille__voyant[data-statut="en-cours"] {
+    animation: none;
+  }
 }
 
 .veille__etat {
@@ -253,18 +292,57 @@ h2 {
   color: var(--texte);
 }
 
+.veille__decompte {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--fond-champ);
+  overflow: hidden;
+}
+
+.veille__decompte-barre {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 1s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .veille__decompte-barre {
+    transition: none;
+  }
+}
+
+.veille__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Verifier et arreter tiennent sur une ligne, meme dans la colonne la plus etroite. */
+.veille__actions {
+  flex-wrap: nowrap;
+}
+
+.veille__actions button {
+  font-size: 12.5px;
+  padding: 6px 13px 5px;
+  white-space: nowrap;
+}
+
 .veille__etat--erreur {
   color: var(--erreur);
 }
 
 .veille__bilan {
-  margin: 4px 0 0;
+  margin: 0;
   color: var(--texte-doux);
 }
 
 .veille__parties {
   list-style: none;
-  margin: 8px 0 0;
+  margin: 0;
   padding: 0;
   max-height: 240px;
   overflow-y: auto;
@@ -336,7 +414,7 @@ h2 {
 }
 
 .veille__alerte {
-  margin: 8px 0 4px;
+  margin: 0;
   padding: 8px 12px 10px;
   border: 2px solid var(--alerte);
   border-radius: 10px;
@@ -368,6 +446,11 @@ h2 {
   gap: 8px;
 }
 
+.emulateur button {
+  font-size: 12px;
+  padding: 4px 12px 3px;
+}
+
 .emulateur__note {
   font-size: 12px;
   opacity: 0.8;
@@ -381,7 +464,7 @@ h2 {
 }
 
 .veille__journal {
-  margin-top: 8px;
+  margin: 0;
 }
 
 .veille__journal summary {
@@ -1297,4 +1380,9 @@ h3.apercu__titre {
 
 #bouton-objectif-ajouter {
   margin-top: 10px;
+}
+
+/* Une liste vide ne doit pas compter dans l'espacement de l'encart. */
+.veille__parties:empty {
+  display: none;
 }

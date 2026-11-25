@@ -62,6 +62,8 @@ let alerteVisible = false;
 /** Action proposee par le bouton de l'emulateur, `undefined` s'il est grise. */
 /** @type {"ouvre" | "eteint" | undefined} */
 let actionDEmulateur;
+/** Plus grand decompte vu depuis le debut de l'attente : la barre part de la. */
+let decompteMax = 0;
 /** Dernier etat recu, pour retirer la mise en evidence une fois passee. */
 /** @type {EtatDeVeille | undefined} */
 let dernierEtat;
@@ -87,6 +89,7 @@ function ligneDEtat(etat) {
       : "Arrêt demandé : vérification finale avant de s'arrêter…";
   }
   if (etat.statut === "en-cours") {
+    if (etat.verificationDemandee === true) return "Vérification demandée…";
     if (etat.phase === "attente" && etat.decompte !== undefined) {
       return `En attente — prochaine vérification dans ${etat.decompte} s.`;
     }
@@ -99,7 +102,7 @@ function ligneDEtat(etat) {
   if (etat.codeDeSortie !== undefined) {
     return `Veille terminée sur une erreur (code ${etat.codeDeSortie ?? "signal"}) : voir le journal.`;
   }
-  return "";
+  return "À l'arrêt.";
 }
 
 /** @param {readonly PartieSuivie[]} parties */
@@ -211,37 +214,46 @@ function afficheLEmulateur(etat) {
   elements.boutonEmulateur.textContent = bouton.libelle;
   elements.boutonEmulateur.disabled = !bouton.actif;
   actionDEmulateur = bouton.actif ? bouton.action : undefined;
-  elements.emulateurNote.textContent = bouton.note ?? "";
+  // Grise, la note dit pourquoi : elle va dans l'infobulle, pas sous les yeux.
+  // Actif, la note est une erreur a lire : elle reste affichee.
+  elements.boutonEmulateur.title = bouton.actif ? "" : bouton.note ?? "";
+  elements.emulateurNote.textContent = bouton.actif ? bouton.note ?? "" : "";
 }
 
 /** @param {EtatDeVeille} etat */
 function affiche(etat) {
   dernierEtat = etat;
+  // L'encart reste en place, veille arretee comprise : il porte ses commandes.
+  elements.veille.hidden = etat.indisponible === true;
+  if (etat.indisponible === true) return;
+
+  elements.veilleVoyant.dataset["statut"] = etat.statut;
+
+  // Arretee, lancer est l'action principale ; en cours, c'est verifier, et
+  // arreter passe au second plan.
   const bouton = elements.boutonVeille;
-  bouton.hidden = etat.indisponible === true;
   bouton.disabled = etat.statut === "arret-demande";
   bouton.textContent =
-    etat.statut === "arretee"
-      ? "Lancer la veille s3s"
-      : etat.statut === "en-cours"
-        ? "Arrêter la veille"
-        : "Arrêt en cours…";
-  bouton.classList.toggle("bouton-veille--active", etat.statut !== "arretee");
+    etat.statut === "arretee" ? "Lancer la veille" : etat.statut === "en-cours" ? "Arrêter" : "Arrêt en cours…";
+  bouton.classList.toggle("bouton--discret", etat.statut !== "arretee");
 
   // Meme regle que `peutVerifierMaintenant` (src/veille.ts) : visible tant que
   // la veille tourne, actif pendant son decompte seulement.
   elements.boutonVerifier.hidden = etat.statut !== "en-cours";
   elements.boutonVerifier.disabled = etat.phase !== "attente" || etat.verificationDemandee === true;
 
-  const aMontrer =
-    etat.statut !== "arretee" ||
-    etat.parties.length > 0 ||
-    etat.erreur !== undefined ||
-    etat.codeDeSortie !== undefined ||
-    etat.alerte !== undefined ||
-    etat.dejaEnCours;
-  elements.veille.hidden = !aMontrer;
-  if (!aMontrer) return;
+  const decompte = etat.statut === "en-cours" && etat.phase === "attente" ? etat.decompte : undefined;
+  elements.veilleDecompte.hidden = decompte === undefined;
+  if (decompte === undefined) {
+    decompteMax = 0;
+  } else {
+    decompteMax = Math.max(decompteMax, decompte, 1);
+    elements.veilleDecompteBarre.style.width = `${(decompte / decompteMax) * 100}%`;
+  }
+
+  const rienAMontrer = etat.statut === "arretee" && etat.parties.length === 0;
+  elements.veilleBilan.hidden = rienAMontrer;
+  elements.veilleJournalBloc.hidden = etat.journal.length === 0;
 
   const erreur = etat.erreur;
   elements.veilleEtat.textContent = erreur ?? ligneDEtat(etat);
