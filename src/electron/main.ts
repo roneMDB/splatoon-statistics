@@ -61,6 +61,8 @@ import { MOTIF_SCOTCH } from "../report/texture.ts";
 import { creeLaSauvegarde, destinationDeSauvegarde } from "../sauvegarde.ts";
 import { creeLaVeille } from "./veilleHandler.ts";
 import { creeLEmulateur } from "./emulateurHandler.ts";
+import { demarreObsSiBesoin, messageObs } from "./obsHandler.ts";
+import { commandesObs } from "../obs.ts";
 import type { AlerteDeVeille, StatutDeVeille } from "../veille.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -639,6 +641,17 @@ void app.whenReady().then(() => {
   sauvegarde.demande();
   // Si le cron tient deja la synchro, la veille cede la place et le dit.
   if (REGLAGES.veille.auDemarrage) veille.demarre();
+  // OBS accompagne les sessions : lance s'il ne tourne pas, laisse tel quel sinon.
+  void demarreObsSiBesoin({
+    lance: spawn,
+    commandes: commandesObs(process.platform, sousWslActif, process.env["ProgramFiles"]),
+    existe: existsSync,
+  }).then((resultat) => {
+    const message = messageObs(resultat);
+    if (message === undefined) return;
+    if (resultat.etat === "introuvable" || resultat.etat === "echec") console.error(message);
+    else console.log(message);
+  });
 
   // Sous macOS, cliquer l'icone du dock rouvre une fenetre sans relancer l'appli.
   app.on("activate", () => {
