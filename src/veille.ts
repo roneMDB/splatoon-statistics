@@ -117,15 +117,14 @@ export function scriptDArret(fichierPid: string = FICHIER_PID): string {
  * Le script bash qui demande une verification tout de suite, sans attendre la
  * fin du decompte.
  *
- * s3s ne sait pas ecourter son attente : c'est son pilote (`outils/s3s_pilote.py`,
- * ou l'ancien `s3s-relance.py`), par lequel `stu-run.py` fait passer s3s, qui
+ * s3s ne sait pas ecourter son attente : c'est son pilote (`outils/s3s_pilote.py`), par lequel `stu-run.py` fait passer s3s, qui
  * saute le reste du decompte a la reception de SIGUSR1. Le signal vise ce seul
  * processus, dans le groupe de la veille : l'action par defaut de SIGUSR1 tue,
  * et tout autre processus du groupe (bash, tee, s3s lance sans pilote) en
  * mourrait. Rend 1 si le pilote ne tourne pas.
  */
 export function scriptDeVerification(fichierPid: string = FICHIER_PID): string {
-  return `[ -s ${fichierPid} ] && pkill -USR1 -g "$(cat ${fichierPid})" -f 's3s(_pilote|-relance)\\.py '`;
+  return `[ -s ${fichierPid} ] && pkill -USR1 -g "$(cat ${fichierPid})" -f 's3s_pilote\\.py '`;
 }
 
 /**

@@ -70,8 +70,7 @@ tel quel. Le bouton « Vérifier maintenant » lui envoie SIGUSR1. Seuls les mes
 de STU et d'`upload.sh` sont encore lus comme du texte.
 
 Le pilote est branché dans `~/repositories/s3s/stu-run.py` (variable `PILOTE`),
-qui le glisse entre Python et `s3s.py` ; à défaut il retombe sur l'ancien
-`s3s-relance.py`. Si s3s tourne sans pilote, la veille le signale et ne suit rien.
+qui le glisse entre Python et `s3s.py`. Si s3s tourne sans pilote, la veille le signale et ne suit rien.
 Le pilote n'importe s3s qu'en module et enrobe quelques-unes de ses fonctions :
 le dépôt de s3s n'est pas modifié. Ses tests : `npm run test:pilote`.
 

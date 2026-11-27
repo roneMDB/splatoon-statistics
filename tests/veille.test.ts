@@ -136,7 +136,7 @@ describe("scripts", () => {
     expect(scriptDArret()).toMatch(/kill -INT -- -"\$\(cat /);
   });
 
-  test.each(["s3s_pilote.py", "s3s-relance.py"])("la verification immediate ne signale que %s, dans le groupe de la veille", async (pilote) => {
+  test("la verification immediate ne signale que le pilote, dans le groupe de la veille", async () => {
     // SIGUSR1 tue par defaut : un voisin du groupe vise par erreur mourrait.
     const dossier = mkdtempSync(join(tmpdir(), "verifie-"));
     const fichier = (nom: string) => join(dossier, nom);
@@ -148,7 +148,7 @@ describe("scripts", () => {
       fichier("meneur.sh"),
       [
         `echo $$ > "${fichier("pid")}"`,
-        `bash "${fichier("cible.sh")}" "${fichier("recu")}" ${pilote} s3s.py &`,
+        `bash "${fichier("cible.sh")}" "${fichier("recu")}" s3s_pilote.py s3s.py &`,
         `sleep 5 & echo $! > "${fichier("voisin")}"`,
         "wait",
       ].join("\n"),
