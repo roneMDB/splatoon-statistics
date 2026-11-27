@@ -101,6 +101,7 @@ export const elements = {
   reglageVeilleCommande: /** @type {HTMLInputElement} */ (document.getElementById("reglage-veille-commande")),
   reglageVeilleDistribution: /** @type {HTMLInputElement} */ (document.getElementById("reglage-veille-distribution")),
   reglageVeilleAuDemarrage: /** @type {HTMLInputElement} */ (document.getElementById("reglage-veille-au-demarrage")),
+  reglageNavigateur: /** @type {HTMLInputElement} */ (document.getElementById("reglage-navigateur")),
   sauvegardeEtat: /** @type {HTMLElement} */ (document.getElementById("sauvegarde-etat")),
   boutonSauvegarder: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-sauvegarder")),
   boutonSauvegardeDossier: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-sauvegarde-dossier")),

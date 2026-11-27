@@ -260,3 +260,26 @@ describe("veille", () => {
     expect(ecartAuxDefauts(reglages)).toEqual({ veille: { commande: "s3s-sync -r -M 120" } });
   });
 });
+
+describe("navigateur", () => {
+  test("vide par defaut : le navigateur du systeme", () => {
+    expect(valideLesReglages({}).navigateur).toBe("");
+  });
+
+  test("garde le chemin, sans les espaces ni les guillemets d'un « Copier en tant que chemin »", () => {
+    expect(valideLesReglages({ navigateur: ' "C:\\Program Files\\Mozilla Firefox\\firefox.exe" ' }).navigateur).toBe(
+      "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+    );
+  });
+
+  test("refuse ce qui n'est pas un texte", () => {
+    expect(() => valideLesReglages({ navigateur: 3 })).toThrow(/"navigateur" : texte attendu/);
+  });
+
+  test("ne s'ecrit que s'il est renseigne", () => {
+    expect(ecartAuxDefauts(valideLesReglages({ navigateur: "" }))).toEqual({});
+    expect(ecartAuxDefauts(valideLesReglages({ navigateur: "/usr/bin/firefox" }))).toEqual({
+      navigateur: "/usr/bin/firefox",
+    });
+  });
+});

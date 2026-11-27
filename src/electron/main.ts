@@ -33,7 +33,7 @@ import {
 import { armesConnues } from "../armes.fr.ts";
 import { toBattleRows } from "../battleRows.ts";
 import { toBattleDetail } from "../battleDetail.ts";
-import { estUneUrlStatink, saitOuvrirUnLien } from "../lienExterne.ts";
+import { cheminDuNavigateur, estUneUrlStatink, saitOuvrirUnLien } from "../lienExterne.ts";
 import { saitOuvrirExplorer } from "../revelePlanche.ts";
 import { parseSessionType, SESSION_TYPES, TYPES_AVEC_EQUIPES } from "../sessionMeta.ts";
 import { KNOWN_LOBBIES } from "../statink/url.ts";
@@ -462,10 +462,34 @@ const TAILLE_MAXIMALE_PRESSE_PAPIER = 100_000;
  * `shell.openExternal` resout sa promesse meme quand `xdg-open` est absent :
  * le bouton semblerait alors fonctionner sans rien faire. On verifie donc en
  * amont, et on replie sur le presse-papier plutot que de mentir.
+ *
+ * Un navigateur regle dans les reglages passe avant tout cela : on le lance
+ * nous-memes, l'URL en seul argument. Introuvable, il est signale plutot que
+ * remplace en silence par celui du systeme.
  */
 ipcMain.handle(IPC.openExternal, async (_event, url: unknown) => {
   if (typeof url !== "string" || !estUneUrlStatink(url)) {
     throw new Error("Lien refusé : seules les adresses stat.ink sont ouvertes.");
+  }
+
+  const navigateur = cheminDuNavigateur(REGLAGES.navigateur, process.platform);
+  if (navigateur !== undefined) {
+    if (!existsSync(navigateur)) {
+      throw new Error(
+        `Navigateur introuvable : ${navigateur}. Corrigez le chemin dans les réglages, ou videz-le pour revenir au navigateur du système.`,
+      );
+    }
+    await new Promise<void>((resolu, rejete) => {
+      const processus = spawn(navigateur, [url], { detached: true, stdio: "ignore" });
+      processus.once("error", (erreur) =>
+        rejete(new Error(`Impossible de lancer ${navigateur} : ${erreur.message}`)),
+      );
+      processus.once("spawn", () => {
+        processus.unref();
+        resolu();
+      });
+    });
+    return "ouvert" as const;
   }
 
   const environnement = {

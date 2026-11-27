@@ -86,3 +86,25 @@ export function saitOuvrirUnLien(
 
   return NAVIGATEURS.some(dansLePath);
 }
+
+/**
+ * Le navigateur regle dans `settings.json`, tel qu'on peut le lancer ici.
+ *
+ * Rend `undefined` quand rien n'est regle : l'appelant laisse alors faire le
+ * systeme. Sous Linux, un chemin Windows (`C:\\...\\vivaldi.exe`) devient
+ * celui du disque monte par WSL (`/mnt/c/.../vivaldi.exe`), que WSL sait
+ * executer : on peut ainsi coller le chemin tel que Windows le donne.
+ *
+ * @param regle le reglage `navigateur`.
+ * @param plateforme `process.platform`.
+ */
+export function cheminDuNavigateur(regle: string, plateforme: string): string | undefined {
+  const chemin = regle.trim();
+  if (chemin === "") return undefined;
+  if (plateforme !== "linux") return chemin;
+
+  const windows = /^([A-Za-z]):[\\/](.*)$/.exec(chemin);
+  if (windows === null) return chemin;
+  const reste = (windows[2] ?? "").split(/[\\/]+/).filter((partie) => partie !== "").join("/");
+  return `/mnt/${windows[1]!.toLowerCase()}/${reste}`;
+}

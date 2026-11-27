@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { estUneUrlStatink, saitOuvrirUnLien } from "../src/lienExterne.ts";
+import { cheminDuNavigateur, estUneUrlStatink, saitOuvrirUnLien } from "../src/lienExterne.ts";
 
 describe("estUneUrlStatink", () => {
   test("accepte une url de match stat.ink", () => {
@@ -93,5 +93,29 @@ describe("saitOuvrirUnLien", () => {
     expect(
       saitOuvrirUnLien("linux", { PATH: "::/usr/bin:" }, presents(xdg, "/usr/bin/firefox")),
     ).toBe(true);
+  });
+});
+
+describe("cheminDuNavigateur", () => {
+  test("rien de regle : on laisse faire le systeme", () => {
+    expect(cheminDuNavigateur("", "linux")).toBeUndefined();
+    expect(cheminDuNavigateur("  ", "win32")).toBeUndefined();
+  });
+
+  test("sous Windows, le chemin tel quel", () => {
+    const chemin = "C:\\Program Files\\Mozilla Firefox\\firefox.exe";
+    expect(cheminDuNavigateur(chemin, "win32")).toBe(chemin);
+  });
+
+  test("sous Linux, un chemin Windows passe par le disque monte de WSL", () => {
+    expect(cheminDuNavigateur("C:\\Program Files\\Mozilla Firefox\\firefox.exe", "linux")).toBe(
+      "/mnt/c/Program Files/Mozilla Firefox/firefox.exe",
+    );
+    expect(cheminDuNavigateur("D:/Outils/vivaldi.exe", "linux")).toBe("/mnt/d/Outils/vivaldi.exe");
+  });
+
+  test("sous Linux, un chemin Linux tel quel", () => {
+    expect(cheminDuNavigateur("/mnt/c/Users/moi/vivaldi.exe", "linux")).toBe("/mnt/c/Users/moi/vivaldi.exe");
+    expect(cheminDuNavigateur("/usr/bin/firefox", "linux")).toBe("/usr/bin/firefox");
   });
 });

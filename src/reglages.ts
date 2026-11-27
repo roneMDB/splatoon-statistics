@@ -83,6 +83,13 @@ export type Reglages = {
    * `auDemarrage` : la veille part seule a l'ouverture de l'application.
    */
   veille: { commande: string; distribution: string; auDemarrage: boolean };
+  /**
+   * Executable du navigateur qui ouvre les liens stat.ink. Vide : celui du
+   * systeme (`$BROWSER` puis `xdg-open` sous Linux, le navigateur par defaut
+   * sous Windows). Un chemin Windows (`C:\\...`) marche aussi sous WSL : il
+   * est traduit vers `/mnt/c/...` a l'ouverture (voir `src/lienExterne.ts`).
+   */
+  navigateur: string;
 };
 
 export const REGLAGES_PAR_DEFAUT: Reglages = {
@@ -113,6 +120,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   objectifsParArme: {},
   sauvegarde: { automatique: true, dossier: "" },
   veille: { commande: "s3s-sync -r -M 60", distribution: "", auDemarrage: true },
+  navigateur: "",
 };
 
 /**
@@ -346,6 +354,13 @@ export function valideLesReglages(brut: unknown, source = "settings.json"): Regl
       if (typeof auDemarrage !== "boolean") throw new Error(`${ou}.auDemarrage : true ou false attendu.`);
       reglages.veille.auDemarrage = auDemarrage;
     }
+  }
+
+  if (brut.navigateur !== undefined) {
+    if (typeof brut.navigateur !== "string") throw new Error(`${source}, "navigateur" : texte attendu.`);
+    // L'explorateur Windows copie un chemin entre guillemets (« Copier en tant
+    // que chemin ») : on les retire plutot que de refuser ce qu'il produit.
+    reglages.navigateur = brut.navigateur.trim().replace(/^"(.*)"$/, "$1").trim();
   }
 
   if (brut.objectifsParArme !== undefined) {

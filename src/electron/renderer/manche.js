@@ -151,7 +151,7 @@ elements.boutonMancheStatink.addEventListener("click", async () => {
         elements.avertissement,
         "Aucun navigateur n'est accessible depuis cette machine. L'adresse a été " +
           "copiée dans le presse-papier. Pour ouvrir les liens directement, " +
-          "renseignez la variable BROWSER ou installez wslu.",
+          "indiquez un navigateur dans les réglages, renseignez la variable BROWSER ou installez wslu.",
       );
     }
   } catch (erreur) {

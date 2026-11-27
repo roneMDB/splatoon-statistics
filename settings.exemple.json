@@ -41,5 +41,6 @@
     "commande": "s3s-sync -r -M 60",
     "distribution": "",
     "auDemarrage": true
-  }
+  },
+  "navigateur": ""
 }

@@ -166,6 +166,22 @@
                 raccourcis de la barre de menu (recharger, outils de développement) disparaissent
                 avec elle.
               </p>
+              <div class="champ">
+                <label for="reglage-navigateur">Navigateur</label>
+                <input
+                  type="text"
+                  id="reglage-navigateur"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="Navigateur du système"
+                />
+                <p class="reglages__aide">
+                  Chemin du programme qui ouvre les liens stat.ink, par exemple
+                  <code>C:\Program Files\Mozilla Firefox\firefox.exe</code>. Sous WSL, un chemin
+                  Windows est traduit vers <code>/mnt/c/…</code>. Vide : le navigateur par défaut
+                  (sous WSL, la variable <code>BROWSER</code> ou <code>wslu</code>).
+                </p>
+              </div>
             </fieldset>
 
             <fieldset class="reglages__groupe">

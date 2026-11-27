@@ -197,7 +197,10 @@ cas normal sous WSL, où le navigateur vit du côté Windows.
 L'application vérifie donc elle-même qu'un navigateur est atteignable. À défaut, elle
 **copie l'adresse** et le signale, au lieu de laisser croire à une ouverture.
 
-Pour l'ouverture directe, deux chemins :
+Pour l'ouverture directe, le plus simple est d'indiquer le navigateur dans les
+réglages (champ « Navigateur », clé `navigateur`) : un chemin Windows comme
+`C:\Program Files\Mozilla Firefox\firefox.exe` y est accepté tel quel, et traduit
+vers `/mnt/c/...` sous WSL. Sinon, deux chemins par l'environnement :
 
 ```bash
 # Pointer vers le navigateur Windows (à mettre dans ~/.zshrc ou ~/.bashrc)
@@ -454,6 +457,7 @@ Les valeurs par défaut se règlent dans un fichier `settings.json`, à la racin
 | `seuils` | Les seuils de rédaction du compte rendu (voir `src/report/seuils.ts`). Les nombres de manches, secondes et médailles sont des entiers d'au moins 1. `partDeSessionReguliere` et `baisseDeRegimeRelative` sont des parts comprises entre 0 (exclu) et 1. |
 | `sauvegarde` | `automatique` (vrai par défaut) : copie après chaque modification et au démarrage. `dossier` : destination, vide pour `Mon Drive\Splatoon Statistics`. Voir « Sauvegarde et restauration ». |
 | `veille` | `commande` : ce que lance le bouton « Lancer la veille s3s », dans un shell bash de connexion (`s3s-sync -r -M 60` par défaut). `distribution` : distribution WSL visée depuis Windows, vide pour celle par défaut. |
+| `navigateur` | Programme qui ouvre les liens stat.ink, au lieu du navigateur du système. Un chemin Windows (`C:\...\firefox.exe`) est accepté sous WSL et traduit vers `/mnt/c/...`. Vide par défaut. |
 | `objectifsParArme` | Mes objectifs par arme, par clé stat.ink (`nzap85`) : `mortsMax` et/ou `speciauxMin`, entiers positifs ou nuls. Jugés manche par manche, sur les seules manches jouées avec l'arme. Une manche écourtée (un KO) est jugée au prorata du temps joué sur une manche entière (5 minutes, 3 en guerre de territoire), morts arrondies vers le bas et spéciaux vers le haut ; une prolongation ne remonte pas les objectifs ; une manche de moins d'une minute n'est pas jugée. Le bulletin de rôle et l'en-tête comptent les manches tenues, et les cartes de la planche marquent mes morts et spéciaux en jaune (tenu) ou en rose souligné (manqué), avec l'objectif ajusté à côté sur une manche écourtée.
 
 La lecture est stricte : une clé inconnue ou une valeur invalide arrête le programme avec un message qui la nomme, plutôt que d'être ignorée en silence. Retirer un type de la liste n'empêche pas de relire les sessions déjà enregistrées sous ce type. La variable `SPLATOON_SETTINGS` désigne un autre fichier ; vide, elle désactive la lecture (c'est ce que font les tests).

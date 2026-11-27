@@ -193,6 +193,7 @@ function remplisLesReglages(reglages) {
   elements.reglageVeilleCommande.value = reglages.veille.commande;
   elements.reglageVeilleDistribution.value = reglages.veille.distribution;
   elements.reglageVeilleAuDemarrage.checked = reglages.veille.auDemarrage;
+  elements.reglageNavigateur.value = reglages.navigateur;
   for (const champ of elements.reglagesSeuils.querySelectorAll("input")) {
     const { cle = "", unite = "" } = champ.dataset;
     champ.value = String(versLEcran(parCle(reglages.seuils)[cle] ?? Number.NaN, unite));
@@ -241,6 +242,7 @@ function lisLesReglages() {
       distribution: elements.reglageVeilleDistribution.value,
       auDemarrage: elements.reglageVeilleAuDemarrage.checked,
     },
+    navigateur: elements.reglageNavigateur.value,
   };
 }
 
