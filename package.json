@@ -19,7 +19,8 @@
     "app:deploy": "tsx scripts/deploieWindows.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.renderer.json"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.renderer.json",
+    "test:pilote": "cd outils && python3 -m unittest -q"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

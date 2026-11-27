@@ -10,6 +10,7 @@ import {
   entreGuillemets,
   etatAuDemarrage,
   lisLigne,
+  MARQUE_DU_PILOTE,
   nettoieLaLigne,
   peutVerifierMaintenant,
   scriptDArret,
@@ -21,9 +22,26 @@ import {
   type EtatDeVeille,
 } from "../src/veille.ts";
 
-/** Applique des lignes une a une, comme le pilote le fait. */
+/** Applique des lignes une a une, comme le gestionnaire le fait. */
 const rejoue = (lignes: string[], depart: EtatDeVeille = etatAuDemarrage()) =>
   lignes.reduce(appliqueLaLigne, depart);
+
+/** Une ligne d'evenement, telle que `outils/s3s_pilote.py` l'ecrit. */
+const evt = (evenement: Record<string, unknown>) => `${MARQUE_DU_PILOTE} ${JSON.stringify(evenement)}`;
+
+/** Un match tel que s3s l'envoie a stat.ink : Pont Esturgeon, en Defense de Zone. */
+const MATCH = {
+  type: "partie",
+  nature: "battle",
+  id: "u-1",
+  debut: 1_790_000_000,
+  fin: 1_790_000_200,
+  regle: "area",
+  lobby: "private",
+  stage: "10",
+  resultat: "win",
+  ko: false,
+};
 
 describe("commandeSysteme", () => {
   test("sous Linux et WSL, lance bash en shell de connexion, pour trouver ~/.local/bin", () => {
@@ -65,6 +83,8 @@ describe("scripts", () => {
     const script = scriptDeLancement("s3s-sync -r -M 60");
     expect(script).toMatch(/^exec setsid -w bash -c '/);
     expect(script).toContain("PYTHONUNBUFFERED=1");
+    // Sans elle, le pilote de s3s se tait (cron).
+    expect(script).toContain("export SPLATOON_VEILLE_EVENEMENTS=1");
     expect(script).toContain("s3s-sync -r -M 60");
     expect(script).toContain("tee -i -p");
   });
@@ -116,7 +136,7 @@ describe("scripts", () => {
     expect(scriptDArret()).toMatch(/kill -INT -- -"\$\(cat /);
   });
 
-  test("la verification immediate ne signale que s3s-relance.py, dans le groupe de la veille", async () => {
+  test.each(["s3s_pilote.py", "s3s-relance.py"])("la verification immediate ne signale que %s, dans le groupe de la veille", async (pilote) => {
     // SIGUSR1 tue par defaut : un voisin du groupe vise par erreur mourrait.
     const dossier = mkdtempSync(join(tmpdir(), "verifie-"));
     const fichier = (nom: string) => join(dossier, nom);
@@ -128,7 +148,7 @@ describe("scripts", () => {
       fichier("meneur.sh"),
       [
         `echo $$ > "${fichier("pid")}"`,
-        `bash "${fichier("cible.sh")}" "${fichier("recu")}" s3s-relance.py s3s.py &`,
+        `bash "${fichier("cible.sh")}" "${fichier("recu")}" ${pilote} s3s.py &`,
         `sleep 5 & echo $! > "${fichier("voisin")}"`,
         "wait",
       ].join("\n"),
@@ -208,7 +228,7 @@ describe("scripts", () => {
     });
   });
 
-  test("sans s3s-relance.py, la verification immediate echoue sans rien signaler", () => {
+  test("sans pilote, la verification immediate echoue sans rien signaler", () => {
     const dossier = mkdtempSync(join(tmpdir(), "verifie-"));
     writeFileSync(join(dossier, "pid"), "999999");
     expect(() => execFileSync("bash", ["-c", scriptDeVerification(join(dossier, "pid"))])).toThrow();
@@ -217,7 +237,7 @@ describe("scripts", () => {
 
 describe("peutVerifierMaintenant", () => {
   test("seulement pendant l'attente d'une veille qui tourne, une fois", () => {
-    const enAttente = rejoue(["Press Ctrl+C to exit. 30"]);
+    const enAttente = rejoue([evt({ type: "decompte", secondes: 30 })]);
     expect(peutVerifierMaintenant(enAttente)).toBe(true);
     expect(peutVerifierMaintenant({ ...enAttente, verificationDemandee: true })).toBe(false);
     expect(peutVerifierMaintenant(etatAuDemarrage())).toBe(false);
@@ -225,10 +245,10 @@ describe("peutVerifierMaintenant", () => {
   });
 
   test("la demande retombe des que s3s verifie", () => {
-    const demande: EtatDeVeille = { ...rejoue(["Press Ctrl+C to exit. 30"]), verificationDemandee: true };
+    const demande: EtatDeVeille = { ...rejoue([evt({ type: "decompte", secondes: 30 })]), verificationDemandee: true };
     // Le decompte file a toute vitesse avant la verification : la demande tient.
-    expect(rejoue(["Press Ctrl+C to exit. 0"], demande).verificationDemandee).toBe(true);
-    expect(rejoue(["Checking for new results..."], demande).verificationDemandee).toBeUndefined();
+    expect(rejoue([evt({ type: "decompte", secondes: 0 })], demande).verificationDemandee).toBe(true);
+    expect(rejoue([evt({ type: "verification", finale: false })], demande).verificationDemandee).toBeUndefined();
   });
 });
 
@@ -245,48 +265,57 @@ describe("creeLeDecoupeur", () => {
   });
 });
 
-describe("lisLigne : les messages de s3s.py, recopies tels quels", () => {
+describe("lisLigne : les evenements du pilote", () => {
   test.each([
-    ["Waiting for new battles... (checking every 1 minute)", { type: "attente" }],
-    ["Waiting for new battles and jobs... (checking every 2 minutes)", { type: "attente" }],
-    ["Press Ctrl+C to exit. 42", { type: "decompte", secondes: 42 }],
-    ["Checking for new results...", { type: "verification" }],
-    ["Checking to see if there are unuploaded battles before exiting...", { type: "verification-finale" }],
-    ["Checking if there are previously-unuploaded battles/jobs...", { type: "rattrapage" }],
-    ["Previously-unuploaded battles detected. Uploading now...", { type: "rattrapage" }],
+    [{ type: "pilote", version: 1 }, { type: "pilote", version: 1 }],
+    [{ type: "rattrapage" }, { type: "rattrapage" }],
+    [{ type: "jetons-expires" }, { type: "jetons" }],
+    [{ type: "decompte", secondes: 42 }, { type: "decompte", secondes: 42 }],
+    [{ type: "verification", finale: false }, { type: "verification", finale: false }],
+    [{ type: "verification", finale: true }, { type: "verification", finale: true }],
+  ])("%j", (evenement, attendu) => {
+    expect(lisLigne(evt(evenement))).toEqual(attendu);
+  });
+
+  test("une partie, champs valides seulement", () => {
+    expect(lisLigne(evt({ ...MATCH, statut: "envoyee", url: "https://stat.ink/@Gloup/spl3/a", debut: "hier" }))).toEqual({
+      type: "partie",
+      partie: {
+        nature: "battle",
+        statut: "envoyee",
+        id: "u-1",
+        fin: 1_790_000_200,
+        regle: "area",
+        lobby: "private",
+        stage: "10",
+        resultat: "win",
+        ko: false,
+        url: "https://stat.ink/@Gloup/spl3/a",
+      },
+    });
+  });
+
+  test.each([
+    ["un JSON illisible", `${MARQUE_DU_PILOTE} {pas du json`],
+    ["un type inconnu", evt({ type: "inconnu" })],
+    ["une partie sans statut", evt({ type: "partie", nature: "battle" })],
+    ["une nature inconnue", evt({ ...MATCH, nature: "autre", statut: "envoi" })],
+    ["un decompte sans secondes", evt({ type: "decompte" })],
+  ])("%s ne va qu'au journal", (_cas, ligne) => {
+    expect(lisLigne(ligne)).toEqual({ type: "ligne" });
+  });
+});
+
+describe("lisLigne : les messages de STU et d'upload.sh, recopies tels quels", () => {
+  test.each([
     ["Booting emulator...", { type: "jetons" }],
     ["--- splashcat (s3si.ts) 2026-10-13 21:40:00 --- (Ctrl+C pour passer)", { type: "splashcat" }],
     ["2026-10-13 21:40:00 : une synchro est déjà en cours, on passe.", { type: "deja-en-cours" }],
+    ["Waiting for new battles... (checking every 1 minute)", { type: "s3s-sans-pilote" }],
+    ["Battle uploaded to https://stat.ink/@Gloup/spl3/abc", { type: "ligne" }],
     ["s3s v0.7.0", { type: "ligne" }],
   ])("%s", (ligne, evenement) => {
     expect(lisLigne(ligne)).toEqual(evenement);
-  });
-
-  test("une partie detectee, avec son heure, son stage et son resultat", () => {
-    expect(lisLigne("New battle result detected at 9:41:12 PM! (Museum, Victory)")).toEqual({
-      type: "partie-detectee",
-      nature: "battle",
-      heure: "9:41:12 PM",
-      stage: "Museum",
-      resultat: "Victory",
-    });
-    expect(lisLigne("New job result detected at 10:02:51 PM! (Bay, Clear)")).toMatchObject({
-      nature: "job",
-      resultat: "Clear",
-    });
-  });
-
-  test("l'envoi, deja fait ou rate", () => {
-    expect(lisLigne("Battle uploaded to https://stat.ink/@Gloup/spl3/abc")).toEqual({
-      type: "partie-envoyee",
-      nature: "battle",
-      url: "https://stat.ink/@Gloup/spl3/abc",
-    });
-    expect(lisLigne("Job uploaded to https://stat.ink/@Gloup/salmon3/def")).toMatchObject({ nature: "job" });
-    expect(lisLigne("Battle already uploaded - https://stat.ink/@Gloup/spl3/abc")).toMatchObject({
-      type: "deja-envoyee",
-    });
-    expect(lisLigne("Error uploading battle. (ID: VnNIaXN0b3J5)")).toEqual({ type: "echec-envoi", nature: "battle" });
   });
 
   test("les echecs de STU, et la capture qu'il laisse", () => {
@@ -307,71 +336,87 @@ describe("lisLigne : les messages de s3s.py, recopies tels quels", () => {
 });
 
 describe("appliqueLaLigne", () => {
-  test("une partie annoncee passe de « envoi » a « envoyee », avec son lien", () => {
-    const annoncee = rejoue(["New battle result detected at 9:41:12 PM! (Museum, Victory)"]);
+  test("une partie annoncee passe de « envoi » a « envoyee », a la meme place, traduite", () => {
+    const annoncee = rejoue([evt({ ...MATCH, statut: "envoi" })]);
     expect(annoncee.parties).toEqual([
-      { nature: "battle", heure: "9:41:12 PM", stage: "Museum", resultat: "Victory", statut: "envoi", numero: 1 },
-    ]);
-
-    const envoyee = appliqueLaLigne(annoncee, "Battle uploaded to https://stat.ink/@Gloup/spl3/abc");
-    expect(envoyee.parties).toEqual([
       {
         nature: "battle",
-        heure: "9:41:12 PM",
-        stage: "Museum",
+        id: "u-1",
+        debut: "2026-09-21T14:13:20.000Z",
+        fin: "2026-09-21T14:16:40.000Z",
+        stage: "Pont Esturgeon",
+        regle: "Défense de Zone",
         resultat: "Victory",
-        statut: "envoyee",
-        url: "https://stat.ink/@Gloup/spl3/abc",
+        ko: false,
+        statut: "envoi",
         numero: 1,
       },
     ]);
+
+    const envoyee = appliqueLaLigne(annoncee, evt({ ...MATCH, statut: "envoyee", url: "https://stat.ink/@Gloup/spl3/abc" }));
+    expect(envoyee.parties).toHaveLength(1);
+    expect(envoyee.parties[0]).toMatchObject({ statut: "envoyee", url: "https://stat.ink/@Gloup/spl3/abc", numero: 1 });
     // L'etat d'avant n'a pas bouge : la fenetre peut le garder.
     expect(annoncee.parties[0]?.statut).toBe("envoi");
   });
 
-  test("la plus recente en tete, numerotee a la suite", () => {
+  test("la plus recente en tete, numerotee a la suite ; un echec garde le message de stat.ink", () => {
     const etat = rejoue([
-      "New battle result detected at 9:41:12 PM! (Museum, Victory)",
-      "Battle uploaded to https://stat.ink/@Gloup/spl3/a",
-      "New battle result detected at 9:46:30 PM! (Cargo, Defeat)",
-      "Error uploading battle. (ID: b)",
+      evt({ ...MATCH, statut: "envoyee" }),
+      evt({ ...MATCH, id: "u-2", stage: "15", resultat: "lose", statut: "echec", message: "invalid" }),
     ]);
-    expect(etat.parties.map((partie) => [partie.numero, partie.stage, partie.statut])).toEqual([
-      [2, "Cargo", "echec"],
-      [1, "Museum", "envoyee"],
+    expect(etat.parties.map((partie) => [partie.numero, partie.stage, partie.resultat, partie.statut, partie.message])).toEqual([
+      [2, "Supermarché Cétacé", "Defeat", "echec", "invalid"],
+      [1, "Pont Esturgeon", "Victory", "envoyee", undefined],
     ]);
   });
 
-  test("un envoi sans annonce (rattrapage) ajoute une partie sans stage", () => {
-    const etat = rejoue(["Battle uploaded to https://stat.ink/@Gloup/spl3/a"]);
-    expect(etat.parties).toEqual([
-      { nature: "battle", statut: "envoyee", url: "https://stat.ink/@Gloup/spl3/a", numero: 1 },
+  test("un Salmon Run n'a ni stage ni regle ; un stage inconnu garde son numero", () => {
+    const etat = rejoue([
+      evt({ type: "partie", nature: "job", id: "j-1", stage: "7", resultat: "clear", statut: "envoyee" }),
+      evt({ ...MATCH, id: "u-9", stage: "999", statut: "envoyee" }),
     ]);
+    expect(etat.parties[1]).toEqual({ nature: "job", id: "j-1", resultat: "Clear", statut: "envoyee", numero: 1 });
+    expect(etat.parties[0]?.stage).toBe("stage 999");
   });
 
   test("suit les phases, et le decompte pendant l'attente", () => {
     let etat = rejoue(["Booting emulator..."]);
     expect(etat.phase).toBe("jetons");
-    etat = rejoue(["Waiting for new battles... (checking every 1 minute)", "Press Ctrl+C to exit. 42 "], etat);
+    etat = rejoue([evt({ type: "rattrapage" })], etat);
+    expect(etat.phase).toBe("rattrapage");
+    etat = rejoue([evt({ type: "decompte", secondes: 42 })], etat);
     expect(etat).toMatchObject({ phase: "attente", decompte: 42 });
-    etat = appliqueLaLigne(etat, "Checking for new results...");
+    etat = appliqueLaLigne(etat, evt({ type: "verification", finale: false }));
     expect(etat.phase).toBe("verification");
     expect(etat.decompte).toBeUndefined();
+    etat = appliqueLaLigne(etat, evt({ type: "verification", finale: true }));
+    expect(etat.phase).toBe("verification-finale");
+    etat = appliqueLaLigne(etat, evt({ type: "jetons-expires" }));
+    expect(etat.phase).toBe("jetons");
   });
 
-  test("le journal tait le decompte et le bruit de l'emulateur, et reste borne", () => {
+  test("le journal tait les evenements, le decompte et le bruit de l'emulateur, et reste borne", () => {
     const etat = rejoue([
+      evt({ type: "decompte", secondes: 3 }),
       "Press Ctrl+C to exit. 3",
       "next chunk done",
       ">=>      ===>",
       "",
-      "Waiting for new battles... (checking every 1 minute)",
+      "Battle uploaded to https://stat.ink/@Gloup/spl3/abc",
     ]);
-    expect(etat.journal).toEqual(["Waiting for new battles... (checking every 1 minute)"]);
+    expect(etat.journal).toEqual(["Battle uploaded to https://stat.ink/@Gloup/spl3/abc"]);
 
     const plein = rejoue(Array.from({ length: TAILLE_DU_JOURNAL + 5 }, (_, i) => `ligne ${i}`));
     expect(plein.journal).toHaveLength(TAILLE_DU_JOURNAL);
     expect(plein.journal[0]).toBe("ligne 5");
+  });
+
+  test("s3s en veille sans pilote est signale, mais pas une fois le pilote annonce", () => {
+    expect(rejoue(["Waiting for new battles... (checking every 1 minute)"]).sansPilote).toBe(true);
+    const avecPilote = rejoue([evt({ type: "pilote", version: 1 }), "Waiting for new battles... (checking every 1 minute)"]);
+    expect(avecPilote).toMatchObject({ pilote: 1 });
+    expect(avecPilote.sansPilote).toBeUndefined();
   });
 
   test("retient qu'une synchro tournait deja", () => {
@@ -404,7 +449,7 @@ describe("appliqueLaLigne", () => {
       "Booting emulator...",
     ]);
     expect(alerte.alerte).toBe("splatnet-inaccessible");
-    const repartie = appliqueLaLigne(alerte, "Checking if there are previously-unuploaded battles/jobs...");
+    const repartie = appliqueLaLigne(alerte, evt({ type: "rattrapage" }));
     expect(repartie.alerte).toBeUndefined();
     expect(repartie.capture).toBeUndefined();
   });

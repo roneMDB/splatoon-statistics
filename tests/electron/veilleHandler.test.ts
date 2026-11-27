@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
+import { MARQUE_DU_PILOTE } from "../../src/veille.ts";
 import { creeLaVeille, type Lanceur } from "../../src/electron/veilleHandler.ts";
 import type { EtatDeVeille } from "../../src/veille.ts";
 
@@ -71,12 +72,16 @@ describe("creeLaVeille", () => {
     expect(lances[0]?.fichier).toBe("bash");
     expect(lances[0]?.args.at(-1)).toContain("s3s-sync -r -M 60");
 
+    // Comme le pilote l'ecrit : son evenement coupe le decompte de s3s, laisse
+    // sans fin de ligne, et peut arriver en deux morceaux.
+    const match = { type: "partie", nature: "battle", id: "u-1", stage: "11", resultat: "win" };
     lances[0]!.processus.ecris("Waiting for new battles... (checking every 1 minute)\nPress Ctrl+C to exit. 4");
-    lances[0]!.processus.ecris("2 \rNew battle result detected at 9:41:12 PM! (Museum, Victory)\n");
-    lances[0]!.processus.ecris("Battle uploaded to https://stat.ink/@Gloup/spl3/a\n");
+    lances[0]!.processus.ecris(`2 \n${MARQUE_DU_PILOTE} {"type":"decompte",`);
+    lances[0]!.processus.ecris(`"secondes":42}\n\r\n${MARQUE_DU_PILOTE} ${JSON.stringify({ ...match, statut: "envoi" })}\n`);
+    lances[0]!.processus.ecris(`\n${MARQUE_DU_PILOTE} ${JSON.stringify({ ...match, statut: "envoyee" })}\n`);
     await attends();
 
-    expect(veille.etat().parties).toMatchObject([{ stage: "Museum", statut: "envoyee" }]);
+    expect(veille.etat().parties).toMatchObject([{ stage: "Galeries Guppy", statut: "envoyee" }]);
     expect(veille.etat().journal).not.toContain("Press Ctrl+C to exit. 42");
   });
 
@@ -111,7 +116,7 @@ describe("creeLaVeille", () => {
     await veille.verifieMaintenant();
     expect(lances).toHaveLength(1);
 
-    lances[0]!.processus.ecris("Press Ctrl+C to exit. 42 \r");
+    lances[0]!.processus.ecris(`\n${MARQUE_DU_PILOTE} {"type":"decompte","secondes":42}\n`);
     await attends();
     expect(await veille.verifieMaintenant()).toMatchObject({ verificationDemandee: true });
     expect(lances[1]?.args.at(-1)).toContain("pkill -USR1");
@@ -119,19 +124,19 @@ describe("creeLaVeille", () => {
     await veille.verifieMaintenant();
     expect(lances).toHaveLength(2);
 
-    lances[0]!.processus.ecris("Checking for new results...\r");
+    lances[0]!.processus.ecris(`\n${MARQUE_DU_PILOTE} {"type":"verification","finale":false}\n`);
     await attends();
     expect(veille.etat().verificationDemandee).toBeUndefined();
   });
 
-  test("sans lanceur pour recevoir le signal, la demande retombe et le dit", async () => {
+  test("sans pilote pour recevoir le signal, la demande retombe et le dit", async () => {
     const { veille, lances } = veilleDeTest(0, "linux", undefined, 1);
     veille.demarre();
-    lances[0]!.processus.ecris("Press Ctrl+C to exit. 42 \r");
+    lances[0]!.processus.ecris(`\n${MARQUE_DU_PILOTE} {"type":"decompte","secondes":42}\n`);
     await attends();
     const etat = await veille.verifieMaintenant();
     expect(etat.verificationDemandee).toBeUndefined();
-    expect(etat.erreur).toContain("s3s-relance.py");
+    expect(etat.erreur).toContain("pilote");
   });
 
   test("« Forcer et relancer » libere le verrou, puis lance la veille", async () => {
@@ -184,7 +189,9 @@ describe("creeLaVeille", () => {
   test("une veille relancee repart d'une liste vide", async () => {
     const { veille, lances } = veilleDeTest();
     veille.demarre();
-    lances[0]!.processus.ecris("Battle uploaded to https://stat.ink/@Gloup/spl3/a\n");
+    lances[0]!.processus.ecris(
+      `\n${MARQUE_DU_PILOTE} {"type":"partie","nature":"battle","statut":"envoyee","url":"https://stat.ink/@Gloup/spl3/a"}\n`,
+    );
     lances[0]!.processus.finit(0);
     await attends();
     await attends();

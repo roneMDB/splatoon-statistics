@@ -59,6 +59,9 @@ function ligneDEtat(etat) {
       : "Arrêt demandé : vérification finale avant de s'arrêter…";
   }
   if (etat.statut === "en-cours") {
+    if (etat.sansPilote === true) {
+      return "s3s tourne sans son pilote : rien ne peut être suivi ici. stu-run.py doit lancer outils/s3s_pilote.py (voir le README).";
+    }
     if (etat.verificationDemandee === true) return "Vérification demandée…";
     if (etat.phase === "attente" && etat.decompte !== undefined) {
       return `En attente — prochaine vérification dans ${etat.decompte} s.`;

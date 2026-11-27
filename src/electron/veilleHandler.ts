@@ -174,13 +174,13 @@ export function creeLaVeille(dependances: {
       enfant.on("close", resolve);
     });
 
-    // Rien n'a recu le signal : s3s ne passe pas par son lanceur. La demande
+    // Rien n'a recu le signal : s3s ne passe pas par son pilote. La demande
     // retombe, sinon le bouton resterait grise jusqu'a la verification suivante.
     if (code !== 0 && etat.verificationDemandee === true) {
       const { verificationDemandee: _demandee, ...sansDemande } = etat;
       change({
         ...sansDemande,
-        erreur: "Vérification immédiate impossible : s3s ne passe pas par s3s-relance.py (voir stu-run.py).",
+        erreur: "Vérification immédiate impossible : s3s ne passe pas par son pilote (voir stu-run.py).",
       });
     }
     return etat;

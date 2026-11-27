@@ -15,10 +15,18 @@
  * On vise le groupe et non un pid parce que `s3s-sync` peut se relancer sous
  * `sg kvm`, et parce que s3s tourne sous deux enrobages Python.
  *
+ * **Ce que l'application lit.** s3s passe par un pilote,
+ * `outils/s3s_pilote.py` (glisse par `~/repositories/s3s/stu-run.py`), qui
+ * ecrit un evenement JSON par ligne, precede de `MARQUE_DU_PILOTE`, quand
+ * `SPLATOON_VEILLE_EVENEMENTS=1`. Seuls les messages de STU et de
+ * `upload.sh`, qui ne passent pas par s3s, sont encore lus comme du texte.
+ *
  * **Ou tourne la commande.** `s3s-sync` vit dans WSL (il pilote un emulateur
  * Android par KVM). Sous WSL ou Linux, on lance `bash` directement ; sous
  * Windows, a travers `wsl.exe`. Ailleurs, la veille n'est pas proposee.
  */
+
+import { cleDuStageSplatnet, libelleDuMode, libelleDuStage } from "./libelles.fr.ts";
 
 /** Ce que les reglages disent de la veille. */
 export type ReglageDeVeille = {
@@ -75,6 +83,8 @@ export function scriptDeLancement(commande: string, fichierPid: string = FICHIER
       `echo "$(date '+%F %T') : une synchro est déjà en cours, on passe."; exit 0; fi`,
     `echo $$ > ${fichierPid}`,
     "export PYTHONUNBUFFERED=1",
+    // Le pilote de s3s n'emet ses evenements que pour l'application.
+    "export SPLATOON_VEILLE_EVENEMENTS=1",
     "set -o pipefail",
     `mkdir -p "$(dirname ${FICHIER_JOURNAL})"`,
     `{ ${commande}\n} 2>&1 | tee -i -p ${FICHIER_JOURNAL}`,
@@ -107,15 +117,15 @@ export function scriptDArret(fichierPid: string = FICHIER_PID): string {
  * Le script bash qui demande une verification tout de suite, sans attendre la
  * fin du decompte.
  *
- * s3s ne sait pas ecourter son attente : c'est `~/repositories/s3s/s3s-relance.py`,
- * par lequel `stu-run.py` fait passer s3s, qui saute le reste du decompte a la
- * reception de SIGUSR1. Le signal vise ce seul processus, dans le groupe de la
- * veille : l'action par defaut de SIGUSR1 tue, et tout autre processus du
- * groupe (bash, tee, s3s lance sans le lanceur) en mourrait. Rend 1 si le
- * lanceur ne tourne pas.
+ * s3s ne sait pas ecourter son attente : c'est son pilote (`outils/s3s_pilote.py`,
+ * ou l'ancien `s3s-relance.py`), par lequel `stu-run.py` fait passer s3s, qui
+ * saute le reste du decompte a la reception de SIGUSR1. Le signal vise ce seul
+ * processus, dans le groupe de la veille : l'action par defaut de SIGUSR1 tue,
+ * et tout autre processus du groupe (bash, tee, s3s lance sans pilote) en
+ * mourrait. Rend 1 si le pilote ne tourne pas.
  */
 export function scriptDeVerification(fichierPid: string = FICHIER_PID): string {
-  return `[ -s ${fichierPid} ] && pkill -USR1 -g "$(cat ${fichierPid})" -f 's3s-relance\\.py '`;
+  return `[ -s ${fichierPid} ] && pkill -USR1 -g "$(cat ${fichierPid})" -f 's3s(_pilote|-relance)\\.py '`;
 }
 
 /**
@@ -182,26 +192,53 @@ export function commandeSysteme(
  * Lecture de la sortie.
  */
 
-/** Resultat tel que s3s l'ecrit : en anglais, quelle que soit la langue du jeu. */
+/** Resultat d'une partie, dans les mots de s3s : en anglais, quelle que soit la langue du jeu. */
 export type Resultat = "Victory" | "Defeat" | "Draw" | "Clear";
+
+/** Debut des lignes que le pilote de s3s ecrit pour l'application. */
+export const MARQUE_DU_PILOTE = "@@splatoon-veille";
+
+/** Version du contrat que cette application sait lire (`VERSION` du pilote). */
+export const VERSION_DU_PILOTE = 1;
+
+/**
+ * Une partie, telle que le pilote la decrit : ce que s3s envoie a stat.ink,
+ * puis l'issue de l'envoi. Les dates sont en secondes depuis l'epoque.
+ */
+export type PartieDuPilote = {
+  nature: "battle" | "job";
+  statut: "envoi" | "envoyee" | "deja" | "echec";
+  /** Uuid de la partie chez stat.ink : l'annonce et l'issue le partagent. */
+  id?: string;
+  debut?: number;
+  fin?: number;
+  /** Cle stat.ink de la regle (`area`). */
+  regle?: string;
+  lobby?: string;
+  /** Numero SplatNet du stage (`10`). */
+  stage?: string;
+  /** `win`, `lose`, `draw`, `exempted_lose` ; `clear` ou `fail` en Salmon Run. */
+  resultat?: string;
+  ko?: boolean;
+  url?: string;
+  /** Reponse de stat.ink a un envoi rate. */
+  message?: string;
+};
 
 /** Ce qu'une ligne de sortie annonce. */
 export type EvenementDeVeille =
+  | { type: "pilote"; version: number }
   | { type: "jetons" }
   | { type: "rattrapage" }
-  | { type: "attente" }
   | { type: "decompte"; secondes: number }
-  | { type: "verification" }
-  | { type: "verification-finale" }
-  | { type: "partie-detectee"; nature: "battle" | "job"; heure: string; stage: string; resultat: Resultat }
-  | { type: "partie-envoyee"; nature: "battle" | "job"; url: string }
-  | { type: "deja-envoyee"; nature: "battle" | "job"; url: string }
-  | { type: "echec-envoi"; nature: "battle" | "job" }
+  | { type: "verification"; finale: boolean }
+  | { type: "partie"; partie: PartieDuPilote }
   | { type: "splashcat" }
   | { type: "deja-en-cours" }
   | { type: "splatnet-inaccessible" }
   | { type: "jetons-introuvables" }
   | { type: "capture"; chemin: string }
+  | { type: "s3s-sans-pilote" }
   | { type: "ligne" };
 
 /** Les couleurs du terminal (`\x1b[93m`) que s3s ecrit meme sans terminal. */
@@ -210,51 +247,82 @@ const ECHAPPEMENTS_ANSI = /\x1b\[[0-9;]*[A-Za-z]/g;
 /** Nettoie une ligne brute : couleurs retirees, blancs de bord aussi. */
 export const nettoieLaLigne = (ligne: string): string => ligne.replace(ECHAPPEMENTS_ANSI, "").trim();
 
-const NATURE = "(battle|job)";
-
 /**
- * Les messages de `s3s.py`, `stu-run.py`, `upload.sh` et de STU
- * (`splatnet3-token-util/main.py`), dans l'ordre ou on les essaie.
+ * Les messages de STU (`splatnet3-token-util/main.py`) et de `upload.sh`, qui
+ * ne passent pas par le pilote, dans l'ordre ou on les essaie.
  */
 const MOTIFS: readonly [RegExp, (trouve: RegExpExecArray) => EvenementDeVeille][] = [
-  [/^Press Ctrl\+C to exit\. (\d+)/, (t) => ({ type: "decompte", secondes: Number(t[1]) })],
-  [/^Checking for new results/, () => ({ type: "verification" })],
-  [/^Checking to see if there are unuploaded .* before exiting/, () => ({ type: "verification-finale" })],
-  [/^Waiting for new /, () => ({ type: "attente" })],
-  [
-    new RegExp(`^New ${NATURE} result detected at (.+?)! \\((.*), (Victory|Defeat|Draw|Clear)\\)$`),
-    (t) => ({
-      type: "partie-detectee",
-      nature: t[1] as "battle" | "job",
-      heure: t[2]!,
-      stage: t[3]!,
-      resultat: t[4] as Resultat,
-    }),
-  ],
-  [
-    new RegExp(`^${NATURE} uploaded to (\\S+)`, "i"),
-    (t) => ({ type: "partie-envoyee", nature: t[1]!.toLowerCase() as "battle" | "job", url: t[2]! }),
-  ],
-  [
-    new RegExp(`^${NATURE} already uploaded - (\\S+)`, "i"),
-    (t) => ({ type: "deja-envoyee", nature: t[1]!.toLowerCase() as "battle" | "job", url: t[2]! }),
-  ],
-  [
-    new RegExp(`^Error uploading ${NATURE}`),
-    (t) => ({ type: "echec-envoi", nature: t[1] as "battle" | "job" }),
-  ],
-  [/^Checking if there are previously-unuploaded /, () => ({ type: "rattrapage" })],
-  [/^Previously-unuploaded .* detected/, () => ({ type: "rattrapage" })],
   [/^(Booting emulator|Waiting for emulator to complete)/, () => ({ type: "jetons" })],
   [/^--- splashcat/, () => ({ type: "splashcat" })],
   [/une synchro est déjà en cours, on passe/, () => ({ type: "deja-en-cours" })],
   [/^Could not open SplatNet3 app in \d+ attempts/, () => ({ type: "splatnet-inaccessible" })],
   [/^Could not find all requested tokens in \d+ attempts/, () => ({ type: "jetons-introuvables" })],
   [/^A screenshot with SplatNet3 opened was saved to "(.+)"\.?$/, (t) => ({ type: "capture", chemin: t[1]! })],
+  // s3s entre en veille : sans evenement du pilote avant, il tourne sans lui.
+  [/^Waiting for new /, () => ({ type: "s3s-sans-pilote" })],
 ];
+
+const estUnObjet = (valeur: unknown): valeur is Record<string, unknown> =>
+  typeof valeur === "object" && valeur !== null && !Array.isArray(valeur);
+
+const STATUTS_DU_PILOTE: ReadonlySet<string> = new Set(["envoi", "envoyee", "deja", "echec"]);
+
+/** Valide une partie du pilote : seuls les champs du bon type sont gardes. */
+function lisLaPartie(brute: Record<string, unknown>): PartieDuPilote | undefined {
+  const nature = brute["nature"];
+  const statut = brute["statut"];
+  if ((nature !== "battle" && nature !== "job") || typeof statut !== "string" || !STATUTS_DU_PILOTE.has(statut)) {
+    return undefined;
+  }
+  const partie: PartieDuPilote = { nature, statut: statut as PartieDuPilote["statut"] };
+  for (const cle of ["id", "regle", "lobby", "stage", "resultat", "url", "message"] as const) {
+    const valeur = brute[cle];
+    if (typeof valeur === "string") partie[cle] = valeur;
+  }
+  for (const cle of ["debut", "fin"] as const) {
+    const valeur = brute[cle];
+    if (typeof valeur === "number" && Number.isFinite(valeur)) partie[cle] = valeur;
+  }
+  if (typeof brute["ko"] === "boolean") partie.ko = brute["ko"];
+  return partie;
+}
+
+/**
+ * Lit un evenement du pilote. Ce qui n'est pas un evenement connu, bien forme,
+ * ne va qu'au journal : un pilote plus recent ne doit pas faire tomber la
+ * veille.
+ */
+function lisLEvenement(json: string): EvenementDeVeille {
+  let brut: unknown;
+  try {
+    brut = JSON.parse(json);
+  } catch {
+    return { type: "ligne" };
+  }
+  if (!estUnObjet(brut)) return { type: "ligne" };
+  switch (brut["type"]) {
+    case "pilote":
+      return typeof brut["version"] === "number" ? { type: "pilote", version: brut["version"] } : { type: "ligne" };
+    case "rattrapage":
+      return { type: "rattrapage" };
+    case "jetons-expires":
+      return { type: "jetons" };
+    case "decompte":
+      return typeof brut["secondes"] === "number" ? { type: "decompte", secondes: brut["secondes"] } : { type: "ligne" };
+    case "verification":
+      return { type: "verification", finale: brut["finale"] === true };
+    case "partie": {
+      const partie = lisLaPartie(brut);
+      return partie === undefined ? { type: "ligne" } : { type: "partie", partie };
+    }
+    default:
+      return { type: "ligne" };
+  }
+}
 
 /** Ce qu'annonce une ligne deja nettoyee. Une ligne inconnue ne va qu'au journal. */
 export function lisLigne(ligne: string): EvenementDeVeille {
+  if (ligne.startsWith(MARQUE_DU_PILOTE)) return lisLEvenement(ligne.slice(MARQUE_DU_PILOTE.length));
   for (const [motif, evenement] of MOTIFS) {
     const trouve = motif.exec(ligne);
     if (trouve !== null) return evenement(trouve);
@@ -317,18 +385,62 @@ export type PhaseDeVeille =
  */
 export type AlerteDeVeille = "splatnet-inaccessible" | "jetons-introuvables";
 
-/** Une partie vue passer pendant la veille. */
+/** Une partie vue passer pendant la veille, deja traduite pour la fenetre. */
 export type PartieSuivie = {
   nature: "battle" | "job";
-  /** Absents pour une partie rattrapee : s3s ne les ecrit qu'en veille. */
-  heure?: string;
+  /** Uuid chez stat.ink : relie l'issue d'un envoi a son annonce. */
+  id?: string;
+  /** Debut et fin du match, en ISO 8601. */
+  debut?: string;
+  fin?: string;
+  /** Nom francais du stage ; absent en Salmon Run. */
   stage?: string;
+  /** Nom francais de la regle. */
+  regle?: string;
   resultat?: Resultat;
+  ko?: boolean;
   statut: "envoi" | "envoyee" | "deja" | "echec";
   url?: string;
+  /** Reponse de stat.ink a un envoi rate. */
+  message?: string;
   /** Rang d'arrivee, pour que la fenetre reconnaisse la plus recente. */
   numero: number;
 };
+
+const RESULTATS_DU_PILOTE: Record<string, Resultat> = {
+  win: "Victory",
+  lose: "Defeat",
+  exempted_lose: "Defeat",
+  draw: "Draw",
+  clear: "Clear",
+  fail: "Defeat",
+};
+
+const enIso = (secondes: number | undefined): string | undefined =>
+  secondes === undefined ? undefined : new Date(secondes * 1000).toISOString();
+
+/** Traduit une partie du pilote pour la fenetre. */
+export function partieSuivie(partie: PartieDuPilote, numero: number): PartieSuivie {
+  const cleDuStage =
+    partie.nature === "battle" && partie.stage !== undefined ? cleDuStageSplatnet(partie.stage) : undefined;
+  const champs: Omit<PartieSuivie, "nature" | "statut" | "numero"> = {
+    id: partie.id,
+    debut: enIso(partie.debut),
+    fin: enIso(partie.fin),
+    stage:
+      partie.nature === "battle" && partie.stage !== undefined
+        ? libelleDuStage(cleDuStage, cleDuStage === undefined ? `stage ${partie.stage}` : undefined)
+        : undefined,
+    regle: partie.nature === "battle" && partie.regle !== undefined ? libelleDuMode(partie.regle) : undefined,
+    resultat: partie.resultat === undefined ? undefined : RESULTATS_DU_PILOTE[partie.resultat],
+    ko: partie.ko,
+    url: partie.url,
+    message: partie.message,
+  };
+  // Pas de cle a `undefined` : l'etat passe par IPC et se compare en JSON.
+  const definis = Object.fromEntries(Object.entries(champs).filter(([, valeur]) => valeur !== undefined));
+  return { nature: partie.nature, ...definis, statut: partie.statut, numero };
+}
 
 export type EtatDeVeille = {
   statut: StatutDeVeille;
@@ -355,6 +467,10 @@ export type EtatDeVeille = {
   verificationDemandee?: true;
   /** « Forcer et relancer » : la synchro qui tient le verrou est en train de s'arreter. */
   liberation?: true;
+  /** Version du pilote de s3s, des son premier evenement. */
+  pilote?: number;
+  /** s3s tourne sans pilote (`stu-run.py` ne le connait pas) : rien ne peut etre suivi. */
+  sansPilote?: true;
 };
 
 /** Le bouton « Vérifier maintenant » n'a de sens que pendant le decompte d'une veille qui tourne. */
@@ -386,31 +502,49 @@ export function appliqueLaLigne(etat: EtatDeVeille, brute: string): EtatDeVeille
   const ligne = nettoieLaLigne(brute);
   if (ligne === "") return etat;
 
+  const evenement = lisLigne(ligne);
   const suivant: EtatDeVeille = { ...etat };
-  if (!estDuBruit(ligne)) {
+  // Le journal garde ce qu'un humain lirait : la sortie de s3s, pas les evenements.
+  if (!ligne.startsWith(MARQUE_DU_PILOTE) && !estDuBruit(ligne)) {
     suivant.journal = [...etat.journal, ligne].slice(-TAILLE_DU_JOURNAL);
   }
 
-  const evenement = lisLigne(ligne);
-  const numero = (etat.parties[0]?.numero ?? 0) + 1;
+  /** s3s fait cela avec des jetons valides : ce qui bloquait est leve. */
+  const leveLAlerte = () => {
+    delete suivant.alerte;
+    delete suivant.capture;
+  };
+  /** L'attente est finie : la verification demandee a eu lieu, ou n'a plus lieu d'etre. */
+  const quitteLAttente = () => {
+    delete suivant.decompte;
+    delete suivant.verificationDemandee;
+  };
 
   switch (evenement.type) {
+    case "pilote":
+      suivant.pilote = evenement.version;
+      delete suivant.sansPilote;
+      break;
+    case "s3s-sans-pilote":
+      if (suivant.pilote === undefined) suivant.sansPilote = true;
+      break;
     case "rattrapage":
-    case "attente":
+      leveLAlerte();
+      quitteLAttente();
+      suivant.phase = "rattrapage";
+      break;
     case "verification":
-      // s3s ne fait rien de cela sans jetons valides : ce qui bloquait est leve.
-      delete suivant.alerte;
-      delete suivant.capture;
-    // fallthrough
+      leveLAlerte();
+      quitteLAttente();
+      suivant.phase = evenement.finale ? "verification-finale" : "verification";
+      break;
     case "jetons":
-    case "verification-finale":
     case "splashcat":
+      quitteLAttente();
       suivant.phase = evenement.type;
-      delete suivant.decompte;
-      // L'attente est finie : la verification demandee a eu lieu, ou n'a plus lieu d'etre.
-      delete suivant.verificationDemandee;
       break;
     case "decompte":
+      leveLAlerte();
       suivant.phase = "attente";
       suivant.decompte = evenement.secondes;
       break;
@@ -427,35 +561,18 @@ export function appliqueLaLigne(etat: EtatDeVeille, brute: string): EtatDeVeille
     case "capture":
       suivant.capture = evenement.chemin;
       break;
-    case "partie-detectee":
-      suivant.parties = [
-        {
-          nature: evenement.nature,
-          heure: evenement.heure,
-          stage: evenement.stage,
-          resultat: evenement.resultat,
-          statut: "envoi",
-          numero,
-        },
-        ...etat.parties,
-      ];
-      break;
-    case "partie-envoyee":
-    case "deja-envoyee":
-    case "echec-envoi": {
-      const statut =
-        evenement.type === "partie-envoyee" ? "envoyee" : evenement.type === "deja-envoyee" ? "deja" : "echec";
-      const url = evenement.type === "echec-envoi" ? undefined : evenement.url;
-      // L'envoi suit toujours l'annonce de sa partie. Sans annonce (rattrapage,
-      // ou partie deja traitee), c'est une partie de plus.
-      const enAttente = etat.parties[0];
-      if (enAttente !== undefined && enAttente.statut === "envoi" && enAttente.nature === evenement.nature) {
-        suivant.parties = [{ ...enAttente, statut, ...(url ? { url } : {}) }, ...etat.parties.slice(1)];
+    case "partie": {
+      // L'issue d'un envoi remplace son annonce, a la meme place.
+      const id = evenement.partie.id;
+      const rang = id === undefined ? -1 : etat.parties.findIndex((partie) => partie.id === id);
+      if (rang === -1) {
+        const numero = Math.max(0, ...etat.parties.map((partie) => partie.numero)) + 1;
+        suivant.parties = [partieSuivie(evenement.partie, numero), ...etat.parties];
       } else {
-        suivant.parties = [
-          { nature: evenement.nature, statut, ...(url ? { url } : {}), numero },
-          ...etat.parties,
-        ];
+        const ancienne = etat.parties[rang]!;
+        suivant.parties = etat.parties.map((partie, i) =>
+          i === rang ? partieSuivie(evenement.partie, ancienne.numero) : partie,
+        );
       }
       break;
     }

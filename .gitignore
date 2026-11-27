@@ -21,3 +21,4 @@ dist-app/
 
 # Sauvegardes locales des planches
 planches_save/
+__pycache__/

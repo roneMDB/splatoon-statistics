@@ -102,6 +102,45 @@ export function nomDeLArme(cle: string | undefined, anglais?: string): string {
   return nomFrancaisDeLArme(cle) ?? anglais ?? cle ?? "arme inconnue";
 }
 
+/**
+ * Numero SplatNet d'un stage (`VsStage-10`, sans son prefixe) -> sa cle
+ * stat.ink. C'est le numero que s3s envoie a stat.ink, et que le pilote de la
+ * veille relaie. Releve dans les alias de `https://stat.ink/api/v3/stage`.
+ */
+const STAGES_SPLATNET: Record<string, string> = {
+  "1": "yunohana", // Scorch Gorge
+  "2": "gonzui", // Eeltail Alley
+  "3": "yagara", // Hagglefish Market
+  "4": "mategai", // Undertow Spillway
+  "5": "nampla", // Um'ami Ruins
+  "6": "namero", // Mincemeat Metalworks
+  "7": "kusaya", // Brinewater Springs
+  "8": "taraport", // Barnacle & Dime
+  "9": "hirame", // Flounder Heights
+  "10": "masaba", // Hammerhead Bridge
+  "11": "kinmedai", // Museum d'Alfonsino
+  "12": "mahimahi", // Mahi-Mahi Resort
+  "13": "amabi", // Inkblot Art Academy
+  "14": "chozame", // Sturgeon Shipyard
+  "15": "zatou", // MakoMart
+  "16": "sumeshi", // Wahoo World
+  "17": "kombu", // Humpback Pump Track
+  "18": "manta", // Manta Maria
+  "19": "takaashi", // Crableg Capital
+  "20": "ohyo", // Shipshape Cargo Co.
+  "21": "baigai", // Robo ROM-en
+  "22": "negitoro", // Bluefin Depot
+  "23": "kajiki", // Marlin Airport
+  "24": "ryugu", // Lemuria Hub
+  "26": "decaline", // Urchin Underpass
+  "107": "grand_arena", // Grand Splatlands Bowl
+};
+
+/** Cle stat.ink d'un stage, depuis son numero SplatNet ; `undefined` s'il est inconnu. */
+export function cleDuStageSplatnet(numero: string): string | undefined {
+  return Object.hasOwn(STAGES_SPLATNET, numero) ? STAGES_SPLATNET[numero] : undefined;
+}
+
 /** Libelle francais d'un stage, ou son nom anglais si la cle est inconnue. */
 export function libelleDuStage(cle: string | undefined, anglais?: string): string {
   return (cle !== undefined ? STAGES[cle] : undefined) ?? anglais ?? cle ?? "stage inconnu";

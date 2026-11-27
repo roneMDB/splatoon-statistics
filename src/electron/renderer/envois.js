@@ -3,8 +3,9 @@
  * formulaire : le bilan, la serie en frise, et une ligne par partie qui se
  * deplie sur les statistiques du match.
  *
- * La veille ne sait de chaque partie que l'heure, le stage, le resultat et
- * l'adresse stat.ink. Les statistiques sont lues sur stat.ink au premier
+ * La veille sait de chaque partie ce que s3s envoie a stat.ink (heures,
+ * regle, stage, resultat) et l'adresse obtenue. Les statistiques des joueurs
+ * sont lues sur stat.ink au premier
  * depliage (canal `readStatinkBattle`), puis gardees : replier et redeplier
  * ne refait pas d'appel.
  *
@@ -16,6 +17,7 @@
 import { api, bandeau, cacheLesBandeaux, elements, messageDe } from "./elements.js";
 import { montreLaVue } from "./etat.js";
 import { afficheLaManche, texteDeLaDuree, texteDuScore } from "./manche.js";
+import { formateLHeure } from "./matchs.js";
 import { versChampDate } from "./recuperation.js";
 
 /** @typedef {import("../../veille.ts").EtatDeVeille} EtatDeVeille */
@@ -32,9 +34,8 @@ const STATUTS = { envoi: "envoi…", envoyee: "envoyée ✓", deja: "déjà sur 
 /** Duree pendant laquelle une partie qui vient d'arriver reste mise en evidence. */
 const DUREE_NOUVELLE_MS = 8000;
 
-/** Marge autour des heures des parties pour la fenetre de recuperation. */
-const MARGE_AVANT_MS = 5 * 60 * 1000;
-const MARGE_APRES_MS = 10 * 60 * 1000;
+/** Marge autour des parties pour la fenetre de recuperation : leurs heures sont exactes. */
+const MARGE_MS = 60 * 1000;
 
 /**
  * Une ligne affichee, et ce qu'elle montre : on ne la retouche que si la
@@ -59,32 +60,6 @@ let partiesCourantes = [];
 
 /** Signature de la derniere frise, du bilan et du bouton, pour ne les refaire qu'a un changement. */
 let resumeAffiche = "";
-
-/**
- * s3s ecrit l'heure en 12 heures (`9:41:12 PM`). Rend heures, minutes et
- * secondes en 24 heures, ou `undefined` pour une autre forme.
- * @param {string} heure
- */
-function enHeures(heure) {
-  const trouve = /^(\d{1,2}):(\d{2})(?::(\d{2}))? ?(AM|PM)$/i.exec(heure);
-  if (trouve === null) return undefined;
-  const [, h = "0", minutes = "00", secondes = "00", moitie = "AM"] = trouve;
-  return {
-    heures: (Number(h) % 12) + (moitie.toUpperCase() === "PM" ? 12 : 0),
-    minutes: Number(minutes),
-    secondes: Number(secondes),
-  };
-}
-
-/**
- * `9:41:12 PM` -> `21:41`. Une heure d'une autre forme passe telle quelle.
- * @param {string} heure
- */
-export function enHeureFrancaise(heure) {
-  const lue = enHeures(heure);
-  if (lue === undefined) return heure;
-  return `${String(lue.heures).padStart(2, "0")}:${String(lue.minutes).padStart(2, "0")}`;
-}
 
 /**
  * Une partie de match envoyee a une page stat.ink : la seule qui se deplie.
@@ -113,13 +88,16 @@ function litLeDetail(url) {
 
 /** @param {PartieSuivie} partie */
 function signatureDe(partie) {
-  return JSON.stringify([partie.statut, partie.url, partie.heure, partie.stage, partie.resultat, partie.nature]);
+  const { numero: _numero, ...reste } = partie;
+  return JSON.stringify(reste);
 }
 
+/** « Défense de Zone · Pont Esturgeon », ou ce qu'on en sait. */
 /** @param {PartieSuivie} partie */
 function libelleDeLaPartie(partie) {
-  if (partie.stage !== undefined) return partie.stage;
-  return partie.nature === "job" ? "Salmon Run rattrapé" : "Partie rattrapée";
+  if (partie.nature === "job") return "Salmon Run";
+  const morceaux = [partie.regle, partie.stage].filter((morceau) => morceau !== undefined);
+  return morceaux.length > 0 ? morceaux.join(" · ") : "Match";
 }
 
 /**
@@ -308,7 +286,7 @@ function habilleLaLigne(li, partie) {
 
   const heure = document.createElement("span");
   heure.className = "envoi__heure";
-  heure.textContent = partie.heure ? enHeureFrancaise(partie.heure) : "—";
+  heure.textContent = partie.debut ? formateLHeure(partie.debut) : "—";
 
   const stage = document.createElement("span");
   stage.className = "envoi__stage";
@@ -316,11 +294,14 @@ function habilleLaLigne(li, partie) {
 
   const resultat = document.createElement("span");
   resultat.className = "envoi__resultat";
-  resultat.textContent = partie.resultat ? RESULTATS[partie.resultat] ?? partie.resultat : "";
+  resultat.textContent =
+    (partie.resultat ? RESULTATS[partie.resultat] ?? partie.resultat : "") + (partie.ko ? " KO" : "");
 
   const statut = document.createElement("span");
   statut.className = "envoi__statut";
   statut.textContent = STATUTS[partie.statut];
+  // La reponse de stat.ink a un envoi rate, au survol.
+  if (partie.message) statut.title = partie.message;
 
   deplier.append(chevron, heure, stage, resultat, statut);
   entete.append(deplier);
@@ -353,7 +334,7 @@ function habilleLaLigne(li, partie) {
 }
 
 /**
- * Parties de match envoyees qui ont une heure, dans l'ordre ou elles ont ete
+ * Parties de match envoyees, avec leurs heures, dans l'ordre ou elles ont ete
  * jouees : ce que « Récupérer ces parties » ira chercher.
  * @param {readonly PartieSuivie[]} parties
  */
@@ -363,34 +344,9 @@ function partiesARecuperer(parties) {
     .filter(
       (partie) =>
         partie.nature === "battle" &&
-        partie.heure !== undefined &&
-        enHeures(partie.heure) !== undefined &&
+        partie.debut !== undefined &&
         (partie.statut === "envoyee" || partie.statut === "deja"),
     );
-}
-
-/**
- * Date de chaque heure, en remontant depuis la plus recente : s3s ne donne
- * que l'heure, et une session peut passer minuit.
- * @param {string[]} heures Dans l'ordre chronologique.
- * @param {Date} maintenant
- */
-function datesDesHeures(heures, maintenant) {
-  /** @type {Date[]} */
-  const dates = [];
-  /** @type {Date | undefined} */
-  let suivante;
-  for (let i = heures.length - 1; i >= 0; i -= 1) {
-    const lue = enHeures(/** @type {string} */ (heures[i]));
-    if (lue === undefined) continue;
-    const date = new Date(suivante ?? maintenant);
-    date.setHours(lue.heures, lue.minutes, lue.secondes, 0);
-    // Plus tard que la partie suivante (ou que maintenant) : c'etait la veille.
-    if (date.getTime() > (suivante ?? maintenant).getTime() + 60_000) date.setDate(date.getDate() - 1);
-    dates.unshift(date);
-    suivante = date;
-  }
-  return dates;
 }
 
 /** @param {readonly PartieSuivie[]} parties */
@@ -412,9 +368,14 @@ function bilan(parties) {
 function afficheLeResume(parties) {
   elements.envoisBilan.textContent = bilan(parties);
 
-  const heures = parties.flatMap((partie) => (partie.heure ? [enHeureFrancaise(partie.heure)] : []));
+  // La plus recente en tete : de la plus ancienne a la fin de la plus recente.
+  const datees = parties.filter((partie) => partie.debut !== undefined);
+  const premiere = datees.at(-1)?.debut;
+  const derniere = datees[0] === undefined ? undefined : datees[0].fin ?? datees[0].debut;
   elements.envoisPlage.textContent =
-    heures.length === 0 ? "" : heures.length === 1 ? (heures[0] ?? "") : `${heures.at(-1)} → ${heures[0]}`;
+    premiere === undefined || derniere === undefined
+      ? ""
+      : `${formateLHeure(premiere)} → ${formateLHeure(derniere)}`;
 
   elements.envoisFrise.replaceChildren(
     ...[...parties].reverse().map((partie) => {
@@ -542,24 +503,18 @@ elements.envoisListe.addEventListener("click", (evenement) => {
 });
 
 /**
- * Remplit le formulaire avec la fenetre des parties envoyees : de la premiere
- * (moins une marge) a la derniere (plus le temps d'un match).
+ * Remplit le formulaire avec la fenetre des parties envoyees : du debut de la
+ * premiere a la fin de la derniere, a une minute pres.
  */
 elements.boutonEnvoisRecuperer.addEventListener("click", () => {
   const parties = partiesARecuperer(partiesCourantes);
-  const maintenant = new Date();
-  const dates = datesDesHeures(
-    parties.map((partie) => /** @type {string} */ (partie.heure)),
-    maintenant,
-  );
-  const premiere = dates[0];
-  const derniere = dates.at(-1);
-  if (premiere === undefined || derniere === undefined) return;
+  const debuts = parties.map((partie) => Date.parse(/** @type {string} */ (partie.debut)));
+  const fins = parties.map((partie) => Date.parse(partie.fin ?? /** @type {string} */ (partie.debut)));
+  if (debuts.length === 0) return;
 
   cacheLesBandeaux();
-  elements.debut.value = versChampDate(new Date(premiere.getTime() - MARGE_AVANT_MS));
-  const fin = Math.min(derniere.getTime() + MARGE_APRES_MS, maintenant.getTime());
-  elements.fin.value = versChampDate(new Date(fin));
+  elements.debut.value = versChampDate(new Date(Math.min(...debuts) - MARGE_MS));
+  elements.fin.value = versChampDate(new Date(Math.min(Math.max(...fins) + MARGE_MS, Date.now())));
   elements.formulaire.scrollIntoView({ behavior: "smooth", block: "start" });
   elements.nom.focus({ preventScroll: true });
 });

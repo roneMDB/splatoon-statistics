@@ -52,9 +52,28 @@ La veille part seule à l'ouverture de l'application (réglage « Lancer la veil
 de la colonne des sessions, la relance. Elle lance `s3s-sync -r -M 60` dans WSL :
 vos parties partent sur stat.ink au fil de la session, sans terminal ouvert.
 Sous le bouton, l'application dit où en est la veille (rattrapage, attente avec le décompte avant la prochaine vérification,
-rafraîchissement des jetons) et liste chaque partie détectée : heure, stage,
-résultat, puis « envoyée ✓ » avec un lien vers stat.ink, ou « échec de l'envoi ».
+rafraîchissement des jetons) et en fait le bilan. À droite, au-dessus du formulaire,
+**Parties envoyées** liste chaque partie : heure, mode, stage, résultat, puis
+« envoyée ✓ » avec un lien vers stat.ink, ou « échec de l'envoi » (la réponse de
+stat.ink au survol). Une ligne se déplie sur les statistiques des huit joueurs, lues
+sur stat.ink ; « Récupérer ces parties » remplit la fenêtre du formulaire.
 Un journal dépliable montre la sortie brute.
+
+#### Le pilote de s3s
+
+L'application ne lit pas le texte de s3s : s3s passe par un pilote,
+`outils/s3s_pilote.py`, qui écrit un événement JSON par ligne (préfixe
+`@@splatoon-veille`) — partie envoyée avec ses heures, sa règle et son stage,
+décompte, vérification, rattrapage, jetons expirés. Il ne parle que lorsque
+l'application pose `SPLATOON_VEILLE_EVENEMENTS=1` : sous cron, `cron.log` reste
+tel quel. Le bouton « Vérifier maintenant » lui envoie SIGUSR1. Seuls les messages
+de STU et d'`upload.sh` sont encore lus comme du texte.
+
+Le pilote est branché dans `~/repositories/s3s/stu-run.py` (variable `PILOTE`),
+qui le glisse entre Python et `s3s.py` ; à défaut il retombe sur l'ancien
+`s3s-relance.py`. Si s3s tourne sans pilote, la veille le signale et ne suit rien.
+Le pilote n'importe s3s qu'en module et enrobe quelques-unes de ses fonctions :
+le dépôt de s3s n'est pas modifié. Ses tests : `npm run test:pilote`.
 
 Quand STU n'arrive pas à ouvrir SplatNet3, ou abandonne la recherche des jetons,
 un encart orange le dit sous le bouton, avec le dernier écran de l'émulateur et la
@@ -525,6 +544,7 @@ Trois particularités vérifiées en direct, toutes traitées dans le code :
 
 ```bash
 npm test                          # tests unitaires, hors-ligne
+npm run test:pilote               # tests du pilote de s3s (Python)
 STATINK_INTEGRATION=1 npm test    # + 3 tests contre le vrai stat.ink
 npm run typecheck                 # le noyau, puis la fenêtre (tsconfig.renderer.json)
 ```
@@ -564,7 +584,8 @@ structure, types et valeurs dont le code dépend.
 | `src/battleRows.ts` | Vue allégée d'un match : ce que la fenêtre affiche, traduit |
 | `src/battleDetail.ts` | Détail d'une manche, à la demande |
 | `src/lienExterne.ts` | Ce qu'on accepte d'ouvrir, et si la machine sait le faire |
-| `src/veille.ts` | Veille s3s : commandes de lancement et d'arrêt, lecture de la sortie de s3s |
+| `src/veille.ts` | Veille s3s : commandes de lancement et d'arrêt, lecture des événements du pilote |
+| `outils/s3s_pilote.py` | Pilote de s3s : événements JSON pour la veille, vérification immédiate |
 | `src/wsl.ts` | Détection de WSL et conversion de chemin, pures et testables |
 | `src/revelePlanche.ts` | Si `explorer.exe` est atteignable, pour révéler la planche sous WSL |
 | `src/report/analyse.ts` | Réduit une session en chiffres. Ne rédige rien |
@@ -595,6 +616,7 @@ structure, types et valeurs dont le code dépend.
 | `src/electron/renderer/compteRendu.js` | Compte rendu et planche |
 | `src/electron/renderer/reglages.js` | Écran des réglages |
 | `src/electron/renderer/veille.js` | Bouton et suivi de la veille s3s |
+| `src/electron/renderer/envois.js` | Parties envoyées par la veille, dépliables sur leurs statistiques |
 | `src/electron/renderer/markdown.js` | Rendu de l'aperçu. Moitié pure testée, DOM sans `innerHTML` |
 
 Le noyau ignore laquelle des deux façades l'appelle. Les modules `src/electron/`
