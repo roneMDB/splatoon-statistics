@@ -360,6 +360,23 @@ describe("appliqueLaLigne", () => {
     expect(annoncee.parties[0]?.statut).toBe("envoi");
   });
 
+  test("sans identifiant, l'issue remplace l'annonce qui la precede, et rien d'autre", () => {
+    const anonyme = { type: "partie", nature: "battle" };
+    const etat = rejoue([
+      evt({ ...anonyme, statut: "envoi" }),
+      evt({ ...anonyme, statut: "envoyee", url: "https://stat.ink/@Gloup/spl3/a" }),
+      evt({ ...anonyme, statut: "envoi" }),
+      evt({ ...anonyme, statut: "envoyee", url: "https://stat.ink/@Gloup/spl3/b" }),
+      // Une issue sans annonce devant elle s'ajoute.
+      evt({ ...anonyme, statut: "echec" }),
+    ]);
+    expect(etat.parties.map((partie) => [partie.numero, partie.statut, partie.url])).toEqual([
+      [3, "echec", undefined],
+      [2, "envoyee", "https://stat.ink/@Gloup/spl3/b"],
+      [1, "envoyee", "https://stat.ink/@Gloup/spl3/a"],
+    ]);
+  });
+
   test("la plus recente en tete, numerotee a la suite ; un echec garde le message de stat.ink", () => {
     const etat = rejoue([
       evt({ ...MATCH, statut: "envoyee" }),

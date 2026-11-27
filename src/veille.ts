@@ -561,9 +561,17 @@ export function appliqueLaLigne(etat: EtatDeVeille, brute: string): EtatDeVeille
       suivant.capture = evenement.chemin;
       break;
     case "partie": {
-      // L'issue d'un envoi remplace son annonce, a la meme place.
+      // L'issue d'un envoi remplace son annonce, a la meme place. Sans
+      // identifiant (charge illisible), l'issue suit son annonce de pres : elle
+      // remplace la derniere annonce encore sans identifiant.
       const id = evenement.partie.id;
-      const rang = id === undefined ? -1 : etat.parties.findIndex((partie) => partie.id === id);
+      const derniere = etat.parties[0];
+      const rang =
+        id !== undefined
+          ? etat.parties.findIndex((partie) => partie.id === id)
+          : evenement.partie.statut !== "envoi" && derniere?.statut === "envoi" && derniere.id === undefined
+            ? 0
+            : -1;
       if (rang === -1) {
         const numero = Math.max(0, ...etat.parties.map((partie) => partie.numero)) + 1;
         suivant.parties = [partieSuivie(evenement.partie, numero), ...etat.parties];

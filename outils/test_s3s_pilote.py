@@ -8,7 +8,7 @@ import json
 import types
 import unittest
 
-from s3s_pilote import MARQUE, Pilote
+from s3s_pilote import MARQUE, Pilote, decodeur_msgpack
 
 
 def evenements(sortie):
@@ -140,7 +140,7 @@ class TestBranchement(unittest.TestCase):
             check_for_new_results=lambda *a: appels.append("check_for_new_results") or "resultat",
             gen_new_tokens=lambda *a: appels.append("gen_new_tokens"),
             requests=types.SimpleNamespace(post=lambda *a, **k: None, get="get d'origine"),
-            msgpack=types.SimpleNamespace(unpackb=lambda data: data),
+            msgpack=types.SimpleNamespace(unpackb=lambda data, **options: data),
         )
         return module, appels
 
@@ -171,6 +171,35 @@ class TestBranchement(unittest.TestCase):
         s3s = types.SimpleNamespace()
         p.branche(s3s)
         self.assertFalse(hasattr(s3s, "check_if_missing"))
+
+
+class TestDecodeur(unittest.TestCase):
+    def test_msgpack_d_avant_1_0_rend_des_cles_str(self):
+        options_vues = []
+
+        def unpackb(data, **options):
+            options_vues.append(options)
+            if "strict_map_key" in options:
+                raise TypeError("unexpected keyword argument 'strict_map_key'")
+            return {"uuid": "u-1"} if options.get("raw") is False else {b"uuid": b"u-1"}
+
+        decode = decodeur_msgpack(types.SimpleNamespace(unpackb=unpackb))
+        self.assertEqual(decode(b"..."), {"uuid": "u-1"})
+        self.assertEqual(options_vues[-1], {"raw": False})
+
+    def test_msgpack_1_x_accepte_les_cles_entieres(self):
+        vues = []
+        decode = decodeur_msgpack(types.SimpleNamespace(unpackb=lambda data, **options: vues.append(options) or {}))
+        decode(b"...")
+        self.assertEqual(vues, [{"raw": False, "strict_map_key": False}])
+
+    def test_avec_le_msgpack_installe(self):
+        try:
+            import msgpack
+        except ImportError:
+            self.skipTest("msgpack absent")
+        charge = {"uuid": "u-1", "stage": 10, "splatnet_json": {1: 2}}
+        self.assertEqual(decodeur_msgpack(msgpack)(msgpack.packb(charge)), charge)
 
 
 class FauxCadre:

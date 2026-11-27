@@ -207,7 +207,24 @@ class Pilote:
         requests = getattr(s3s, "requests", None)
         msgpack = getattr(s3s, "msgpack", None)
         if requests is not None and msgpack is not None:
-            s3s.requests = _Requetes(requests, self.enrobe_le_post(requests.post, msgpack.unpackb))
+            s3s.requests = _Requetes(requests, self.enrobe_le_post(requests.post, decodeur_msgpack(msgpack)))
+
+
+def decodeur_msgpack(msgpack):
+    """`unpackb` qui rend des cles `str`, quelle que soit la version de msgpack.
+
+    Avant 1.0, `unpackb` rend par defaut des `bytes` (`raw=True`) : `b"uuid"`
+    au lieu de `"uuid"`. Depuis 1.0, il refuse les cles qui ne sont pas des
+    chaines, sauf `strict_map_key=False` - option inconnue avant 1.0.
+    """
+
+    def decode(data):
+        try:
+            return msgpack.unpackb(data, raw=False, strict_map_key=False)
+        except TypeError:
+            return msgpack.unpackb(data, raw=False)
+
+    return decode
 
 
 class _Requetes:
