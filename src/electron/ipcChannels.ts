@@ -25,6 +25,11 @@ export const IPC = {
   deleteSession: "session:delete",
   /** Detail complet d'une manche : les 8 joueurs, leur equipement, les medailles. */
   readBattle: "battle:read",
+  /**
+   * Detail d'une partie envoyee par la veille, lu sur stat.ink par l'adresse
+   * de sa page : elle n'appartient encore a aucune session.
+   */
+  readStatinkBattle: "battle:read-statink",
   /** Redige le compte rendu d'une session ecrite. */
   buildReport: "report:build",
   /** Fabrique la planche de manches d'une session et l'ecrit en PNG. */
@@ -197,6 +202,8 @@ export type SplatoonApi = {
   readBattle: (
     input: ReadBattleInput,
   ) => Promise<import("../battleDetail.ts").BattleDetail>;
+  /** Detail d'une partie lue sur stat.ink. Refuse toute adresse qui n'est pas celle d'un match. */
+  readStatinkBattle: (url: string) => Promise<import("../battleDetail.ts").BattleDetail>;
   /** Rend le compte rendu en Markdown, pret a etre colle. */
   buildReport: (input: BuildReportInput) => Promise<string>;
   /**

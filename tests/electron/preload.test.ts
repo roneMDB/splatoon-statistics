@@ -36,6 +36,7 @@ const FONCTIONS = [
   ["updateSession", "updateSession"],
   ["deleteSession", "deleteSession"],
   ["readBattle", "readBattle"],
+  ["readStatinkBattle", "readStatinkBattle"],
   ["buildReport", "buildReport"],
   ["buildPlanche", "buildPlanche"],
   ["revealPlanche", "revealPlanche"],

@@ -124,7 +124,13 @@ export const elements = {
   emulateurNote: /** @type {HTMLElement} */ (document.getElementById("emulateur-note")),
   emulateurManuel: /** @type {HTMLElement} */ (document.getElementById("emulateur-manuel")),
   veilleBilan: /** @type {HTMLElement} */ (document.getElementById("veille-bilan")),
-  veilleParties: /** @type {HTMLOListElement} */ (document.getElementById("veille-parties")),
+  envois: /** @type {HTMLElement} */ (document.getElementById("envois")),
+  envoisStatut: /** @type {HTMLElement} */ (document.getElementById("envois-statut")),
+  envoisBilan: /** @type {HTMLElement} */ (document.getElementById("envois-bilan")),
+  envoisPlage: /** @type {HTMLElement} */ (document.getElementById("envois-plage")),
+  envoisFrise: /** @type {HTMLOListElement} */ (document.getElementById("envois-frise")),
+  envoisListe: /** @type {HTMLOListElement} */ (document.getElementById("envois-liste")),
+  boutonEnvoisRecuperer: /** @type {HTMLButtonElement} */ (document.getElementById("bouton-envois-recuperer")),
   veilleJournal: /** @type {HTMLElement} */ (document.getElementById("veille-journal")),
 };
 

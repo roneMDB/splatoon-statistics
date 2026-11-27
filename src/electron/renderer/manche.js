@@ -1,6 +1,7 @@
 /**
- * Vue manche : le detail d'une manche de la session ouverte, les huit joueurs
- * avec leur equipement, et le passage a la manche voisine.
+ * Vue manche : le detail d'une manche, les huit joueurs avec leur equipement,
+ * et le passage a la manche voisine. La manche vient d'une session ouverte,
+ * ou d'une partie que la veille vient d'envoyer (`envois.js`).
  */
 
 import { api, bandeau, cacheLesBandeaux, elements, messageDe } from "./elements.js";
@@ -8,6 +9,7 @@ import { etat, montreLaVue } from "./etat.js";
 import { formateLHeure } from "./matchs.js";
 
 /** @typedef {import("../../battleDetail.ts").JoueurDeManche} JoueurDeManche */
+/** @typedef {import("../../battleDetail.ts").BattleDetail} BattleDetail */
 
 /**
  * Le bloc d'un joueur : son arme, ses chiffres et son equipement.
@@ -73,6 +75,70 @@ function construisUneEquipe(titre, joueurs) {
 }
 
 /**
+ * Ou mene chaque bouton de la vue : la manche voisine quand il y en a une, et
+ * la vue d'ou l'on vient. Une manche de session et une partie envoyee par la
+ * veille partagent la vue, pas leur navigation.
+ * @typedef {{ precedente?: () => void; suivante?: () => void; retour: () => void }} NavigationDeManche
+ */
+
+/** @type {NavigationDeManche} */
+let navigation = { retour: () => montreLaVue("fiche") };
+
+/**
+ * Affiche le detail d'une manche, d'ou qu'il vienne.
+ * @param {BattleDetail} detail
+ * @param {string} position Titre de la vue (« Manche 3 / 12 »).
+ * @param {NavigationDeManche} suite
+ */
+export function afficheLaManche(detail, position, suite) {
+  etat.mancheCourante = detail;
+  navigation = suite;
+
+  elements.manchePosition.textContent = position;
+
+  const heure = detail.startedAt ? formateLHeure(detail.startedAt) : "—";
+  elements.mancheResume.textContent =
+    `${heure} · ${detail.rule} · ${detail.stage}\n` +
+    `${detail.resultLabel ?? "—"}${texteDuScore(detail)}${texteDeLaDuree(detail)}${detail.ko ? " · KO" : ""}`;
+
+  bandeau(
+    elements.mancheMedailles,
+    detail.medailles.length ? `🏅 ${detail.medailles.join(" · ")}` : "",
+  );
+
+  elements.mancheEquipes.replaceChildren(
+    construisUneEquipe("Nous", detail.nous),
+    construisUneEquipe("Eux", detail.eux),
+  );
+
+  elements.boutonManchePrecedente.disabled = suite.precedente === undefined;
+  elements.boutonMancheSuivante.disabled = suite.suivante === undefined;
+  elements.boutonMancheStatink.hidden = !detail.url;
+
+  montreLaVue("manche");
+}
+
+/**
+ * ` 38-100 %`, ou rien sans score.
+ * @param {BattleDetail} detail
+ */
+export function texteDuScore(detail) {
+  return detail.score === undefined
+    ? ""
+    : ` ${detail.score.nous}-${detail.score.eux}${detail.score.unite === "%" ? " %" : ""}`;
+}
+
+/**
+ * ` · 3 min 12`, ou rien sans duree.
+ * @param {BattleDetail} detail
+ */
+export function texteDeLaDuree(detail) {
+  return detail.dureeSecondes === undefined
+    ? ""
+    : ` · ${Math.floor(detail.dureeSecondes / 60)} min ${String(detail.dureeSecondes % 60).padStart(2, "0")}`;
+}
+
+/**
  * Affiche le detail d'une manche de la session ouverte, par son rang.
  * @param {number} rang
  */
@@ -84,57 +150,32 @@ export async function ouvreLaManche(rang) {
   cacheLesBandeaux();
   try {
     const detail = await api.readBattle({ path: etat.ficheCourante.path, uuid: row.uuid });
-    etat.mancheCourante = detail;
     etat.rangDeLaManche = rang;
-
-    elements.manchePosition.textContent =
-      `Manche ${rang + 1} / ${etat.manchesCourantes.length}`;
-
-    const heure = detail.startedAt ? formateLHeure(detail.startedAt) : "—";
-    const score =
-      detail.score === undefined
-        ? ""
-        : ` ${detail.score.nous}-${detail.score.eux}${detail.score.unite === "%" ? " %" : ""}`;
-    const duree =
-      detail.dureeSecondes === undefined
-        ? ""
-        : ` · ${Math.floor(detail.dureeSecondes / 60)} min ${String(detail.dureeSecondes % 60).padStart(2, "0")}`;
-    elements.mancheResume.textContent =
-      `${heure} · ${detail.rule} · ${detail.stage}\n` +
-      `${detail.resultLabel ?? "—"}${score}${duree}${detail.ko ? " · KO" : ""}`;
-
-    bandeau(
-      elements.mancheMedailles,
-      detail.medailles.length ? `🏅 ${detail.medailles.join(" · ")}` : "",
-    );
-
-    elements.mancheEquipes.replaceChildren(
-      construisUneEquipe("Nous", detail.nous),
-      construisUneEquipe("Eux", detail.eux),
-    );
-
-    elements.boutonManchePrecedente.disabled = rang === 0;
-    elements.boutonMancheSuivante.disabled = rang === etat.manchesCourantes.length - 1;
-    elements.boutonMancheStatink.hidden = !detail.url;
-
-    montreLaVue("manche");
+    const total = etat.manchesCourantes.length;
+    afficheLaManche(detail, `Manche ${rang + 1} / ${total}`, {
+      ...(rang > 0 ? { precedente: () => void ouvreLaManche(rang - 1) } : {}),
+      ...(rang < total - 1 ? { suivante: () => void ouvreLaManche(rang + 1) } : {}),
+      retour: () => {
+        etat.rangDeLaManche = -1;
+        montreLaVue("fiche");
+      },
+    });
   } catch (erreur) {
     bandeau(elements.erreur, messageDe(erreur));
   }
 }
 
 elements.boutonManchePrecedente.addEventListener("click", () => {
-  ouvreLaManche(etat.rangDeLaManche - 1);
+  navigation.precedente?.();
 });
 
 elements.boutonMancheSuivante.addEventListener("click", () => {
-  ouvreLaManche(etat.rangDeLaManche + 1);
+  navigation.suivante?.();
 });
 
 elements.boutonMancheRetour.addEventListener("click", () => {
   etat.mancheCourante = undefined;
-  etat.rangDeLaManche = -1;
-  montreLaVue("fiche");
+  navigation.retour();
 });
 
 elements.boutonMancheStatink.addEventListener("click", async () => {

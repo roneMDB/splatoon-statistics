@@ -20,7 +20,7 @@ function versFormatNoyau(valeur) {
  * Instant local au format d'un champ datetime-local.
  * @param {Date} date
  */
-function versChampDate(date) {
+export function versChampDate(date) {
   /** @param {number} nombre */
   const deuxChiffres = (nombre) => String(nombre).padStart(2, "0");
   return (

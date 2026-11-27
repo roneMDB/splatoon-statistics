@@ -340,79 +340,6 @@ h2 {
   color: var(--texte-doux);
 }
 
-.veille__parties {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 240px;
-  overflow-y: auto;
-}
-
-/* Deux lignes : heure, stage et resultat ; puis l'envoi. Le lien a droite. */
-.veille__partie {
-  display: grid;
-  grid-template-columns: 3.2em 1fr auto;
-  grid-template-areas:
-    "heure quoi lien"
-    "heure statut lien";
-  align-items: center;
-  column-gap: 10px;
-  padding: 4px 8px;
-  border-left: 4px solid var(--trait);
-  border-radius: 6px;
-  transition: background-color 0.6s;
-}
-
-.veille__partie + .veille__partie {
-  margin-top: 3px;
-}
-
-.veille__partie--victoire {
-  border-left-color: var(--victoire);
-}
-
-.veille__partie--defaite {
-  border-left-color: var(--defaite);
-}
-
-.veille__partie--nouvelle {
-  background: rgba(234, 255, 61, 0.14);
-}
-
-.veille__heure {
-  grid-area: heure;
-  color: var(--texte-doux);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.veille__quoi {
-  grid-area: quoi;
-}
-
-.veille__statut {
-  grid-area: statut;
-  color: var(--texte-doux);
-  font-size: 12px;
-}
-
-.veille__lien {
-  grid-area: lien;
-}
-
-.veille__partie--envoyee .veille__statut {
-  color: var(--victoire);
-}
-
-.veille__partie--echec .veille__statut {
-  color: var(--erreur);
-}
-
-.sessions .veille__lien {
-  font-size: 11.5px;
-  padding: 2px 8px 1px;
-}
-
 .veille__alerte {
   margin: 0;
   padding: 8px 12px 10px;
@@ -815,6 +742,332 @@ button:disabled {
   margin: 16px 0 8px;
   font-variant-numeric: tabular-nums;
   white-space: pre-line;
+}
+
+/* --- Parties envoyees par la veille --- */
+
+.envois {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 760px;
+  margin: 0 0 26px;
+  padding: 14px 16px 16px;
+  border: 2px solid var(--trait);
+  border-radius: 14px;
+  background: var(--fond-panneau);
+}
+
+.envois__entete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* L'etiquette jaune penchee des titres de bloc. */
+.envois__entete h3 {
+  display: inline-block;
+  margin: 0;
+  padding: 2px 12px 0;
+  background: var(--texte);
+  color: var(--texte-sombre);
+  font-family: var(--titre);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  transform: skewX(-10deg);
+}
+
+.envois__statut {
+  color: var(--texte-doux);
+  font-size: 12.5px;
+}
+
+.envois__statut--actif {
+  color: var(--accent);
+}
+
+.envois__bilan {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.envois__plage {
+  color: var(--texte-doux);
+}
+
+/* Une pastille par partie, de la premiere jouee a la derniere. */
+.envois__frise {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.envois__pastille {
+  width: 10px;
+  height: 16px;
+  border-radius: 3px;
+  background: var(--trait);
+}
+
+.envois__pastille--victoire {
+  background: var(--victoire);
+}
+
+.envois__pastille--defaite {
+  background: var(--defaite);
+}
+
+.envois__pastille--echec {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--erreur);
+}
+
+.envois__liste {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Le liseré du resultat court sur toute la hauteur, bloc deplie compris. */
+.envoi {
+  border-left: 4px solid var(--trait);
+  border-radius: 6px;
+  background: var(--fond-champ);
+  transition: background-color 0.6s;
+}
+
+.envoi--victoire {
+  border-left-color: var(--victoire);
+}
+
+.envoi--defaite {
+  border-left-color: var(--defaite);
+}
+
+.envoi--nouvelle {
+  background: rgba(234, 255, 61, 0.14);
+}
+
+/* Le lien stat.ink a sa colonne, presente ou non : les lignes sans lien
+   (envoi en echec) restent alignees sur les autres. */
+.envoi__ligne {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.4em;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px 3px 0;
+}
+
+.envoi[data-url] .envoi__ligne {
+  cursor: pointer;
+}
+
+.envoi[data-url] .envoi__ligne:hover {
+  background: rgba(242, 243, 250, 0.04);
+}
+
+/* Le bouton de depliage a l'allure d'une ligne de tableau, pas d'un bouton. */
+.envoi__deplier {
+  display: grid;
+  grid-template-columns: 1.2em 3.2em minmax(0, 1fr) 6em 9.5em;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 3px 0 3px 6px;
+  border: 0;
+  background: none;
+  color: inherit;
+  border-radius: 0;
+  font: inherit;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+  cursor: inherit;
+  align-self: stretch;
+}
+
+.envoi__deplier:hover:not(:disabled),
+.envoi__deplier:active:not(:disabled) {
+  transform: none;
+}
+
+.envoi__deplier:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+.envoi__chevron {
+  color: var(--texte-doux);
+  transition: transform 120ms ease;
+}
+
+.envoi--ouvert .envoi__chevron {
+  transform: rotate(90deg);
+}
+
+.envoi__heure {
+  color: var(--texte-doux);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.envoi__stage {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.envoi__resultat {
+  white-space: nowrap;
+}
+
+.envoi--victoire .envoi__resultat {
+  color: var(--victoire);
+}
+
+.envoi--defaite .envoi__resultat {
+  color: var(--defaite);
+}
+
+.envoi__statut {
+  color: var(--texte-doux);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.envoi--envoyee .envoi__statut {
+  color: var(--victoire);
+}
+
+.envoi--echec .envoi__statut {
+  color: var(--erreur);
+}
+
+.envoi--deja,
+.envoi--deja .envoi__resultat {
+  color: var(--texte-doux);
+}
+
+.envoi__lien {
+  justify-self: end;
+  font-size: 11.5px;
+  padding: 2px 8px 1px;
+}
+
+.envoi__detail {
+  padding: 4px 12px 10px 30px;
+  border-top: 1px dashed var(--trait);
+  font-size: 13px;
+}
+
+.envoi__resume,
+.envoi__medailles,
+.envoi__attente,
+.envoi__erreur {
+  margin: 6px 0 0;
+}
+
+.envoi__resume {
+  font-variant-numeric: tabular-nums;
+}
+
+.envoi__medailles,
+.envoi__attente {
+  color: var(--texte-doux);
+}
+
+.envoi__erreur {
+  color: var(--erreur);
+}
+
+.envoi__joueurs {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.envoi__joueurs th,
+.envoi__joueurs td {
+  padding: 2px 8px 1px 0;
+  text-align: left;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.envoi__joueurs thead th {
+  color: var(--texte-doux);
+  font-size: 11.5px;
+}
+
+.envoi__joueurs .envoi__nombre,
+.envoi__joueurs thead th:nth-child(n + 3) {
+  text-align: right;
+}
+
+/* Les pseudos en police systeme : dans celle du jeu, « Gloup » se lit « Cloup ». */
+.envoi__joueurs tbody th[scope="row"] {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 12.5px;
+}
+
+.envoi__camp th {
+  padding-top: 6px;
+  color: var(--accent);
+  font-family: var(--titre);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.envoi__arme {
+  color: var(--texte-doux);
+  max-width: 16em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.envoi__moi {
+  background: rgba(234, 255, 61, 0.12);
+}
+
+.envoi__moi th {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.envoi__deconnecte {
+  opacity: 0.5;
+}
+
+.envoi__pied {
+  margin: 8px 0 0;
+  text-align: right;
+}
+
+.envoi__pied button,
+.envoi__erreur button {
+  font-size: 12px;
+  padding: 3px 10px 2px;
+}
+
+.envois__recuperer {
+  align-self: flex-start;
+  margin-top: 4px;
 }
 
 /* --- Manches --- */

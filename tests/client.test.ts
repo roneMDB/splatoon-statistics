@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { fetchBattlePage } from "../src/statink/client.ts";
+import { fetchBattle, fetchBattlePage, idDuMatchStatink } from "../src/statink/client.ts";
 import { USER_AGENT } from "../src/config.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
@@ -128,5 +128,52 @@ describe("fetchBattlePage", () => {
     await expect(fetchBattlePage(request, { fetch: fetchImpl })).rejects.toThrow(
       /liste/i,
     );
+  });
+});
+
+const ID = "9a515cc1-1bab-4cbf-bb07-e8ea75842c08";
+
+describe("idDuMatchStatink", () => {
+  test("tire l'identifiant de l'adresse d'un match", () => {
+    expect(idDuMatchStatink(`https://stat.ink/@Gloup/spl3/${ID}`)).toBe(ID);
+  });
+
+  test.each([
+    ["une autre origine", `https://example.com/@Gloup/spl3/${ID}`],
+    ["un Salmon Run", `https://stat.ink/@Gloup/salmon3/${ID}`],
+    ["un identifiant mal forme", "https://stat.ink/@Gloup/spl3/../../api"],
+    ["une adresse prolongee", `https://stat.ink/@Gloup/spl3/${ID}/edit`],
+  ])("refuse %s", (_cas, url) => {
+    expect(idDuMatchStatink(url)).toBeUndefined();
+  });
+});
+
+describe("fetchBattle", () => {
+  test("interroge l'API v3 du match et rend l'objet", async () => {
+    const { calls, fetchImpl } = stubFetch([jsonResponse({ uuid: "a", id: ID })]);
+    const battle = await fetchBattle(ID, { fetch: fetchImpl });
+    expect(calls[0]!.url).toBe(`https://stat.ink/api/v3/battle/${ID}`);
+    expect(calls[0]!.headers.get("user-agent")).toBe(USER_AGENT);
+    expect(battle.uuid).toBe("a");
+  });
+
+  test("explique un 404 par un match introuvable", async () => {
+    const { fetchImpl } = stubFetch([new Response("nope", { status: 404 })]);
+    await expect(fetchBattle(ID, { fetch: fetchImpl })).rejects.toThrow(/introuvable/);
+  });
+
+  test("reessaie apres une erreur serveur", async () => {
+    const { calls, fetchImpl } = stubFetch([
+      new Response("boom", { status: 502 }),
+      jsonResponse({ uuid: "a" }),
+    ]);
+    const { sleepImpl } = stubSleep();
+    await fetchBattle(ID, { fetch: fetchImpl, sleep: sleepImpl });
+    expect(calls).toHaveLength(2);
+  });
+
+  test("refuse une liste a la place d'un match", async () => {
+    const { fetchImpl } = stubFetch([jsonResponse([])]);
+    await expect(fetchBattle(ID, { fetch: fetchImpl })).rejects.toThrow(/match etait attendu/);
   });
 });

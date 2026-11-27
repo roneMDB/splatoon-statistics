@@ -54,8 +54,9 @@
         </div>
         <!--
           Veille s3s : un encart qui porte ses propres commandes (lancer,
-          verifier, arreter, emulateur), ce qu'elle fait, et chaque partie
-          envoyee a stat.ink. Cache seulement la ou la veille n'existe pas.
+          verifier, arreter, emulateur), ce qu'elle fait, et le bilan de ses
+          envois. Le detail des parties envoyees est a droite, au-dessus du
+          formulaire. Cache seulement la ou la veille n'existe pas.
         -->
         <section class="veille" id="veille" aria-labelledby="veille-titre" hidden>
           <header class="veille__entete">
@@ -97,7 +98,6 @@
             <img class="veille__capture" id="veille-capture" alt="Dernier écran de l'émulateur, capturé par STU" hidden />
           </div>
           <p class="veille__bilan" id="veille-bilan"></p>
-          <ol class="veille__parties" id="veille-parties"></ol>
           <!--
             Ouvrir l'emulateur avec sa fenetre (se reconnecter a la Nintendo
             Switch App), puis l'eteindre proprement. Cache sans SDK Android ;
@@ -328,6 +328,26 @@
         </div>
 
         <div id="vue-formulaire">
+          <!--
+            Les parties que la veille a envoyees a stat.ink, la plus recente en
+            tete. Une partie de match se deplie sur ses statistiques, lues sur
+            stat.ink au premier depliage. Cache tant que la veille n'a rien vu.
+          -->
+          <section class="envois" id="envois" aria-labelledby="envois-titre" hidden>
+            <header class="envois__entete">
+              <h3 id="envois-titre">Parties envoyées</h3>
+              <span class="envois__statut" id="envois-statut"></span>
+            </header>
+            <p class="envois__bilan">
+              <span id="envois-bilan"></span>
+              <span class="envois__plage" id="envois-plage"></span>
+            </p>
+            <!-- La serie d'un coup d'oeil, dans l'ordre ou elle a ete jouee. -->
+            <ol class="envois__frise" id="envois-frise" aria-hidden="true"></ol>
+            <ol class="envois__liste" id="envois-liste"></ol>
+            <button type="button" class="bouton--discret envois__recuperer" id="bouton-envois-recuperer" hidden></button>
+          </section>
+
           <form class="formulaire" id="formulaire" novalidate>
             <div class="champ">
               <label for="champ-nom">Nom de la session</label>

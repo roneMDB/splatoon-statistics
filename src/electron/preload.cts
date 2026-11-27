@@ -26,6 +26,7 @@ const CANAUX = {
   updateSession: "session:update",
   deleteSession: "session:delete",
   readBattle: "battle:read",
+  readStatinkBattle: "battle:read-statink",
   buildReport: "report:build",
   buildPlanche: "planche:build",
   revealPlanche: "planche:reveal",
@@ -76,6 +77,8 @@ contextBridge.exposeInMainWorld("splatoonApi", {
     ipcRenderer.invoke(CANAUX.deleteSession, path),
 
   readBattle: (input: unknown) => ipcRenderer.invoke(CANAUX.readBattle, input),
+
+  readStatinkBattle: (url: string) => ipcRenderer.invoke(CANAUX.readStatinkBattle, url),
 
   buildReport: (input: unknown) => ipcRenderer.invoke(CANAUX.buildReport, input),
 

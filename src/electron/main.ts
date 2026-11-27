@@ -36,6 +36,7 @@ import { toBattleDetail } from "../battleDetail.ts";
 import { cheminDuNavigateur, estUneUrlStatink, saitOuvrirUnLien } from "../lienExterne.ts";
 import { saitOuvrirExplorer } from "../revelePlanche.ts";
 import { parseSessionType, SESSION_TYPES, TYPES_AVEC_EQUIPES } from "../sessionMeta.ts";
+import { fetchBattle, idDuMatchStatink } from "../statink/client.ts";
 import { KNOWN_LOBBIES } from "../statink/url.ts";
 import { avecLesEquipes, type Equipes } from "../store.ts";
 import { tourneSousWsl, versCheminWindows } from "../wsl.ts";
@@ -277,6 +278,19 @@ ipcMain.handle(IPC.readBattle, async (_event, input: ReadBattleInput) => {
     throw new Error("Cette manche ne figure pas dans la session.");
   }
   return toBattleDetail(battle);
+});
+
+/**
+ * Une partie que la veille vient d'envoyer n'est encore dans aucune session :
+ * on la lit sur stat.ink, par l'identifiant de sa page. L'adresse vient de la
+ * sortie de s3s, relayee par la fenetre : on n'interroge que l'API des matchs.
+ */
+ipcMain.handle(IPC.readStatinkBattle, async (_event, url: unknown) => {
+  const id = typeof url === "string" ? idDuMatchStatink(url) : undefined;
+  if (id === undefined) {
+    throw new Error("Cette adresse n'est pas celle d'un match stat.ink.");
+  }
+  return toBattleDetail(await fetchBattle(id));
 });
 
 /**
