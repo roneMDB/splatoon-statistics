@@ -23,6 +23,7 @@ function ligneDeJoueur(joueur) {
   entete.className = "joueur__entete";
 
   const nom = document.createElement("b");
+  nom.className = "joueur__nom";
   nom.textContent = joueur.moi ? `→ ${joueur.nom}` : joueur.nom;
   entete.append(nom);
 

@@ -1422,6 +1422,11 @@ h3.apercu__titre {
   margin-bottom: 4px;
 }
 
+/* Les pseudos en police systeme : dans celle du jeu, « Gloup » se lit « Cloup ». */
+.joueur__nom {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
 .joueur__arme {
   color: var(--texte-doux);
 }
